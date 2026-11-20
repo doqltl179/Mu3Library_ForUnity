@@ -1,0 +1,19 @@
+{
+    "name": "Mu3Library.InputSystem.Editor",
+    "rootNamespace": "Mu3Library.Editor",
+    "references": [
+        "Mu3Library.Editor",
+        "Unity.InputSystem"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

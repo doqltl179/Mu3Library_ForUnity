@@ -4,6 +4,7 @@ import contextlib
 import json
 import os
 import re
+import subprocess
 import tempfile
 import time
 import unittest
@@ -13,12 +14,11 @@ from unittest import mock
 
 from typer.testing import CliRunner
 
-from shell_harness import run_sourced
 from test_unity_runs import FAKE_EDITOR_PACKAGES, FLOOR_VERSION
-from mu3_common.checkout import repo_root
-from mu3_common.editor import editor_bundled_versions, editor_package_manager_dir
-from mu3_common.process import stop_process_tree
-from mu3_strip_harness.cli import (
+from common.checkout import repo_root
+from common.editor import editor_package_manager_dir, retarget_dependencies
+from common.process import stop_process_tree
+from strip_harness.cli import (
     EXIT_BUILD_FAILED,
     EXIT_CHECKS_FAILED,
     WORK_DIR_MARKER,
@@ -30,10 +30,8 @@ from mu3_strip_harness.cli import (
     claim_work_dir,
     mirror_manifest,
     parse_player_log,
-    retarget_dependencies,
     run_harness,
     run_problems,
-    sync_template,
     template_dir,
     unitask_source,
 )
@@ -67,38 +65,49 @@ def write(path: Path, text: str) -> Path:
     return path
 
 
+MINIMAL = Path("tools", "unity-projects", "minimal")
+FULL = Path("tools", "unity-projects", "full")
+
+
 def fixture_root(test: unittest.TestCase) -> Path:
-    """A repository with the files the harness reads: the mapping, two projects, Base, and the template."""
+    """A repository with the files the harness reads: the two configs, Base, DI, and the template.
+
+    It is a Git repository, since the harness finds Base and DI by the names in their package.json
+    files among the files Git lists.
+    """
     root = temporary_root(test)
+    git_config = write(root.parent / f"{root.name}.gitconfig", "[safe]\n\tdirectory = *\n")
+    environment = mock.patch.dict(os.environ, {"GIT_CONFIG_GLOBAL": str(git_config), "GIT_CONFIG_NOSYSTEM": "1"})
+    environment.start()
+    test.addCleanup(environment.stop)
+    test.addCleanup(git_config.unlink, missing_ok=True)
+    subprocess.run(["git", "init", "--quiet", str(root)], check=True)
+    write(root / MINIMAL / "ProjectSettings" / "ProjectVersion.txt", "m_EditorVersion: 6000.6.7f1\n")
     write(
-        root / "unity-cli-packages.tsv",
-        "built-in\tMu3Library_Base\tUnityProject_BuiltIn\n"
-        "urp\tMu3Library_URP\tUnityProject_URP\n",
-    )
-    write(root / "UnityProject_URP" / "ProjectSettings" / "ProjectVersion.txt", "m_EditorVersion: 6000.6.7f1\n")
-    write(
-        root / "UnityProject_URP" / "Packages" / "manifest.json",
+        root / MINIMAL / "Packages" / "manifest.json",
         json.dumps(
             {
                 "dependencies": {
-                    "com.unity.render-pipelines.universal": "17.6.0",
+                    "com.github.doqltl179.mu3library.base": "checkout",
+                    "com.github.doqltl179.mu3library.di": "checkout",
                     "com.unity.test-framework": "1.8.0",
                     "com.unity.ugui": "2.6.0",
                     "com.unity.modules.audio": "1.0.0",
                 },
-                "testables": ["com.github.doqltl179.mu3library.base"],
+                "testables": ["com.github.doqltl179.mu3library.base", "com.github.doqltl179.mu3library.di"],
             }
         ),
     )
     write(
-        root / "UnityProject_BuiltIn" / "Packages" / "manifest.json",
+        root / FULL / "Packages" / "manifest.json",
         json.dumps({"dependencies": {"com.cysharp.unitask": UNITASK_URL}}),
     )
     write(
-        root / "UnityProject_BuiltIn" / "Packages" / "packages-lock.json",
+        root / FULL / "Packages" / "packages-lock.json",
         json.dumps({"dependencies": {"com.cysharp.unitask": {"version": UNITASK_URL, "hash": "abc123"}}}),
     )
-    (root / "Mu3Library_Base").mkdir()
+    write(root / "Packages" / "Base" / "package.json", json.dumps({"name": "com.github.doqltl179.mu3library.base"}))
+    write(root / "Packages" / "DI" / "package.json", json.dumps({"name": "com.github.doqltl179.mu3library.di"}))
     write(root / "tools" / "di-strip-harness" / "Assets" / "Harness" / "Boot.cs", "// boot\n")
     write(root / "tools" / "di-strip-harness" / "Plugin" / "HarnessPlugin.cs", "// plugin\n")
     return root
@@ -146,7 +155,7 @@ class FakeUnity:
 
 
 class StripHarnessManifestTests(unittest.TestCase):
-    def test_mirror_keeps_only_modules_and_ugui_and_adds_this_checkouts_base(self) -> None:
+    def test_mirror_keeps_only_modules_and_ugui_and_adds_this_checkouts_base_and_di(self) -> None:
         root = temporary_root(self)
         manifest = mirror_manifest(
             {
@@ -154,18 +163,23 @@ class StripHarnessManifestTests(unittest.TestCase):
                     "com.unity.render-pipelines.universal": "17.6.0",
                     "com.unity.ugui": "2.6.0",
                     "com.unity.modules.audio": "1.0.0",
-                    "com.github.doqltl179.mu3library.base": "file:../../Mu3Library_Base",
+                    "com.github.doqltl179.mu3library.base": "checkout",
+                    "com.github.doqltl179.mu3library.di": "checkout",
                 },
-                "testables": ["com.github.doqltl179.mu3library.base"],
+                "testables": ["com.github.doqltl179.mu3library.base", "com.github.doqltl179.mu3library.di"],
             },
-            root / "Mu3Library_Base",
+            {
+                "com.github.doqltl179.mu3library.base": root / "Packages" / "Base",
+                "com.github.doqltl179.mu3library.di": root / "Packages" / "DI",
+            },
             None,
         )
 
         self.assertEqual(["dependencies"], list(manifest))
         self.assertEqual(
             {
-                "com.github.doqltl179.mu3library.base": "file:" + (root / "Mu3Library_Base").resolve().as_posix(),
+                "com.github.doqltl179.mu3library.base": "file:" + (root / "Packages" / "Base").resolve().as_posix(),
+                "com.github.doqltl179.mu3library.di": "file:" + (root / "Packages" / "DI").resolve().as_posix(),
                 "com.unity.modules.audio": "1.0.0",
                 "com.unity.ugui": "2.6.0",
             },
@@ -173,12 +187,10 @@ class StripHarnessManifestTests(unittest.TestCase):
         )
 
     def test_mirror_adds_unitask_only_when_asked(self) -> None:
-        root = temporary_root(self)
-
-        with_unitask = mirror_manifest({"dependencies": {}}, root, "url#abc")
+        with_unitask = mirror_manifest({"dependencies": {}}, {}, "url#abc")
 
         self.assertEqual("url#abc", with_unitask["dependencies"]["com.cysharp.unitask"])
-        self.assertNotIn("com.cysharp.unitask", mirror_manifest({"dependencies": {}}, root, None)["dependencies"])
+        self.assertNotIn("com.cysharp.unitask", mirror_manifest({"dependencies": {}}, {}, None)["dependencies"])
 
     def test_unitask_is_pinned_to_the_commit_the_lock_file_names(self) -> None:
         root = fixture_root(self)
@@ -188,7 +200,7 @@ class StripHarnessManifestTests(unittest.TestCase):
     def test_unitask_url_that_already_names_a_commit_is_kept(self) -> None:
         root = fixture_root(self)
         write(
-            root / "UnityProject_BuiltIn" / "Packages" / "manifest.json",
+            root / FULL / "Packages" / "manifest.json",
             json.dumps({"dependencies": {"com.cysharp.unitask": f"{UNITASK_URL}#pinned"}}),
         )
 
@@ -196,30 +208,6 @@ class StripHarnessManifestTests(unittest.TestCase):
 
 
 class StripHarnessTemplateTests(unittest.TestCase):
-    def test_sync_copies_new_files_removes_stale_ones_and_keeps_meta_and_generated_files(self) -> None:
-        root = temporary_root(self)
-        template = root / "template"
-        project = root / "project"
-        write(template / "Harness" / "Boot.cs", "boot")
-        write(project / "Harness" / "Boot.cs.meta", "guid")
-        write(project / "Harness" / "Old.cs", "old")
-        write(project / "Plugins" / "HarnessPlugin.dll", "dll")
-
-        changed = sync_template(template, project, ["Plugins/HarnessPlugin.dll"])
-
-        self.assertEqual(["Harness/Boot.cs", "Harness/Old.cs"], changed)
-        self.assertEqual("boot", (project / "Harness" / "Boot.cs").read_text(encoding="utf-8"))
-        self.assertFalse((project / "Harness" / "Old.cs").exists())
-        self.assertTrue((project / "Harness" / "Boot.cs.meta").exists())
-        self.assertTrue((project / "Plugins" / "HarnessPlugin.dll").exists())
-
-    def test_sync_leaves_an_unchanged_mirror_alone(self) -> None:
-        root = temporary_root(self)
-        write(root / "template" / "Harness" / "Boot.cs", "boot")
-        sync_template(root / "template", root / "project")
-
-        self.assertEqual([], sync_template(root / "template", root / "project"))
-
     def test_repository_template_logs_the_lines_the_parser_reads(self) -> None:
         template = template_dir(repo_root())
         boot = (template / "Assets" / "Harness" / "StripHarnessBoot.cs").read_text(encoding="utf-8")
@@ -375,14 +363,14 @@ class StripHarnessLogTests(unittest.TestCase):
         self.assertIn("the player logged no HARNESS CHECK line", run_problems(HarnessRun(), 0))
 
 
-@mock.patch("mu3_strip_harness.cli.platform.system", return_value="Windows")
+@mock.patch("strip_harness.cli.platform.system", return_value="Windows")
 class StripHarnessRunTests(unittest.TestCase):
     def run_fixture(self, unity: FakeUnity, options: HarnessOptions | None = None) -> tuple[int, list[str], Path]:
         root = fixture_root(self)
         editor = write(root / "Editor" / "Unity.exe", "")
         work = root / "work"
         lines: list[str] = []
-        with mock.patch("mu3_strip_harness.cli.resolve_editor_path", return_value=(editor, False)):
+        with mock.patch("strip_harness.cli.resolve_editor_path", return_value=(editor, False)):
             code = run_harness(root, options or HarnessOptions(work_dir=work), unity, lines.append)
         return code, lines, work
 
@@ -435,7 +423,7 @@ class StripHarnessRunTests(unittest.TestCase):
 
         root = fixture_root(self)
         editor = write(root / "Editor" / "Unity.exe", "")
-        with mock.patch("mu3_strip_harness.cli.resolve_editor_path", return_value=(editor, False)):
+        with mock.patch("strip_harness.cli.resolve_editor_path", return_value=(editor, False)):
             code = run_harness(root, options_for(root / "work"), unity, lambda line: None)
 
         self.assertEqual(0, code)
@@ -449,7 +437,7 @@ class StripHarnessRunTests(unittest.TestCase):
         editor = write(root / "Editor" / "Unity.exe", "")
         work = root / "work"
         unity = FakeUnity()
-        with mock.patch("mu3_strip_harness.cli.resolve_editor_path", return_value=(editor, False)):
+        with mock.patch("strip_harness.cli.resolve_editor_path", return_value=(editor, False)):
             run_harness(root, HarnessOptions(work_dir=work), unity, lambda line: None)
             run_harness(root, HarnessOptions(work_dir=work), unity, lambda line: None)
             source = root / "tools" / "di-strip-harness" / "Plugin" / "HarnessPlugin.cs"
@@ -474,7 +462,7 @@ class StripHarnessWorkDirTests(unittest.TestCase):
         self.assertFalse(claim_work_dir(root / "new" / "work"))
         self.assertTrue(claim_work_dir(empty))
 
-    @mock.patch("mu3_strip_harness.cli.platform.system", return_value="Windows")
+    @mock.patch("strip_harness.cli.platform.system", return_value="Windows")
     def test_a_folder_without_the_marker_is_refused_and_keeps_every_file(self, _system: mock.Mock) -> None:
         root = fixture_root(self)
         editor = write(root / "Editor" / "Unity.exe", "")
@@ -483,7 +471,7 @@ class StripHarnessWorkDirTests(unittest.TestCase):
         asset = write(work / "project" / "Assets" / "Mine.cs", "// mine\n")
         unity = FakeUnity()
 
-        with mock.patch("mu3_strip_harness.cli.resolve_editor_path", return_value=(editor, False)):
+        with mock.patch("strip_harness.cli.resolve_editor_path", return_value=(editor, False)):
             with self.assertRaisesRegex(HarnessSetupError, f"has no {re.escape(WORK_DIR_MARKER)} marker"):
                 run_harness(root, HarnessOptions(work_dir=work), unity, lambda line: None)
 
@@ -499,10 +487,10 @@ class StripHarnessSetupFailureTests(unittest.TestCase):
     def invoke(self, root: Path, unity: FakeUnity, *arguments: str) -> object:
         editor = write(root / "Editor" / "Unity.exe", "")
         with (
-            mock.patch("mu3_strip_harness.cli.platform.system", return_value="Windows"),
-            mock.patch("mu3_strip_harness.cli.repo_root", return_value=root),
-            mock.patch("mu3_strip_harness.cli.resolve_editor_path", return_value=(editor, False)),
-            mock.patch("mu3_strip_harness.cli.run_with_timeout", new=unity),
+            mock.patch("strip_harness.cli.platform.system", return_value="Windows"),
+            mock.patch("strip_harness.cli.repo_root", return_value=root),
+            mock.patch("strip_harness.cli.resolve_editor_path", return_value=(editor, False)),
+            mock.patch("strip_harness.cli.run_with_timeout", new=unity),
         ):
             return CliRunner().invoke(app, ["--work-dir", str(root / "work"), *arguments])
 
@@ -529,7 +517,7 @@ class StripHarnessSetupFailureTests(unittest.TestCase):
         def urp_dependencies(dependencies: str) -> Callable[[Path], None]:
             def arrange(root: Path) -> None:
                 fake_editor(root)
-                write(root / "UnityProject_URP" / "Packages" / "manifest.json", f'{{"dependencies": {dependencies}}}')
+                write(root / MINIMAL / "Packages" / "manifest.json", f'{{"dependencies": {dependencies}}}')
 
             return arrange
 
@@ -545,23 +533,23 @@ class StripHarnessSetupFailureTests(unittest.TestCase):
                 "package.json does not hold a JSON object"),
             "lock file entry that is not an object": (
                 lambda root: write(
-                    root / "UnityProject_BuiltIn" / "Packages" / "packages-lock.json", '{"dependencies": {"com.cysharp.unitask": "x"}}'
+                    root / FULL / "Packages" / "packages-lock.json", '{"dependencies": {"com.cysharp.unitask": "x"}}'
                 ),
                 ("--with-unitask",), None, "the dependency com.cysharp.unitask is not a JSON object"),
             "unmarked work folder": (lambda root: write(root / "work" / "project" / "Assets" / "Mine.cs", ""), (), None,
                                      f"has no {WORK_DIR_MARKER} marker"),
-            "malformed manifest": (lambda root: write(root / "UnityProject_URP" / "Packages" / "manifest.json", "{"), (), None,
+            "malformed manifest": (lambda root: write(root / MINIMAL / "Packages" / "manifest.json", "{"), (), None,
                                    "manifest.json is not valid JSON: JSONDecodeError"),
             "manifest that is not an object": (
-                lambda root: write(root / "UnityProject_URP" / "Packages" / "manifest.json", '{"dependencies": []}'), (), None,
+                lambda root: write(root / MINIMAL / "Packages" / "manifest.json", '{"dependencies": []}'), (), None,
                 "manifest.json is not a package manifest"),
             "manifest without UniTask": (
-                lambda root: write(root / "UnityProject_BuiltIn" / "Packages" / "manifest.json", '{"dependencies": {}}'),
+                lambda root: write(root / FULL / "Packages" / "manifest.json", '{"dependencies": {}}'),
                 ("--with-unitask",), None, "has no com.cysharp.unitask dependency"),
             "UniTask lock file missing": (
-                lambda root: (root / "UnityProject_BuiltIn" / "Packages" / "packages-lock.json").unlink(),
+                lambda root: (root / FULL / "Packages" / "packages-lock.json").unlink(),
                 ("--with-unitask",), None, "FileNotFoundError"),
-            "locked mirror file": (lambda root: None, (), ("mu3_strip_harness.cli.write_if_changed", locked),
+            "locked mirror file": (lambda root: None, (), ("strip_harness.cli.write_if_changed", locked),
                                    "preparing the mirror project"),
         }
         for name, (arrange, arguments, failing, cause) in cases.items():
@@ -580,7 +568,7 @@ class StripHarnessSetupFailureTests(unittest.TestCase):
         self.assertEqual(0, self.invoke(root, FakeUnity()).exit_code)
         unity = FakeUnity()
 
-        with mock.patch("mu3_strip_harness.cli.shutil.rmtree", side_effect=PermissionError(13, "Access is denied")):
+        with mock.patch("strip_harness.cli.shutil.rmtree", side_effect=PermissionError(13, "Access is denied")):
             result = self.invoke(root, unity)
 
         self.assert_setup_failure(result, "removing the previous mono-high player and logs failed: PermissionError: [Errno 13] Access is denied")
@@ -621,7 +609,7 @@ class StripHarnessSetupFailureTests(unittest.TestCase):
             ("failing", FakeUnity(PASSING_LOG.replace("inject.field PASS", "inject.field FAIL"), player_status=1), EXIT_CHECKS_FAILED),
         ):
             with self.subTest(name):
-                with mock.patch("mu3_strip_harness.cli.player_sizes", side_effect=PermissionError(13, "Access is denied")):
+                with mock.patch("strip_harness.cli.player_sizes", side_effect=PermissionError(13, "Access is denied")):
                     result = self.invoke(fixture_root(self), unity)
 
                 self.assertEqual(expected, result.exit_code, result.output)
@@ -634,8 +622,8 @@ class StripHarnessSetupFailureTests(unittest.TestCase):
         process = mock.Mock(pid=123)
 
         with (
-            mock.patch("mu3_common.process.platform.system", return_value="Windows"),
-            mock.patch("mu3_common.process.subprocess.run", side_effect=FileNotFoundError(2, "taskkill")),
+            mock.patch("common.process.platform.system", return_value="Windows"),
+            mock.patch("common.process.subprocess.run", side_effect=FileNotFoundError(2, "taskkill")),
         ):
             stop_process_tree(process)
 
@@ -648,7 +636,7 @@ class StripHarnessEditorVersionTests(unittest.TestCase):
 
     def test_the_mirror_gets_its_own_folder_and_the_unity_packages_that_editor_bundles(self) -> None:
         root = fixture_root(self)
-        manifest_file = root / "UnityProject_URP" / "Packages" / "manifest.json"
+        manifest_file = root / MINIMAL / "Packages" / "manifest.json"
         reference = json.loads(manifest_file.read_text(encoding="utf-8"))
         reference["dependencies"]["com.unity.modules.tetgen"] = "1.0.0"
         write(manifest_file, json.dumps(reference))
@@ -659,8 +647,8 @@ class StripHarnessEditorVersionTests(unittest.TestCase):
         options = HarnessOptions(stripping="Medium", work_dir=work, editor_version=FLOOR_VERSION)
 
         with (
-            mock.patch("mu3_strip_harness.cli.platform.system", return_value="Windows"),
-            mock.patch("mu3_strip_harness.cli.resolve_editor_path", return_value=(editor, False)) as resolve,
+            mock.patch("strip_harness.cli.platform.system", return_value="Windows"),
+            mock.patch("strip_harness.cli.resolve_editor_path", return_value=(editor, False)) as resolve,
         ):
             code = run_harness(root, options, unity, lines.append)
 
@@ -676,7 +664,8 @@ class StripHarnessEditorVersionTests(unittest.TestCase):
         )
         self.assertEqual(
             {
-                "com.github.doqltl179.mu3library.base": "file:" + (root / "Mu3Library_Base").resolve().as_posix(),
+                "com.github.doqltl179.mu3library.base": "file:" + (root / "Packages" / "Base").resolve().as_posix(),
+                "com.github.doqltl179.mu3library.di": "file:" + (root / "Packages" / "DI").resolve().as_posix(),
                 "com.unity.modules.audio": "1.0.0",
                 "com.unity.ugui": "2.0.0",
             },
@@ -691,20 +680,20 @@ class StripHarnessEditorVersionTests(unittest.TestCase):
         write(mirror / "ProjectSettings" / "ProjectVersion.txt", opened)
         lines.clear()
         with (
-            mock.patch("mu3_strip_harness.cli.platform.system", return_value="Windows"),
-            mock.patch("mu3_strip_harness.cli.resolve_editor_path", return_value=(editor, False)),
+            mock.patch("strip_harness.cli.platform.system", return_value="Windows"),
+            mock.patch("strip_harness.cli.resolve_editor_path", return_value=(editor, False)),
         ):
             self.assertEqual(0, run_harness(root, options, unity, lines.append))
         self.assertEqual(opened, (mirror / "ProjectSettings" / "ProjectVersion.txt").read_text(encoding="utf-8"))
         self.assertIn("Mirror changes: none", lines)
 
-    @mock.patch("mu3_strip_harness.cli.platform.system", return_value="Windows")
+    @mock.patch("strip_harness.cli.platform.system", return_value="Windows")
     def test_an_override_that_is_not_the_requested_editor_is_named_in_a_warning(self, _system: mock.Mock) -> None:
         for name, location, editor_version, warning in (
             ("other Editor for --editor-version", "elsewhere", FLOOR_VERSION,
              f"warning: --editor-version requires Unity {FLOOR_VERSION} but the explicit override will be used: "),
-            ("other Editor for the URP project", "elsewhere", None,
-             "warning: UnityProject_URP requires Unity 6000.6.7f1 but the explicit override will be used: "),
+            ("other Editor for the minimal config", "elsewhere", None,
+             "warning: tools/unity-projects/minimal requires Unity 6000.6.7f1 but the explicit override will be used: "),
             ("Hub install of the requested Editor", f"Hub/Editor/{FLOOR_VERSION}", FLOOR_VERSION, None),
         ):
             with self.subTest(name):
@@ -712,7 +701,7 @@ class StripHarnessEditorVersionTests(unittest.TestCase):
                 editor = fake_editor(root / location)
                 lines: list[str] = []
 
-                with mock.patch("mu3_strip_harness.cli.resolve_editor_path", return_value=(editor, True)):
+                with mock.patch("strip_harness.cli.resolve_editor_path", return_value=(editor, True)):
                     code = run_harness(
                         root, HarnessOptions(work_dir=root / "work", editor_version=editor_version), FakeUnity(), lines.append
                     )
@@ -721,19 +710,19 @@ class StripHarnessEditorVersionTests(unittest.TestCase):
                 warnings = [line for line in lines if "the explicit override will be used" in line]
                 self.assertEqual([warning + str(editor)] if warning else [], warnings)
 
-    @mock.patch("mu3_strip_harness.cli.platform.system", return_value="Windows")
+    @mock.patch("strip_harness.cli.platform.system", return_value="Windows")
     def test_an_editor_without_bundled_packages_stops_before_unity_runs(self, _system: mock.Mock) -> None:
         root = fixture_root(self)
         editor = fake_editor(root, with_packages=False)
         unity = FakeUnity()
 
-        with mock.patch("mu3_strip_harness.cli.resolve_editor_path", return_value=(editor, False)):
+        with mock.patch("strip_harness.cli.resolve_editor_path", return_value=(editor, False)):
             with self.assertRaisesRegex(HarnessSetupError, f"cannot find the packages that Unity {FLOOR_VERSION} bundles"):
                 run_harness(root, HarnessOptions(work_dir=root / "work", editor_version=FLOOR_VERSION), unity, lambda line: None)
 
         self.assertEqual([], unity.commands)
 
-    def test_what_the_editor_does_not_bundle_is_kept_or_dropped_as_compile_unity_does(self) -> None:
+    def test_what_the_editor_does_not_bundle_is_kept_or_dropped(self) -> None:
         package_manager = editor_package_manager_dir(fake_editor(temporary_root(self)))
 
         dependencies, changes, warnings = retarget_dependencies(
@@ -767,29 +756,7 @@ class StripHarnessEditorVersionTests(unittest.TestCase):
             ],
             changes,
         )
-        self.assertEqual([f"Unity {FLOOR_VERSION} does not bundle com.unity.terrain-tools, so the mirror keeps 5.3.3"], warnings)
-
-    def test_bundled_versions_are_the_ones_compile_unity_reads(self) -> None:
-        package_manager = editor_package_manager_dir(fake_editor(temporary_root(self)))
-        names = [
-            "com.unity.ugui",
-            "com.unity.inputsystem",
-            "com.unity.textmeshpro",
-            "com.unity.modules.audio",
-            "com.unity.modules.tetgen",
-            "com.unity.terrain-tools",
-        ]
-
-        completed = run_sourced(
-            repo_root() / "compile-unity.sh",
-            'for name in "${@:2}"; do printf \'%s=%s\\n\' "$name" "$(editor_bundled_version "$1" "$name" || printf -- -)"; done',
-            arguments=[package_manager.as_posix(), *names],
-        )
-
-        self.assertEqual(0, completed.returncode, completed.stderr)
-        bundled = editor_bundled_versions(package_manager, names)
-        self.assertEqual([f"{name}={bundled.get(name, '-')}" for name in names], completed.stdout.splitlines())
-        self.assertEqual({"com.unity.ugui", "com.unity.inputsystem", "com.unity.textmeshpro", "com.unity.modules.audio"}, set(bundled))
+        self.assertEqual([f"Unity {FLOOR_VERSION} does not bundle com.unity.terrain-tools, so the project keeps 5.3.3"], warnings)
 
 
 class StripHarnessCommandTests(unittest.TestCase):

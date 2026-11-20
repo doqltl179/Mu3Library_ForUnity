@@ -7,6 +7,102 @@ Package release notes remain in:
 - `docs/changelog/CHANGELOG.ko.md`
 - `docs/changelog/CHANGELOG.ja.md`
 
+## 2026-11-17 (multiplayer harness)
+
+### Added
+- `mu3-multiplayer-harness` (`python -m multiplayer_harness`) and its template, `tools/multiplayer-harness/` (#547, ADR 0001 D17): the command generates a project from the `minimal` config, adds a player script that drives Base's `MultiplayerManager` on a `LocalBackend` of the machine-wide local network with no DI core, calling its `Update()` itself, builds a Windows x64 player, and runs it twice at once as a host and a guest. The two play the flow of the Multiplayer sample's unattended run, from a public lobby with lobby data to the kick, and each logs 11 checks, which the command prints. It exits 0 when both pass, 1 when a check failed or was not reached or a player did not report, and 3 when the setup or the build failed, as `mu3-di-strip-harness` does. On 2026-11-17 both players passed every check with Unity 6000.6.7f1, in 49 seconds on a new project and 23 on an imported one, and with `--editor-version 6000.3.10f1`, a release of the packages' 6000.3 floor, in 79 seconds on a new project. The Multiplayer sample stays until #187 is done (D14). [tools/README.md](../../tools/README.md#multiplayer-harness) describes the checks, what the harness leaves out, and its options.
+
+### What an existing checkout needs
+- Nothing for the shell entrypoints. A `.venv` gets the `mu3-multiplayer-harness` command the next time the development environment is entered, since `ensure_tools.py` finds the command missing and installs the tools again.
+
+## 2026-11-16 (steam package)
+
+### Changed
+- The `full` project config names the new Steam package, `packages/steam`, as `"checkout"` and lists it under `testables` (#543, ADR 0001 D7, D11, D12, D19), so `compile-unity.sh changed` and `test-unity.sh changed` select `full` for a change under that folder, and `full` runs `MultiplayerSteamTests` and `MultiplayerSteamIntegrationTests` from the package's own test assembly, `Mu3Library.Steam.Tests.Editor`, with its counts unchanged. No other config ran those tests under Base, since they need Steamworks.NET, which only `full` installs, so no other count changes. `full` keeps Steamworks.NET and `steam_appid.txt`, which the package and its tests still need. `.ai/project/profile.toml` lists the package under `[[release.packages]]`, and `repo info` lists it among the packages.
+
+### What an existing checkout needs
+- Nothing: the next run refreshes the generated `full` project, whose manifest then names the new package.
+
+## 2026-11-16 (di package)
+
+### Changed
+- The `full` and `minimal` project configs name the new DI package, `packages/di`, as `"checkout"` and list it under `testables` (#541, ADR 0001 D7, D11, D12), so `compile-unity.sh changed` and `test-unity.sh changed` select both for a change under that folder, and both run the DI tests from the package's own test assemblies, `Mu3Library.DI.Tests.Editor` and `Mu3Library.DI.Tests.Runtime`, with their counts unchanged. `urp` and `watermelon` do not get the package, so they now compile and test Base without the DI container and no longer run those tests: `urp` runs 756 EditMode tests where it ran 859, without the 103 DI tests, two of which skip themselves where preparation is a coroutine, and 4 PlayMode tests where it ran 16, without the 12 core preparation and lifetime tests; `watermelon` runs 850 EditMode tests where it ran 953 and 4 PlayMode tests where it ran 10, without the 103 and the 6 that run with UniTask. `minimal` is now the only config that runs `CoreBase`'s coroutine preparation under test. The DI stripping harness's mirror takes the DI package from the checkout beside Base, found by the name in its `package.json`, since the container and `DILinkerProcessor` live there now. `.ai/project/profile.toml` lists the package under `[[release.packages]]`, and `repo info` lists it among the packages.
+
+### What an existing checkout needs
+- Nothing: the next run refreshes the generated `full` and `minimal` projects and the harness's mirror, whose manifests then name the new package.
+
+## 2026-11-16 (addressables package)
+
+### Changed
+- The `full` project config names the new Addressables package, `packages/addressables`, as `"checkout"` and lists it under `testables` (#539, ADR 0001 D7, D11, D12), so `compile-unity.sh changed` and `test-unity.sh changed` select `full` for a change under that folder, and `full` runs `AddressablesManagerTests` from the package's own test assembly. No other config ran those tests under Base, since they need both UniTask and Addressables, which only `full` installs, so no other count changes. `full` keeps its Addressables settings, which those tests still need. `.ai/project/profile.toml` lists the package under `[[release.packages]]`, and `repo info` lists it among the packages.
+
+### What an existing checkout needs
+- Nothing: the next run refreshes the generated `full` project, whose manifest then names the new package.
+
+## 2026-11-16 (localization package)
+
+### Changed
+- The `full` project config names the new Localization package, `packages/localization`, as `"checkout"` and lists it under `testables` (#537, ADR 0001 D7, D11, D12), so `compile-unity.sh changed` and `test-unity.sh changed` select `full` for a change under that folder, and `full` runs `LocalizationManagerTests` from the package's own test assembly. No other config ran those tests under Base, since they need both UniTask and Localization, so no other count changes. `.ai/project/profile.toml` lists the package under `[[release.packages]]`, and `repo info` lists it among the packages.
+
+### What an existing checkout needs
+- Nothing: the next run refreshes the generated `full` project, whose manifest then names the new package.
+
+## 2026-11-16 (inputsystem package)
+
+### Changed
+- The `full` project config names the new Input System package, `packages/inputsystem`, as `"checkout"` and lists it under `testables` (#535, ADR 0001 D7, D11, D12), so `compile-unity.sh changed` and `test-unity.sh changed` select `full` for a change under that folder, and `full` runs `InputSystemManagerTests` from the package's own test assembly. `urp` and `watermelon` install the Input System without the package, so they no longer run those tests, which Base held until now. `.ai/project/profile.toml` lists the package under `[[release.packages]]`, and `repo info` lists it among the packages.
+
+### What an existing checkout needs
+- Nothing: the next run refreshes the generated `full` project, whose manifest then names the new package.
+
+## 2026-11-15 (notifications package)
+
+### Changed
+- The `full` project config names the new Notifications package, `packages/notifications`, as `"checkout"` (#533, ADR 0001 D7, D12), so `compile-unity.sh changed` and `test-unity.sh changed` select `full` for a change under that folder. The package has no tests, so the config lists it under no `testables`. `.ai/project/profile.toml` lists it under `[[release.packages]]`, and `repo info` lists it among the packages.
+
+### What an existing checkout needs
+- Nothing: the next run refreshes the generated `full` project, whose manifest then names the new package.
+
+## 2026-11-15 (tool package names)
+
+### Changed
+- The Python packages in `tools/cli/src` drop their `mu3_` prefix (#529), since the `mu3` mark names this library's code in namespaces and assemblies, not folders: `mu3_common` is now `common`, `mu3_fixed_load` is `fixed_load`, `mu3_repo` is `repo`, `mu3_strip_harness` is `strip_harness`, `mu3_unity` is `unity`, and `mu3_verify_build` is `verify_build`. Run them from the repository root as `PYTHONPATH=tools/cli/src python -m repo check`, `python -m unity doctor`, `python -m strip_harness`, and `python -m verify_build`; `compile-unity.sh` and `test-unity.sh` run `tools/cli/src/common/unity_projects.py` and `tools/cli/src/fixed_load/fixed_load.py`. The commands on `PATH`, `mu3-repo`, `mu3-unity`, `mu3-di-strip-harness`, and `mu3-verify-build`, and the distribution `mu3-tools` keep their names.
+
+### What an existing checkout needs
+- Entering the development environment reinstalls the tools in an existing `.venv`, since their commands now point at the new packages (#504).
+- The former folders can stay behind with the `__pycache__` folders Git ignores in them, such as `tools/cli/src/mu3_repo/__pycache__`, and nothing reads them: delete them.
+
+## 2026-11-15 (packages folder)
+
+### Changed
+- The packages moved into a top-level `packages/` folder (#525, ADR 0001 D3, D16, D20): `Mu3Library_Base` is now `packages/base`, `Mu3Library_URP` is `packages/urp`, and `Mu3Library_Game_WatermelonGame` is `packages/game/watermelon`, so each folder matches its tag path. Inside each package the `Scripts/` level is gone, so the feature folders lie directly under `Runtime/` and `Editor/`, and URP's shaders and its `Resources/` folder lie under `Runtime/ScreenEffect/`. The `.meta` files moved with their assets, so no GUID changed. The project configs find the packages by the names in their `package.json`, so they needed no edit, and `compile-unity.sh changed` selects the configs from the new folders.
+- `mu3-repo check` looks for package code under `packages/` instead of `Mu3Library_*`, and the `.gitignore` entry for the temporary folders that the `Mu3Window` edit-mode tests create names `packages/base/`. The agent docs, `.ai/project/profile.toml` (its bindings, stack globs, and release version files and changelogs), the READMEs, and `tools/README.md` name the new paths. The install URLs in the READMEs keep the old paths until the next release, since they point at tags whose trees hold them.
+
+### What an existing checkout or open branch needs
+- Updating removes the three `Mu3Library_*` folders. A folder that still holds files Git does not track, such as a `Mu3WindowTests_*` folder that a cut-off test run left in Base, stays behind with them, and no tool reads it any more: delete it.
+- A branch cut before this change merges `develop` as usual for the files it edits: Git follows the moves, so an edit to a moved file lands in its new place. A file the branch added under a moved folder stops the merge with `CONFLICT (file location)`, and Git has already put it in the folder it suggests (checked with Git 2.41): check that place, `git add` the file and its `.meta`, and commit the merge. A new subfolder that the branch added without its folder `.meta`, under a moved folder where it added nothing else, can merge cleanly and stay at its old path, so after the merge `git ls-files "Mu3Library_*"` must list nothing; move whatever it lists into the new folder.
+- Commands, scripts, and notes outside the repository that name the old folders need the new paths, as does a Unity project that added a package from disk.
+- The generated Unity projects refresh on their own: the next run writes the new package folders into each manifest and replaces the `full` project's samples link, which pointed at `Mu3Library_Base/Samples~`.
+
+## 2026-11-15 (generated Unity projects)
+
+### Changed
+- The repository commits no Unity project any more (#523, ADR 0001 D12, D15, D17). The development projects `UnityProject_BuiltIn`, `UnityProject_URP`, and `UnityProject_Game_WatermelonGame` and their mapping, `unity-cli-packages.tsv`, are gone; four project configs in `tools/unity-projects/` take their place, and the tools generate a Unity project from a config when they need one. `full`, `urp`, and `watermelon` keep the manifests, lock files, `ProjectSettings/`, settings assets, and Editor versions of the three former projects, and `minimal` is new: Base without any optional SDK, with the Input Manager as its input handling, so Base now also compiles and runs its tests without the Input System, UniTask, and the other SDKs. A manifest names a package of this checkout as `"checkout"`, which the generator resolves by the name in the package's `package.json`. `tools/README.md` «Unity Project Configs» describes the configs and the generated projects.
+- `compile-unity.sh` and `test-unity.sh` take the config names as targets, `full`, `minimal`, `urp`, and `watermelon`, in place of `built-in`, `urp`, and `watermelon`. `changed` selects as before every config whose manifest names a changed package, so a Base change now selects all four, and a change inside a config's folder selects that config. Each run generates the target's project in `${MU3_WORK_ROOT}/Mu3Library_ForUnity/<unit>/<target>`, or in `--work-dir <folder>`, refreshes it on later runs, and keeps its `Library/` there; `--editor-version` gets a project of its own, `<target>-<version>`. A run with neither `MU3_WORK_ROOT` nor `--work-dir`, or on a detached HEAD without `--work-dir`, stops before Unity and says what to set, and `--dry-run` prints each project folder without creating it. The scripts now need Python 3.10 or later on `PATH`, which reads the configs and generates the projects. `--in-place`, `--isolated`, `--keep-staging`, `--without-samples`, and the samples-link check are gone with the mirror they served: a project an Editor has open now stops the run instead of running in a mirror. `mu3-unity compile` and `test` take the same changes, and `mu3-unity doctor` checks the configs, the work folder, and the generated projects' locks in place of the mapping and the sample links.
+- The `full` project links Base's `Samples~` at `Assets/Mu3LibrarySamples`, as `UnityProject_BuiltIn` did, so the Multiplayer sample still compiles there; the link lives in the generated project, outside the checkout, so `mu3-samples` and `commands.worktree_setup` and `commands.worktree_teardown` are gone, and a worktree of a branch from now on is removed without a teardown.
+- `full` keeps of the Addressables settings only what edit-mode Addressables needs to initialize, which `AddressablesManagerTests` do: the `Default` profile and a `Default Local Group` that builds to `Local.BuildPath`, and no remote catalog. The bundle deployment configuration, the `GitHub_Windows` profile and the sample groups, is not carried over (D17). `mu3-verify-build` therefore builds a project generated from `full`, from the checkout's working tree rather than a copy of HEAD; `--content build` passes when the player carries the content in `StreamingAssets/aa`, and the bundles folder in `log/verify-build-bundles` and the profile changes are gone. The DI stripping harness takes its Editor version and modules from `minimal` and its pinned UniTask from `full`.
+
+### What an existing checkout needs
+- Set the user environment variable `MU3_WORK_ROOT` to a short folder outside the checkout, such as `D:/w`, if it is not set yet, and restart the terminal or agent host that should see it. The first run of each project in a unit's work folder imports it from scratch.
+- The former project folders stay behind with what Git ignored in them, such as `Library/`, `Logs/`, and generated `.csproj` files, and no tool reads them any more. In a checkout that ran `mu3-samples link`, `UnityProject_BuiltIn/Assets/Mu3LibrarySamples` is a junction or symbolic link to Base's `Samples~`: remove it first, from the checkout root, with `cmd /c rmdir UnityProject_BuiltIn\Assets\Mu3LibrarySamples` on Windows (`cmd //c` from Git Bash) or `rm UnityProject_BuiltIn/Assets/Mu3LibrarySamples` elsewhere, which removes only the link, and then delete the three folders. A worktree of a branch from before this change still holds them; [Worktree Removal](../../tools/README.md#worktree-removal) says how to remove one.
+- Entering the development environment brings an existing `.venv` in step with the tools again, which drops the `mu3-samples` command (#504).
+- Pass `mu3-verify-build` and the DI stripping harness a folder of their own as `--work-dir`, such as `${MU3_WORK_ROOT}/Mu3Library_ForUnity/<unit>/verify-build`, not the unit's folder, which now holds the generated projects. A `log/verify-build` that an earlier `mu3-verify-build` made holds a copy of the former project, which the command no longer reads; delete it, or pass another `--work-dir`.
+
+## 2026-11-15 (samples removal)
+
+### Changed
+- `unity-cli-packages.tsv` names no samples link for `urp` and `watermelon`, whose packages no longer ship samples, and `.gitignore` keeps only the link of `UnityProject_BuiltIn` (#521). `mu3-samples link` and the sample-link check of `compile-unity.sh` and `test-unity.sh` therefore cover only Base's `Samples~`, which holds the Multiplayer sample. The URP and Watermelon Game development projects lost the `.meta` of their link, and the Watermelon Game project's build settings no longer list the sample's `Demo` scene. A checkout that already linked those two samples keeps junctions or symbolic links that point at nothing once it updates, and `mu3-samples unlink` no longer knows them: run `PYTHONPATH=tools/cli/src python -m mu3_samples unlink --target urp` and `--target watermelon` before updating, or remove the two links afterwards from the checkout root, which removes only the link: on Windows `cmd /c rmdir UnityProject_URP\Assets\Mu3LibrarySamplesURP` and `cmd /c rmdir UnityProject_Game_WatermelonGame\Assets\Mu3LibrarySamplesWatermelonGame`, with backslashes since `cmd` reads a forward slash as a switch, and `cmd //c` in place of `cmd /c` from Git Bash (see [Worktree Removal](../../tools/README.md#worktree-removal)); elsewhere `rm UnityProject_URP/Assets/Mu3LibrarySamplesURP UnityProject_Game_WatermelonGame/Assets/Mu3LibrarySamplesWatermelonGame`.
+
 ## 2026-11-15 (development environment)
 
 ### Fixed

@@ -1,7 +1,6 @@
 ---
 paths:
-  - "Mu3Library_*/**/*.cs"
-  - "UnityProject_*/Assets/**/*.cs"
+  - "packages/**/*.cs"
   - "**/*.asmdef"
   - "**/*.asmref"
   - "**/*.unity"

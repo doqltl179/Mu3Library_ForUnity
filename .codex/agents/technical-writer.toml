@@ -40,6 +40,6 @@ Mission: give human readers accurate, findable documentation that matches the be
 
 ## Project Binding
 
-- Paths: `README.md`, `CHANGELOG.md`, `Mu3Library_*/README.md`, `Mu3Library_*/CHANGELOG.md`, `docs/repository/**`
+- Paths: `README.md`, `CHANGELOG.md`, `packages/*/README.md`, `packages/game/*/README.md`, `packages/*/CHANGELOG.md`, `packages/game/*/CHANGELOG.md`, `docs/repository/**`
 - Notes: Doc layout and the repository workflow changelog: .ai/project/wiki/overview.md.
 '''

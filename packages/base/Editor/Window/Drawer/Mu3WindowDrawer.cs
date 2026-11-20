@@ -1,0 +1,439 @@
+using System;
+using Mu3Library.Editor.FileUtil;
+using UnityEditor;
+using UnityEngine;
+
+using Object = UnityEngine.Object;
+
+namespace Mu3Library.Editor.Window.Drawer
+{
+    [Serializable]
+    public abstract class Mu3WindowDrawer : ScriptableObject
+    {
+        protected const string MenuRoot = "Mu3Library/Editor Window/Window Drawers";
+
+        [SerializeField] protected bool _foldout = true;
+        public bool Foldout => _foldout;
+
+        #region GUIStyle
+
+        [Header("Base Styles")]
+
+        [SerializeField] protected GUIStyle _header1Style = null;
+        [SerializeField] protected GUIStyle _header2Style = null;
+        [SerializeField] protected GUIStyle _header3Style = null;
+
+        [SerializeField] protected GUIStyle _toggleIcon1Style = null;
+        [SerializeField] protected GUIStyle _toggleIcon2Style = null;
+
+        #endregion
+
+
+
+        protected virtual void Reset()
+        {
+            InitializeBaseStyles(true);
+        }
+
+        public virtual void OnBecameVisible()
+        {
+            InitializeBaseStyles();
+        }
+
+        public virtual void OnBecameInvisible() { }
+
+        public abstract void OnGUIHeader();
+        public abstract void OnGUIBody();
+
+        private void InitializeBaseStyles(bool force = false)
+        {
+            if (force || _header1Style == null)
+            {
+                _header1Style = new GUIStyle()
+                {
+                    fontSize = 24,
+                    fontStyle = FontStyle.Bold,
+                    alignment = TextAnchor.MiddleCenter,
+                    padding = new RectOffset(24, 24, 12, 12),
+                    fixedHeight = 48,
+                    normal = new GUIStyleState()
+                    {
+                        textColor = Color.white,
+                    },
+                };
+            }
+            if (force || _header2Style == null)
+            {
+                _header2Style = new GUIStyle()
+                {
+                    fontSize = 16,
+                    fontStyle = FontStyle.Bold,
+                    alignment = TextAnchor.MiddleCenter,
+                    padding = new RectOffset(16, 16, 8, 8),
+                    fixedHeight = 32,
+                    normal = new GUIStyleState()
+                    {
+                        textColor = Color.white,
+                    },
+                };
+            }
+            if (force || _header3Style == null)
+            {
+                _header3Style = new GUIStyle()
+                {
+                    fontSize = 11,
+                    fontStyle = FontStyle.Bold,
+                    alignment = TextAnchor.MiddleCenter,
+                    padding = new RectOffset(11, 11, 5, 5),
+                    fixedHeight = 22,
+                    normal = new GUIStyleState()
+                    {
+                        textColor = Color.white,
+                    },
+                };
+            }
+
+            if (force || _toggleIcon1Style == null)
+            {
+                _toggleIcon1Style = new GUIStyle()
+                {
+                    fontSize = 16,
+                    fontStyle = FontStyle.Bold,
+                    alignment = TextAnchor.MiddleCenter,
+                    fixedHeight = 48,
+                    normal = new GUIStyleState()
+                    {
+                        textColor = Color.white,
+                    },
+                };
+            }
+            if (force || _toggleIcon2Style == null)
+            {
+                _toggleIcon2Style = new GUIStyle()
+                {
+                    fontSize = 11,
+                    fontStyle = FontStyle.Bold,
+                    alignment = TextAnchor.MiddleCenter,
+                    fixedHeight = 32,
+                    normal = new GUIStyleState()
+                    {
+                        textColor = Color.white,
+                    },
+                };
+            }
+        }
+
+        #region Struct Util Style
+        protected void DisplayProgressBar(string title, string info, float progress)
+        {
+            EditorUtility.DisplayProgressBar(title, info, progress);
+        }
+
+        protected void DisplayCancelableProgressBar(string title, string info, float progress)
+        {
+            EditorUtility.DisplayCancelableProgressBar(title, info, progress);
+        }
+
+        protected void ClearProgressBar()
+        {
+            EditorUtility.ClearProgressBar();
+        }
+
+        protected void DrawHeader1(string label, bool insertSpaceOnUpSpaceOfHeader = false, bool insertSpaceOnDownSpaceOfHeader = false)
+        {
+            if (insertSpaceOnUpSpaceOfHeader) GUILayout.Space(_header1Style.fontSize);
+            GUILayout.Label(label, _header1Style, GUILayout.ExpandWidth(false));
+            GUILayout.Space(_header1Style.fontSize);
+
+            GUI.DrawTexture(EditorGUILayout.GetControlRect(false, 1), EditorGUIUtility.whiteTexture);
+            if (insertSpaceOnDownSpaceOfHeader) GUILayout.Space(_header1Style.fontSize); GUILayout.Space(10);
+        }
+
+        protected void DrawFoldoutHeader1(string label, ref bool foldout, bool insertSpaceOnUpSpaceOfHeader = false, bool insertSpaceOnDownSpaceOfHeader = false)
+        {
+            if (insertSpaceOnUpSpaceOfHeader) GUILayout.Space(_header1Style.fontSize);
+
+            GUILayout.BeginHorizontal();
+
+            GUILayout.Space(_header1Style.fontSize);
+
+            // 토글 마크 그리기
+            _toggleIcon1Style.normal.textColor = foldout ? Color.green : Color.red;
+            _toggleIcon1Style.fixedHeight = _header1Style.fixedHeight;
+
+            EditorGUI.BeginChangeCheck();
+            bool newFoldout = GUILayout.Toggle(foldout, foldout ? "▼" : "▶", _toggleIcon1Style, GUILayout.ExpandWidth(false));
+
+            // 토글 텍스트 작성
+            newFoldout = GUILayout.Toggle(newFoldout, label, _header1Style, GUILayout.ExpandWidth(false));
+
+            if (EditorGUI.EndChangeCheck())
+            {
+                Undo.RecordObject(this, "Toggle Foldout");
+                foldout = newFoldout;
+                EditorUtility.SetDirty(this);
+            }
+
+            GUILayout.EndHorizontal();
+
+            GUI.DrawTexture(EditorGUILayout.GetControlRect(false, 1), EditorGUIUtility.whiteTexture);
+            if (insertSpaceOnDownSpaceOfHeader) GUILayout.Space(_header1Style.fontSize);
+        }
+
+        protected void DrawHeader2(string label, bool insertSpaceOnUpSpaceOfHeader = false, bool insertSpaceOnDownSpaceOfHeader = false)
+        {
+            if (insertSpaceOnUpSpaceOfHeader) GUILayout.Space(_header2Style.fontSize);
+            GUILayout.Label(label, _header2Style, GUILayout.ExpandWidth(false));
+            if (insertSpaceOnDownSpaceOfHeader) GUILayout.Space(_header2Style.fontSize);
+        }
+
+        protected void DrawFoldoutHeader2(string label, ref bool foldout, bool insertSpaceOnUpSpaceOfHeader = false, bool insertSpaceOnDownSpaceOfHeader = false)
+        {
+            if (insertSpaceOnUpSpaceOfHeader) GUILayout.Space(_header2Style.fontSize);
+
+            GUILayout.BeginHorizontal();
+
+            GUILayout.Space(_header2Style.fontSize);
+
+            // 토글 마크 그리기
+            _toggleIcon2Style.normal.textColor = foldout ? Color.green : Color.red;
+
+            EditorGUI.BeginChangeCheck();
+            bool newFoldout = GUILayout.Toggle(foldout, foldout ? "▼" : "▶", _toggleIcon2Style, GUILayout.ExpandWidth(false));
+
+            // 토글 텍스트 작성
+            newFoldout = GUILayout.Toggle(newFoldout, label, _header2Style, GUILayout.ExpandWidth(false));
+
+            if (EditorGUI.EndChangeCheck())
+            {
+                Undo.RecordObject(this, "Toggle Foldout");
+                foldout = newFoldout;
+                EditorUtility.SetDirty(this);
+            }
+
+            GUILayout.EndHorizontal();
+
+            if (insertSpaceOnDownSpaceOfHeader) GUILayout.Space(_header2Style.fontSize);
+        }
+
+        protected void DrawHeader3(string label, bool insertSpaceOnUpSpaceOfHeader = false, bool insertSpaceOnDownSpaceOfHeader = false)
+        {
+            if (insertSpaceOnUpSpaceOfHeader) GUILayout.Space(_header3Style.fontSize);
+            GUILayout.Label(label, _header3Style, GUILayout.ExpandWidth(false));
+            if (insertSpaceOnDownSpaceOfHeader) GUILayout.Space(_header3Style.fontSize);
+        }
+
+        /// <summary>
+        /// IMGUI 드로우 호출을 BeginChangeCheck / RecordObject / SetDirty 로 감쌉니다.
+        /// drawFunc 가 반환한 새 값이 이전 값과 다를 때 setter 를 호출하고 undo 를 기록합니다.
+        /// </summary>
+        protected void DrawWithUndo<T>(Func<T> drawFunc, Action<T> setter, string undoName)
+        {
+            EditorGUI.BeginChangeCheck();
+            T newValue = drawFunc();
+            if (EditorGUI.EndChangeCheck())
+            {
+                Undo.RecordObject(this, undoName);
+                setter(newValue);
+                EditorUtility.SetDirty(this);
+            }
+        }
+
+        /// <summary>
+        /// 왼쪽에 Refresh 버튼 한 줄을 그린다.
+        /// </summary>
+        /// <param name="onRefresh"> 버튼을 눌렀을 때 데이터를 다시 읽는 동작 </param>
+        protected void DrawRefreshButton(Action onRefresh)
+        {
+            EditorGUILayout.BeginHorizontal();
+
+            if (GUILayout.Button("Refresh", GUILayout.Width(80), GUILayout.Height(24)))
+            {
+                onRefresh?.Invoke();
+            }
+
+            GUILayout.FlexibleSpace();
+
+            EditorGUILayout.EndHorizontal();
+        }
+
+        /// <summary>
+        /// Assets 폴더 안의 폴더만 받는 폴더 필드를 그린다.
+        /// <br/> Assets 밖의 폴더가 선택되면 경고를 남기고 선택을 비운다.
+        /// </summary>
+        /// <param name="serializedObject"> 폴더 프로퍼티를 소유한 SerializedObject </param>
+        /// <param name="folderProperty"> 폴더를 담는 프로퍼티 </param>
+        /// <param name="label"> 필드에 표시할 이름 </param>
+        protected void DrawAssetsFolderField(
+            SerializedObject serializedObject,
+            SerializedProperty folderProperty,
+            string label = "Script Save Folder")
+        {
+            if (serializedObject == null || folderProperty == null)
+            {
+                return;
+            }
+
+            serializedObject.Update();
+
+            EditorGUILayout.PropertyField(folderProperty, new GUIContent(label));
+
+            if (!serializedObject.ApplyModifiedProperties())
+            {
+                return;
+            }
+
+            Object folder = folderProperty.objectReferenceValue;
+            if (folder == null || FileFinder.IsAssetsFolder(folder))
+            {
+                return;
+            }
+
+            Debug.LogWarning("Selected folder is not inside the Assets folder.");
+
+            folderProperty.objectReferenceValue = null;
+            serializedObject.ApplyModifiedProperties();
+        }
+
+        /// <summary>
+        /// 생성 스크립트의 namespace 입력 필드를 그린다.
+        /// </summary>
+        protected void DrawNamespaceField(string value, Action<string> setter, string undoName)
+        {
+            DrawWithUndo(
+                () => EditorGUILayout.TextField("Namespace (optional)", value),
+                setter,
+                undoName);
+        }
+
+        /// <summary>
+        /// <see cref="DrawNamespaceField"/>에 입력한 namespace로 컴파일되는 스크립트를 만들 수 없는 이유를 반환한다. 만들 수 있으면 null이다.
+        /// <br/> 비어 있는 namespace는 namespace 블록 없이 생성하므로 유효하다.
+        /// <br/> 다른 패키지의 drawer도 쓰도록 protected이고, 편집 모드 테스트가 직접 부르도록 internal이기도 하다.
+        /// </summary>
+        protected internal static string GetNamespaceWarning(string scriptNamespace)
+        {
+            string trimmed = scriptNamespace?.Trim() ?? string.Empty;
+            if (trimmed.Length == 0 || ScriptIdentifier.IsValidNamespace(trimmed))
+                return null;
+
+            return $"Namespace \"{trimmed}\" is not a valid namespace. " +
+                "Join C# identifiers with '.', or leave it empty to generate without a namespace.";
+        }
+
+        /// <summary>
+        /// 생성 스크립트 전체를 감쌀 define 심볼 입력 필드를 그린다.
+        /// <br/> 선택 패키지를 쓰는 스크립트를 그 패키지의 versionDefines 심볼 안에 둘 때 쓴다.
+        /// </summary>
+        protected void DrawDefineSymbolField(string value, Action<string> setter, string undoName)
+        {
+            DrawWithUndo(
+                () => EditorGUILayout.TextField(
+                    new GUIContent(
+                        "Define Symbol (optional)",
+                        "Wraps every generated script in #if <symbol>, so it compiles only where the symbol is defined."),
+                    value),
+                setter,
+                undoName);
+        }
+
+        /// <summary>
+        /// 생성 스크립트의 클래스 이름 입력 필드를 그린다.
+        /// </summary>
+        /// <param name="defaultClassName"> 입력이 비었을 때 사용할 이름, 비어 있으면 안내를 표시하지 않는다. </param>
+        protected void DrawClassNameField(string value, Action<string> setter, string undoName, string defaultClassName)
+        {
+            DrawWithUndo(
+                () => EditorGUILayout.TextField("Class Name (optional)", value),
+                setter,
+                undoName);
+
+            if (string.IsNullOrWhiteSpace(value) && !string.IsNullOrEmpty(defaultClassName))
+            {
+                EditorGUILayout.HelpBox($"Default class name: {defaultClassName}", MessageType.None);
+            }
+        }
+
+        protected void DrawToggleArea(string label, ref bool toggle)
+        {
+            toggle = EditorGUILayout.ToggleLeft(label, toggle);
+        }
+
+        protected void DrawObjectAreaForProjectObject<Obj>(ref Obj obj, float size) where Obj : Object
+        {
+            obj = EditorGUILayout.ObjectField(obj, typeof(Obj), false, GUILayout.Width(size), GUILayout.Height(size)) as Obj;
+        }
+
+        protected void DrawObjectAreaForProjectObject<Obj>(ref Obj obj) where Obj : Object
+        {
+            obj = EditorGUILayout.ObjectField(obj, typeof(Obj), false) as Obj;
+        }
+
+        protected Obj DrawObjectAreaForProjectObject<Obj>(Obj obj) where Obj : Object
+        {
+            return EditorGUILayout.ObjectField(obj, typeof(Obj), false) as Obj;
+        }
+
+        protected void DrawObjectAreaForHierarchyObject<Obj>(ref Obj obj) where Obj : Object
+        {
+            obj = EditorGUILayout.ObjectField(obj, typeof(Obj), true) as Obj;
+
+            if (obj != null && AssetDatabase.Contains(obj))
+            {
+                Debug.LogError($"This Object not exist in Hierarchy.");
+
+                obj = null;
+            }
+        }
+
+        protected void DrawHorizontal(Action content) => DrawHorizontal(content, 0, 0);
+        protected void DrawHorizontal(Action content, float beginSpace) => DrawHorizontal(content, beginSpace, 0);
+        protected void DrawHorizontal(Action content, float beginSpace, float endSpace)
+        {
+            GUILayout.BeginHorizontal();
+
+            GUILayout.Space(beginSpace);
+            content?.Invoke();
+            GUILayout.Space(endSpace);
+
+            GUILayout.EndHorizontal();
+        }
+
+        protected void DrawVertical(Action content) => DrawVertical(content, 0, 0);
+        protected void DrawVertical(Action content, float beginSpace) => DrawVertical(content, beginSpace, 0);
+        protected void DrawVertical(Action content, float beginSpace, float endSpace)
+        {
+            GUILayout.BeginVertical();
+
+            GUILayout.Space(beginSpace);
+            content?.Invoke();
+            GUILayout.Space(endSpace);
+
+            GUILayout.EndVertical();
+        }
+
+        protected void DrawStruct(Action content) => DrawStruct(content, 0, 0, 0, 0);
+        protected void DrawStruct(Action content, float leftSpace) => DrawStruct(content, leftSpace, 0, 0, 0);
+        protected void DrawStruct(Action content, float leftSpace, float rightSpace) => DrawStruct(content, leftSpace, rightSpace, 0, 0);
+        protected void DrawStruct(Action content, float leftSpace, float rightSpace, float upSpace) => DrawStruct(content, leftSpace, rightSpace, upSpace, 0);
+        protected void DrawStruct(Action content, float leftSpace, float rightSpace, float upSpace, float downSpace)
+        {
+            GUILayout.BeginHorizontal();
+
+            GUILayout.Space(leftSpace);
+
+            GUILayout.BeginVertical();
+
+            GUILayout.Space(upSpace);
+            content?.Invoke();
+            GUILayout.Space(downSpace);
+
+            GUILayout.EndVertical();
+
+            GUILayout.Space(rightSpace);
+
+            GUILayout.EndHorizontal();
+        }
+        #endregion
+    }
+}

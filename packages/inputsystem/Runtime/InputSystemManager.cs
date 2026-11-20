@@ -1,0 +1,759 @@
+using System;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.InputSystem;
+
+namespace Mu3Library.IS
+{
+    public class InputSystemManager : IInputSystemManager, IInputSystemManagerEventBus, IDisposable
+    {
+        private const string DefaultInputActionAssetId = "Default";
+
+        private readonly Dictionary<string, InputActionAsset> _inputActionAssets = new();
+        public int InputActionAssetCount => _inputActionAssets.Count;
+
+        private readonly Dictionary<string, InputActionMap> _inputActionMaps = new();
+        private readonly Dictionary<string, InputAction> _inputActions = new();
+
+        /// <summary>
+        /// Assets this manager built itself, from JSON. Only these are destroyed when they
+        /// leave the manager; an asset that came from outside belongs to its caller.
+        /// </summary>
+        private readonly HashSet<InputActionAsset> _createdAssets = new();
+
+        public event Action<string, InputActionAsset> OnAssetAdded;
+        public event Action<string, InputActionAsset> OnAssetRemoved;
+        public event Action<InputAction, int> OnRebindStarted;
+        public event Action<InputAction, int> OnRebindCompleted;
+        public event Action<InputAction, int> OnRebindCanceled;
+
+
+
+        /// <summary>
+        /// Every asset leaves the manager here, and leaves it as a replaced or removed one does: it
+        /// <br/> is disabled, so it stops firing for a scope that is gone, and only an asset the manager
+        /// <br/> built itself from JSON is destroyed. An asset added from outside stays alive with its
+        /// <br/> caller, who enables it again if it should keep running.
+        /// </summary>
+        public void Dispose()
+        {
+            foreach (InputActionAsset asset in _inputActionAssets.Values)
+            {
+                if (asset == null)
+                {
+                    continue;
+                }
+
+                asset.Disable();
+
+                if (_createdAssets.Contains(asset))
+                {
+                    UnityEngine.Object.Destroy(asset);
+                }
+            }
+
+            _createdAssets.Clear();
+            _inputActionAssets.Clear();
+            _inputActionMaps.Clear();
+            _inputActions.Clear();
+
+            OnAssetAdded = null;
+            OnAssetRemoved = null;
+            OnRebindStarted = null;
+            OnRebindCompleted = null;
+            OnRebindCanceled = null;
+        }
+
+
+
+        public InputActionRebindingExtensions.RebindingOperation StartInteractiveRebind(string actionId, int bindingIndex, Type[] targetDeviceTypes = null, InputControl[] cancellingThroughControls = null, Action onComplete = null, Action onCancel = null, Action onFinally = null)
+            => StartInteractiveRebind(
+                GetInputAction(actionId),
+                bindingIndex,
+                targetDeviceTypes,
+                cancellingThroughControls,
+                onComplete,
+                onCancel,
+                onFinally);
+
+        public InputActionRebindingExtensions.RebindingOperation StartInteractiveRebindWithName(string actionMapName, string actionName, int bindingIndex, Type[] targetDeviceTypes = null, InputControl[] cancellingThroughControls = null, Action onComplete = null, Action onCancel = null, Action onFinally = null)
+            => StartInteractiveRebindWithName(
+                DefaultInputActionAssetId,
+                actionMapName,
+                actionName,
+                bindingIndex,
+                targetDeviceTypes,
+                cancellingThroughControls,
+                onComplete,
+                onCancel,
+                onFinally);
+
+        public InputActionRebindingExtensions.RebindingOperation StartInteractiveRebindWithName(string assetId, string actionMapName, string actionName, int bindingIndex, Type[] targetDeviceTypes = null, InputControl[] cancellingThroughControls = null, Action onComplete = null, Action onCancel = null, Action onFinally = null)
+            => StartInteractiveRebind(
+                GetInputActionWithName(assetId, actionMapName, actionName),
+                bindingIndex,
+                targetDeviceTypes,
+                cancellingThroughControls,
+                onComplete,
+                onCancel,
+                onFinally);
+
+        public InputActionRebindingExtensions.RebindingOperation StartInteractiveRebind(InputAction action, int bindingIndex, Type[] targetDeviceTypes = null, InputControl[] cancellingThroughControls = null, Action onComplete = null, Action onCancel = null, Action onFinally = null)
+        {
+            if (action == null)
+            {
+                Debug.LogError("InputAction can not be null.");
+                return null;
+            }
+            else if (bindingIndex < 0 || bindingIndex >= action.bindings.Count)
+            {
+                Debug.LogError($"Binding index out of range. action: {action.name}, bindingIndex: {bindingIndex}");
+                return null;
+            }
+            else if (action.bindings[bindingIndex].isComposite)
+            {
+                // The Input System rebinds the parts of a composite, never its head, and throws for one.
+                Debug.LogError($"Binding index points at a composite, rebind one of its parts instead. action: {action.name}, bindingIndex: {bindingIndex}");
+                return null;
+            }
+
+            // A rebind needs the action disabled. Whatever ends it gives the action back the state it
+            // had, so an action that was off, for example in a disabled asset, stays off.
+            bool wasEnabled = action.enabled;
+            action.Disable();
+
+            InputActionRebindingExtensions.RebindingOperation rebind = null;
+            try
+            {
+                rebind = action.PerformInteractiveRebinding(bindingIndex);
+
+                if (targetDeviceTypes != null && targetDeviceTypes.Length > 0)
+                {
+                    // targetDeviceTypes 중 어느 타입에도 해당하지 않는 device의 control을 제외한다.
+                    // OnPotentialMatch 방식과 달리 입력 시스템 단에서 원천 차단한다.
+                    foreach (var device in InputSystem.devices)
+                    {
+                        Type deviceType = device.GetType();
+                        bool isTarget = false;
+                        foreach (var type in targetDeviceTypes)
+                        {
+                            if (type != null && type.IsAssignableFrom(deviceType))
+                            {
+                                isTarget = true;
+                                break;
+                            }
+                        }
+
+                        if (!isTarget)
+                        {
+                            rebind = rebind.WithControlsExcluding(device.path + "/*");
+                        }
+                    }
+                }
+
+                if (cancellingThroughControls != null)
+                {
+                    foreach (var control in cancellingThroughControls)
+                    {
+                        if (control != null)
+                        {
+                            rebind = rebind.WithCancelingThrough(control);
+                        }
+                    }
+                }
+
+                rebind = rebind
+                    .OnComplete(op =>
+                    {
+                        op.Dispose();
+                        RestoreEnabledState(action, wasEnabled);
+                        onComplete?.Invoke();
+                        OnRebindCompleted?.Invoke(action, bindingIndex);
+                        onFinally?.Invoke();
+                    })
+                    .OnCancel(op =>
+                    {
+                        op.Dispose();
+                        RestoreEnabledState(action, wasEnabled);
+                        onCancel?.Invoke();
+                        OnRebindCanceled?.Invoke(action, bindingIndex);
+                        onFinally?.Invoke();
+                    })
+                    .Start();
+            }
+            catch (Exception exception)
+            {
+                // A rebind that could not start leaves the action as it found it, and is reported
+                // like the other input errors here: logged, with null for an answer.
+                Debug.LogException(exception);
+                rebind?.Dispose();
+                RestoreEnabledState(action, wasEnabled);
+                return null;
+            }
+
+            OnRebindStarted?.Invoke(action, bindingIndex);
+
+            return rebind;
+        }
+
+        private static void RestoreEnabledState(InputAction action, bool wasEnabled)
+        {
+            if (wasEnabled)
+            {
+                action.Enable();
+            }
+        }
+
+        public void RemoveInputActionBindingOverride(string actionId, int bindingIndex)
+        {
+            var action = GetInputAction(actionId);
+            if (action == null)
+            {
+                Debug.LogError($"InputAction not found. id: {actionId}");
+                return;
+            }
+
+            action.RemoveBindingOverride(bindingIndex);
+        }
+
+        public void RemoveInputActionBindingOverrideWithName(string actionMapName, string actionName, int bindingIndex)
+            => RemoveInputActionBindingOverrideWithName(DefaultInputActionAssetId, actionMapName, actionName, bindingIndex);
+
+        public void RemoveInputActionBindingOverrideWithName(string assetId, string actionMapName, string actionName, int bindingIndex)
+        {
+            var action = GetInputActionWithName(assetId, actionMapName, actionName);
+            if (action == null)
+            {
+                Debug.LogError($"InputAction not found. assetId: {assetId}, actionMapName: {actionMapName}, actionName: {actionName}");
+                return;
+            }
+
+            action.RemoveBindingOverride(bindingIndex);
+        }
+
+        public string GetOverrideJsonOfInputAction(string actionId)
+        {
+            var action = GetInputAction(actionId);
+            if (action == null)
+            {
+                return null;
+            }
+
+            return action.SaveBindingOverridesAsJson();
+        }
+
+        public string GetOverrideJsonOfInputActionWithName(string actionMapName, string actionName)
+            => GetOverrideJsonOfInputActionWithName(DefaultInputActionAssetId, actionMapName, actionName);
+
+        public string GetOverrideJsonOfInputActionWithName(string assetId, string actionMapName, string actionName)
+        {
+            var action = GetInputActionWithName(assetId, actionMapName, actionName);
+            if (action == null)
+            {
+                return null;
+            }
+
+            return action.SaveBindingOverridesAsJson();
+        }
+
+        public void ApplyInputActionBindingOverrideFromJson(string actionId, string actionJson)
+        {
+            if (string.IsNullOrEmpty(actionJson))
+            {
+                Debug.LogError("InputAction binding override json can not be null or empty.");
+                return;
+            }
+
+            var action = GetInputAction(actionId);
+            if (action == null)
+            {
+                Debug.LogError($"InputAction not found. id: {actionId}");
+                return;
+            }
+
+            action.LoadBindingOverridesFromJson(actionJson);
+        }
+
+        public void ApplyInputActionBindingOverrideFromJsonWithName(string actionMapName, string actionName, string actionJson)
+            => ApplyInputActionBindingOverrideFromJsonWithName(DefaultInputActionAssetId, actionMapName, actionName, actionJson);
+
+        public void ApplyInputActionBindingOverrideFromJsonWithName(string assetId, string actionMapName, string actionName, string actionJson)
+        {
+            if (string.IsNullOrEmpty(actionJson))
+            {
+                Debug.LogError("InputAction binding override json can not be null or empty.");
+                return;
+            }
+
+            var action = GetInputActionWithName(assetId, actionMapName, actionName);
+            if (action == null)
+            {
+                Debug.LogError($"InputAction not found. assetId: {assetId}, actionMapName: {actionMapName}, actionName: {actionName}");
+                return;
+            }
+
+            action.LoadBindingOverridesFromJson(actionJson);
+        }
+
+        public string GetOverrideJsonOfInputActionMap(string actionMapId)
+        {
+            var actionMap = GetInputActionMap(actionMapId);
+            if (actionMap == null)
+            {
+                return null;
+            }
+
+            return actionMap.SaveBindingOverridesAsJson();
+        }
+
+        public string GetOverrideJsonOfInputActionMapWithName(string actionMapName)
+            => GetOverrideJsonOfInputActionMapWithName(DefaultInputActionAssetId, actionMapName);
+
+        public string GetOverrideJsonOfInputActionMapWithName(string assetId, string actionMapName)
+        {
+            var actionMap = GetInputActionMapWithName(assetId, actionMapName);
+            if (actionMap == null)
+            {
+                return null;
+            }
+
+            return actionMap.SaveBindingOverridesAsJson();
+        }
+
+        public string GetJsonOfInputActionMap(string actionMapId)
+        {
+            var actionMap = GetInputActionMap(actionMapId);
+            if (actionMap == null)
+            {
+                return null;
+            }
+
+            return actionMap.ToJson();
+        }
+
+        public string GetJsonOfInputActionMapWithName(string actionMapName)
+            => GetJsonOfInputActionMapWithName(DefaultInputActionAssetId, actionMapName);
+
+        public string GetJsonOfInputActionMapWithName(string assetId, string actionMapName)
+        {
+            var actionMap = GetInputActionMapWithName(assetId, actionMapName);
+            if (actionMap == null)
+            {
+                return null;
+            }
+
+            return actionMap.ToJson();
+        }
+
+        public void ApplyInputActionMapBindingOverrideFromJson(string actionMapId, string actionMapJson)
+        {
+            if (string.IsNullOrEmpty(actionMapJson))
+            {
+                Debug.LogError("InputActionMap binding override json can not be null or empty.");
+                return;
+            }
+
+            var actionMap = GetInputActionMap(actionMapId);
+            if (actionMap == null)
+            {
+                Debug.LogError($"InputActionMap not found. id: {actionMapId}");
+                return;
+            }
+
+            actionMap.LoadBindingOverridesFromJson(actionMapJson);
+        }
+
+        public void ApplyInputActionMapBindingOverrideFromJsonWithName(string actionMapName, string actionMapJson)
+            => ApplyInputActionMapBindingOverrideFromJsonWithName(DefaultInputActionAssetId, actionMapName, actionMapJson);
+
+        public void ApplyInputActionMapBindingOverrideFromJsonWithName(string assetId, string actionMapName, string actionMapJson)
+        {
+            if (string.IsNullOrEmpty(actionMapJson))
+            {
+                Debug.LogError("InputActionMap binding override json can not be null or empty.");
+                return;
+            }
+
+            var actionMap = GetInputActionMapWithName(assetId, actionMapName);
+            if (actionMap == null)
+            {
+                Debug.LogError($"InputActionMap not found. assetId: {assetId}, actionMapName: {actionMapName}");
+                return;
+            }
+
+            actionMap.LoadBindingOverridesFromJson(actionMapJson);
+        }
+
+        public void RemoveAllInputActionAssetBindingOverrides()
+            => RemoveAllInputActionAssetBindingOverrides(DefaultInputActionAssetId);
+
+        public void RemoveAllInputActionAssetBindingOverrides(string assetId)
+        {
+            if (!IsValidInputActionAssetId(assetId) ||
+                !_inputActionAssets.TryGetValue(assetId, out var asset) ||
+                asset == null)
+            {
+                Debug.LogError($"InputActionAsset not found. id: {assetId}");
+                return;
+            }
+            asset.RemoveAllBindingOverrides();
+        }
+
+        public string GetOverrideJsonOfInputActionAsset()
+            => GetOverrideJsonOfInputActionAsset(DefaultInputActionAssetId);
+
+        public string GetOverrideJsonOfInputActionAsset(string assetId)
+        {
+            if (!IsValidInputActionAssetId(assetId) ||
+                !_inputActionAssets.TryGetValue(assetId, out var asset) ||
+                asset == null)
+            {
+                return null;
+            }
+
+            return asset.SaveBindingOverridesAsJson();
+        }
+
+        public string GetJsonOfInputActionAsset()
+            => GetJsonOfInputActionAsset(DefaultInputActionAssetId);
+
+        public string GetJsonOfInputActionAsset(string assetId)
+        {
+            if (!IsValidInputActionAssetId(assetId) ||
+                !_inputActionAssets.TryGetValue(assetId, out var asset) ||
+                asset == null)
+            {
+                return null;
+            }
+
+            return asset.ToJson();
+        }
+
+        public void ApplyInputActionAssetBindingOverrideFromJson(string assetJson)
+            => ApplyInputActionAssetBindingOverrideFromJson(DefaultInputActionAssetId, assetJson);
+
+        public void ApplyInputActionAssetBindingOverrideFromJson(string assetId, string assetJson)
+        {
+            if (string.IsNullOrEmpty(assetJson))
+            {
+                Debug.LogError("InputActionAsset binding override json can not be null or empty.");
+                return;
+            }
+
+            if (!IsValidInputActionAssetId(assetId) ||
+                !_inputActionAssets.TryGetValue(assetId, out var asset) ||
+                asset == null)
+            {
+                Debug.LogError($"InputActionAsset not found. id: {assetId}");
+                return;
+            }
+
+            asset.LoadBindingOverridesFromJson(assetJson);
+        }
+
+        public void AddInputActionAssetFromJson(string assetJson)
+            => AddInputActionAssetFromJson(DefaultInputActionAssetId, assetJson, false);
+
+        public void AddInputActionAssetFromJson(string assetJson, bool enable)
+            => AddInputActionAssetFromJson(DefaultInputActionAssetId, assetJson, enable);
+
+        public void AddInputActionAssetFromJson(string assetId, string assetJson)
+            => AddInputActionAssetFromJson(assetId, assetJson, false);
+
+        public void AddInputActionAssetFromJson(string assetId, string assetJson, bool enable)
+        {
+            if (string.IsNullOrEmpty(assetJson))
+            {
+                Debug.LogError("InputActionAsset json can not be null or empty.");
+                return;
+            }
+
+            try
+            {
+                var asset = InputActionAsset.FromJson(assetJson);
+                _createdAssets.Add(asset);
+                AddInputActionAsset(asset, assetId, enable);
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogException(ex);
+            }
+        }
+
+        public InputAction GetInputAction(string actionId)
+        {
+            if (!IsValidInputActionId(actionId))
+            {
+                return null;
+            }
+
+            return _inputActions.GetValueOrDefault(actionId);
+        }
+
+        public InputAction GetInputActionWithName(string actionMapName, string actionName)
+            => GetInputActionWithName(DefaultInputActionAssetId, actionMapName, actionName);
+
+        public InputAction GetInputActionWithName(string assetId, string actionMapName, string actionName)
+        {
+            if (!IsValidInputActionAssetId(assetId) ||
+                string.IsNullOrEmpty(actionMapName) ||
+                string.IsNullOrEmpty(actionName) ||
+                !_inputActionAssets.TryGetValue(assetId, out var asset))
+            {
+                return null;
+            }
+
+            return asset.FindActionMap(actionMapName)?.FindAction(actionName);
+        }
+
+        public InputActionMap GetInputActionMap(string actionMapId)
+        {
+            if (!IsValidInputActionMapId(actionMapId))
+            {
+                return null;
+            }
+
+            return _inputActionMaps.GetValueOrDefault(actionMapId);
+        }
+
+        public InputActionMap GetInputActionMapWithName(string actionMapName)
+            => GetInputActionMapWithName(DefaultInputActionAssetId, actionMapName);
+
+        public InputActionMap GetInputActionMapWithName(string assetId, string actionMapName)
+        {
+            if (!IsValidInputActionAssetId(assetId) ||
+                string.IsNullOrEmpty(actionMapName) ||
+                !_inputActionAssets.TryGetValue(assetId, out var asset))
+            {
+                return null;
+            }
+
+            return asset.FindActionMap(actionMapName);
+        }
+
+        public InputActionAsset GetInputActionAsset()
+            => GetInputActionAsset(DefaultInputActionAssetId);
+
+        public InputActionAsset GetInputActionAsset(string assetId)
+        {
+            if (!IsValidInputActionAssetId(assetId))
+            {
+                return null;
+            }
+
+            return _inputActionAssets.GetValueOrDefault(assetId);
+        }
+
+        public void SetInputActionAssetEnable(bool enable)
+            => SetInputActionAssetEnable(DefaultInputActionAssetId, enable);
+
+        public void SetInputActionAssetEnable(string assetId, bool enable)
+        {
+            if (!IsValidInputActionAssetId(assetId) ||
+                !_inputActionAssets.TryGetValue(assetId, out var asset) ||
+                asset == null)
+            {
+                return;
+            }
+
+            if (enable)
+            {
+                Debug.Log($"InputActionAsset enabled. id: {assetId}");
+
+                asset.Enable();
+            }
+            else
+            {
+                Debug.Log($"InputActionAsset disabled. id: {assetId}");
+
+                asset.Disable();
+            }
+        }
+
+        public void AddInputActionAsset(InputActionAsset asset)
+            => AddInputActionAsset(asset, DefaultInputActionAssetId, false);
+
+        public void AddInputActionAsset(InputActionAsset asset, bool enable)
+            => AddInputActionAsset(asset, DefaultInputActionAssetId, enable);
+
+        public void AddInputActionAsset(InputActionAsset asset, string assetId)
+            => AddInputActionAsset(asset, assetId, false);
+
+        public void AddInputActionAsset(InputActionAsset asset, string assetId, bool enable)
+        {
+            if (_inputActionAssets.ContainsKey(assetId))
+            {
+                Debug.LogWarning($"InputActionAsset with id '{assetId}' already exists. It will be replaced.");
+            }
+
+            if (AddInputActionAssetToDictionary(asset, assetId))
+            {
+                if (enable)
+                {
+                    asset.Enable();
+                }
+            }
+        }
+
+        private bool RemoveInputActionFromDictionary(InputAction action)
+            => RemoveInputActionFromDictionary(action?.id.ToString());
+
+        private bool RemoveInputActionFromDictionary(string actionId)
+        {
+            if (!IsValidInputActionId(actionId) ||
+               !_inputActions.TryGetValue(actionId, out var oldAction) ||
+               oldAction == null)
+            {
+                return false;
+            }
+
+            _inputActions.Remove(actionId);
+
+            return true;
+        }
+
+        private bool RemoveInputActionMapFromDictionary(InputActionMap actionMap)
+            => RemoveInputActionMapFromDictionary(actionMap?.id.ToString());
+
+        private bool RemoveInputActionMapFromDictionary(string actionMapId)
+        {
+            if (!IsValidInputActionMapId(actionMapId) ||
+               !_inputActionMaps.TryGetValue(actionMapId, out var oldMap) ||
+               oldMap == null)
+            {
+                return false;
+            }
+
+            _inputActionMaps.Remove(actionMapId);
+
+            foreach (var action in oldMap.actions)
+            {
+                RemoveInputActionFromDictionary(action);
+            }
+
+            return true;
+        }
+
+        private bool RemoveInputActionAssetFromDictionary(string assetId, InputActionAsset replacement = null)
+        {
+            if (!IsValidInputActionAssetId(assetId) ||
+               !_inputActionAssets.TryGetValue(assetId, out var oldAsset) ||
+               oldAsset == null)
+            {
+                return false;
+            }
+
+            _inputActionAssets.Remove(assetId);
+
+            foreach (var actionMap in oldAsset.actionMaps)
+            {
+                RemoveInputActionMapFromDictionary(actionMap);
+            }
+
+            // The asset an id was replaced with keeps its state; only an asset that really left
+            // the manager stops firing. One the manager built itself has no owner left, so it is
+            // destroyed with the removal, while an asset from outside stays with its caller.
+            if (!ReferenceEquals(oldAsset, replacement))
+            {
+                oldAsset.Disable();
+
+                OnAssetRemoved?.Invoke(assetId, oldAsset);
+
+                if (_createdAssets.Remove(oldAsset))
+                {
+                    UnityEngine.Object.Destroy(oldAsset);
+                }
+            }
+
+            return true;
+        }
+
+        private bool AddInputActionToDictionary(InputAction action)
+        {
+            if (action == null)
+            {
+                return false;
+            }
+
+            string actionId = action.id.ToString();
+            _inputActions[actionId] = action;
+
+            return true;
+        }
+
+        private bool AddInputActionMapToDictionary(InputActionMap actionMap)
+        {
+            if (actionMap == null)
+            {
+                return false;
+            }
+
+            RemoveInputActionMapFromDictionary(actionMap);
+
+            string actionMapId = actionMap.id.ToString();
+            _inputActionMaps[actionMapId] = actionMap;
+
+            foreach (var action in actionMap.actions)
+            {
+                AddInputActionToDictionary(action);
+            }
+
+            return true;
+        }
+
+        private bool AddInputActionAssetToDictionary(InputActionAsset asset, string assetId)
+        {
+            if (asset == null ||
+               !IsValidInputActionAssetId(assetId))
+            {
+                return false;
+            }
+
+            RemoveInputActionAssetFromDictionary(assetId, asset);
+
+            _inputActionAssets[assetId] = asset;
+
+            foreach (var actionMap in asset.actionMaps)
+            {
+                AddInputActionMapToDictionary(actionMap);
+            }
+
+            OnAssetAdded?.Invoke(assetId, asset);
+
+            return true;
+        }
+
+        private bool IsValidInputActionId(string inputActionId)
+        {
+            if (string.IsNullOrEmpty(inputActionId))
+            {
+                Debug.LogError("InputAction id can not be null or empty.");
+                return false;
+            }
+
+            return true;
+        }
+
+        private bool IsValidInputActionMapId(string inputActionMapId)
+        {
+            if (string.IsNullOrEmpty(inputActionMapId))
+            {
+                Debug.LogError("InputActionMap id can not be null or empty.");
+                return false;
+            }
+
+            return true;
+        }
+
+        private bool IsValidInputActionAssetId(string assetId)
+        {
+            if (string.IsNullOrEmpty(assetId))
+            {
+                Debug.LogError("InputActionAsset id can not be null or empty.");
+                return false;
+            }
+
+            return true;
+        }
+    }
+}

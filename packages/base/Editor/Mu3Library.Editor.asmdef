@@ -1,0 +1,19 @@
+{
+    "name": "Mu3Library.Editor",
+    "rootNamespace": "Mu3Library.Editor",
+    "references": [
+        "GUID:f4e0cdb7fec9e6a40b6c416ba823166b",
+        "Mu3Library.Multiplayer"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

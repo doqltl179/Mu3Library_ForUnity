@@ -1,0 +1,1652 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text.RegularExpressions;
+using Mu3Library.Multiplayer;
+using Mu3Library.Multiplayer.Backend;
+using Mu3Library.Multiplayer.Data;
+using Mu3Library.Multiplayer.Local;
+using Mu3Library.Multiplayer.Protocol;
+using NUnit.Framework;
+using UnityEngine;
+using UnityEngine.TestTools;
+
+namespace Mu3Library.Tests
+{
+    /// <summary>
+    /// Lobby data and participant data during a session (FR-9, FR-11, NFR-5).
+    /// </summary>
+    public partial class MultiplayerSessionTests
+    {
+        #region Lobby Data
+        [Test]
+        public void LobbyData_FromTheHost_ReachesEveryPlayerAndLobbySearch()
+        {
+            // FR-11
+            LobbyCreateOptions options = PublicOptions(new SessionRules(4));
+            options.Data["map"] = "forest";
+            Node host = CreateHost(CreateNode("Host"), options);
+            Node a = JoinNew("A", host);
+            Node b = JoinNew("B", host);
+            Assert.That(a.Manager.LobbyData["map"], Is.EqualTo("forest"));
+
+            Assert.That(host.Manager.SetLobbyData("map", "desert").IsSuccess, Is.True);
+            Assert.That(host.Manager.SetLobbyData("mode", "coop").IsSuccess, Is.True);
+            Assert.That(host.Manager.SetLobbyData("mode", "coop").IsSuccess, Is.True, "setting the same value again");
+            Assert.That(host.LobbyDataChanges.Count, Is.EqualTo(2), "the host's own events arrive before the calls return");
+            Pump();
+
+            foreach (Node node in new[] { host, a, b })
+            {
+                Assert.That(node.LobbyDataChanges, Is.EqualTo(new[] { ("map", "desert"), ("mode", "coop") }), node.Backend.PlayerName);
+                Assert.That(node.Manager.LobbyData, Is.EquivalentTo(new Dictionary<string, string> { ["map"] = "desert", ["mode"] = "coop" }));
+            }
+
+            LobbyInfo found = Search(CreateNode("Seeker")).Lobbies.Single();
+            Assert.That(found.Data["map"], Is.EqualTo("desert"));
+            Assert.That(found.Data["mode"], Is.EqualTo("coop"));
+        }
+
+        [Test]
+        public void LobbyData_FromAClient_IsRefusedWithNotHost()
+        {
+            // FR-11
+            Node host = CreateHost("Host");
+            Node a = JoinNew("A", host);
+
+            Assert.That(a.Manager.SetLobbyData("map", "desert").Reason, Is.EqualTo(MultiplayerReason.NotHost));
+            Pump();
+
+            Assert.That(host.LobbyDataChanges.Concat(a.LobbyDataChanges), Is.Empty);
+            Assert.That(host.Manager.LobbyData.ContainsKey("map") || a.Manager.LobbyData.ContainsKey("map"), Is.False);
+            Assert.That(host.Backend.GetLobbyData(host.Manager.CurrentLobbyId, "map"), Is.Null);
+            Assert.That(CreateNode("Lonely").Manager.SetLobbyData("map", "desert").Reason, Is.EqualTo(MultiplayerReason.InvalidState));
+        }
+
+        [Test]
+        public void LobbyData_RefusesReservedEmptyAndLongKeys_NullValues_AndTooMuchData()
+        {
+            // FR-11: the library's own keys stay out of the game's reach.
+            Node host = CreateHost("Host");
+            LobbyId lobby = host.Manager.CurrentLobbyId;
+
+            // Steam does not tell keys apart by case, so the reserved prefix counts in any case.
+            foreach (string key in new[] { LobbyDataKeys.State, "MU3.STATE", "Mu3.custom", string.Empty, null, new string('k', MultiplayerLimits.MaxDataKeyLength + 1) })
+            {
+                Assert.That(host.Manager.SetLobbyData(key, "spoofed").Reason, Is.EqualTo(MultiplayerReason.InvalidArgument), key);
+            }
+
+            // Text that would not reach the other players unchanged.
+            foreach (string text in UncleanTexts)
+            {
+                Assert.That(host.Manager.SetLobbyData(text, "value").Reason, Is.EqualTo(MultiplayerReason.InvalidArgument), Escape(text));
+                Assert.That(host.Manager.SetLobbyData("map", text).Reason, Is.EqualTo(MultiplayerReason.InvalidArgument), Escape(text));
+            }
+
+            Assert.That(host.Manager.SetLobbyData("map", null).Reason, Is.EqualTo(MultiplayerReason.InvalidArgument));
+            Assert.That(host.Backend.GetLobbyData(lobby, LobbyDataKeys.State), Is.EqualTo(LobbyDataKeys.StateLobby));
+
+            // The limit counts UTF-8 bytes: three for each of these characters.
+            Assert.That(host.Manager.SetLobbyData("k", new string('가', MultiplayerLimits.MaxLobbyDataSize / 3 + 1)).Reason, Is.EqualTo(MultiplayerReason.MessageTooLarge));
+
+            string longest = new string('k', MultiplayerLimits.MaxDataKeyLength);
+            Assert.That(host.Manager.SetLobbyData(longest, new string('v', MultiplayerLimits.MaxLobbyDataSize - longest.Length)).IsSuccess, Is.True);
+            Assert.That(host.Manager.SetLobbyData("x", "1").Reason, Is.EqualTo(MultiplayerReason.MessageTooLarge));
+
+            // A new value takes the place of the old one in the count.
+            Assert.That(host.Manager.SetLobbyData(longest, "short").IsSuccess, Is.True);
+            Assert.That(host.Manager.SetLobbyData("x", "1").IsSuccess, Is.True);
+            Assert.That(host.Manager.SetLobbyData("emoji \U0001F3AE", "\U0001F3AE").IsSuccess, Is.True, "a surrogate pair is fine");
+            Assert.That(host.LobbyDataChanges.Select(change => change.Key), Is.EqualTo(new[] { longest, longest, "x", "emoji \U0001F3AE" }));
+        }
+
+        [Test]
+        public void CreateLobby_RefusesALongKey_AndTooMuchData()
+        {
+            // FR-11: the data a lobby starts with follows the same rules.
+            Node host = CreateNode("Host");
+            LobbyCreateOptions longKey = PublicOptions(SessionRules.Default);
+            longKey.Data[new string('k', MultiplayerLimits.MaxDataKeyLength + 1)] = "value";
+            LobbyCreateOptions large = PublicOptions(SessionRules.Default);
+            large.Data["a"] = new string('v', MultiplayerLimits.MaxLobbyDataSize / 2);
+            large.Data["b"] = new string('v', MultiplayerLimits.MaxLobbyDataSize / 2);
+            LobbyCreateOptions reserved = PublicOptions(SessionRules.Default);
+            reserved.Data["MU3.game"] = "spoofed";
+            LobbyCreateOptions unclean = PublicOptions(SessionRules.Default);
+            unclean.Data["map"] = "forest\0desert";
+
+            Assert.That(CreateLobby(host, longKey).Reason, Is.EqualTo(MultiplayerReason.InvalidArgument));
+            Assert.That(CreateLobby(host, reserved).Reason, Is.EqualTo(MultiplayerReason.InvalidArgument));
+            Assert.That(CreateLobby(host, unclean).Reason, Is.EqualTo(MultiplayerReason.InvalidArgument));
+            Assert.That(CreateLobby(host, large).Reason, Is.EqualTo(MultiplayerReason.MessageTooLarge));
+            Assert.That(_network.Lobbies, Is.Empty);
+        }
+
+        [Test]
+        public void CreateLobby_RefusesALobbyNameWithANulOrAnUnpairedSurrogate()
+        {
+            // FR-5, FR-11, #387: the manager writes the name into the lobby data, so it follows the
+            // rules of the lobby data a game sets: Steam cut a name at its NUL on AppID 480 on
+            // 2026-11-08, and every backend reads an unpaired surrogate as U+FFFD, so search
+            // would show another name.
+            Node host = CreateNode("Host");
+            foreach (string text in UncleanTexts)
+            {
+                LobbyCreateOptions options = PublicOptions(SessionRules.Default);
+                options.Name = "Room " + text;
+                Assert.That(CreateLobby(host, options).Reason, Is.EqualTo(MultiplayerReason.InvalidArgument), Escape(text));
+            }
+
+            Assert.That(_network.Lobbies, Is.Empty);
+            Assert.That(host.Manager.State, Is.EqualTo(SessionState.Offline));
+
+            LobbyCreateOptions paired = PublicOptions(SessionRules.Default);
+            paired.Name = "Room \U0001F3AE";
+            Assert.That(CreateLobby(host, paired).IsSuccess, Is.True, "a surrogate pair is fine");
+            Assert.That(Search(CreateNode("Seeker")).Lobbies.Single().Name, Is.EqualTo("Room \U0001F3AE"));
+        }
+
+        [Test]
+        public void Initialize_RefusesAGameIdWithANulOrAnUnpairedSurrogate()
+        {
+            // FR-6, FR-30, #387: the manager writes the game ID into the lobby data and searches by
+            // it. Steam cut the ID it held at the NUL on AppID 480 on 2026-11-08, so the game found
+            // none of its own lobbies there, and every backend reads an unpaired surrogate as
+            // U+FFFD, which matches the game's own ID on none.
+            LocalBackend backend = CreateRawBackend("Player");
+            foreach (string text in UncleanTexts)
+            {
+                using MultiplayerManager manager = new MultiplayerManager();
+                Assert.That(manager.Initialize(backend, new MultiplayerConfig("game " + text, 1)).Reason, Is.EqualTo(MultiplayerReason.InvalidArgument), Escape(text));
+                Assert.That(manager.IsInitialized, Is.False, Escape(text));
+            }
+
+            using MultiplayerManager paired = new MultiplayerManager();
+            Assert.That(paired.Initialize(backend, new MultiplayerConfig("game \U0001F3AE", 1)).IsSuccess, Is.True, "a surrogate pair is fine");
+        }
+
+        [Test]
+        public void SearchLobbies_RefusesAFilterWithANulOrAnUnpairedSurrogate_AtOnce()
+        {
+            // FR-6, #387: every backend compares a filter as Steam does, up to its first NUL and
+            // with U+FFFD for an unpaired surrogate, so such a filter would find lobbies by other
+            // text than it holds, and the lobby data a game sets refuses such text as well.
+            LobbyCreateOptions options = PublicOptions(SessionRules.Default);
+            options.Data["map"] = "desert";
+            options.Data["emoji \U0001F3AE"] = "\U0001F3AE";
+            Node host = CreateHost(CreateNode("Host"), options);
+            Node seeker = CreateNode("Seeker");
+            foreach (string text in UncleanTexts)
+            {
+                (string Description, LobbySearchQuery Query)[] queries =
+                {
+                    ("a string filter's key", new LobbySearchQuery().AddStringFilter("map" + text, "desert")),
+                    ("a string filter's value", new LobbySearchQuery().AddStringFilter("map", "desert" + text)),
+                    ("a numeric filter's key", new LobbySearchQuery().AddNumericFilter("map" + text, 0)),
+                    ("a later filter's value", new LobbySearchQuery().AddStringFilter("map", "desert").AddStringFilter("mode", text, LobbyComparison.NotEqual)),
+                    ("a skipped filter's value", new LobbySearchQuery().AddStringFilter(null, text)),
+                };
+
+                foreach ((string description, LobbySearchQuery query) in queries)
+                {
+                    LobbySearchResult? result = null;
+                    seeker.Manager.SearchLobbies(query, answer => result = answer);
+                    Assert.That(result?.Reason, Is.EqualTo(MultiplayerReason.InvalidArgument), $"{description} with {Escape(text)} is refused at once");
+                    Assert.That(result?.Lobbies, Is.Empty);
+                }
+            }
+
+            // A null key or value holds neither, and a surrogate pair is fine.
+            LobbySearchQuery clean = new LobbySearchQuery()
+                .AddStringFilter("map", "desert")
+                .AddStringFilter("map", null, LobbyComparison.NotEqual)
+                .AddStringFilter(null, null)
+                .AddNumericFilter(null, 0)
+                .AddStringFilter("EMOJI \U0001F3AE", "\U0001F3AE");
+            LobbySearchResult found = Search(seeker, clean);
+            Assert.That(found.IsSuccess, Is.True);
+            Assert.That(found.Lobbies.Single().Id, Is.EqualTo(host.Manager.CurrentLobbyId));
+        }
+
+        [Test]
+        public void LobbyData_AKeyThatDiffersOnlyByCase_IsRefused_SoEveryCopyKeepsTheSameKeys()
+        {
+            // FR-11, FR-38: Steam keeps one value for both keys, so every backend refuses the second one.
+            LobbyCreateOptions options = PublicOptions(new SessionRules(4));
+            options.Data["Map"] = "desert";
+            Node host = CreateHost(CreateNode("Host"), options);
+            Node a = JoinNew("A", host);
+            LobbyId lobby = host.Manager.CurrentLobbyId;
+
+            LogAssert.Expect(LogType.Warning, new Regex("'map' differs from the key 'Map' only by case"));
+            Assert.That(host.Manager.SetLobbyData("map", "forest").Reason, Is.EqualTo(MultiplayerReason.InvalidArgument));
+            LogAssert.Expect(LogType.Warning, new Regex("'MAP' differs from the key 'Map' only by case"));
+            Assert.That(host.Manager.SetLobbyData("MAP", new string('v', MultiplayerLimits.MaxLobbyDataSize)).Reason, Is.EqualTo(MultiplayerReason.InvalidArgument),
+                "the key is refused before its size counts");
+            Assert.That(host.Manager.SetLobbyData("Map", "forest").IsSuccess, Is.True, "the key as it is spelled");
+            Pump();
+
+            foreach (Node node in new[] { host, a })
+            {
+                string name = node.Backend.PlayerName;
+                Assert.That(node.Manager.LobbyData, Is.EquivalentTo(new Dictionary<string, string> { ["Map"] = "forest" }), name);
+                Assert.That(node.Manager.LobbyData["map"], Is.EqualTo("forest"), $"{name} reads a key in any case, as Steam does");
+                Assert.That(node.LobbyDataChanges, Is.EqualTo(new[] { ("Map", "forest") }), name);
+            }
+
+            Assert.That(host.Backend.GetLobbyData(lobby, "map"), Is.EqualTo("forest"), "the lobby reads a key in any case, as a Steam lobby does");
+            Assert.That(a.Backend.GetLobbyData(lobby, "MAP"), Is.EqualTo("forest"), "so does a member's");
+            LobbyInfo found = Search(CreateNode("Seeker")).Lobbies.Single();
+            Assert.That(found.Data, Is.EquivalentTo(new Dictionary<string, string> { ["Map"] = "forest" }));
+            Assert.That(found.Data["MAP"], Is.EqualTo("forest"), "a search result reads a key in any case");
+        }
+
+        [Test]
+        public void CreateLobby_KeysThatDifferOnlyByCase_AreRefused()
+        {
+            // FR-11: the data a lobby starts with follows the same rule.
+            Node host = CreateNode("Host");
+            LobbyCreateOptions options = PublicOptions(SessionRules.Default);
+            options.Data["Map"] = "desert";
+            options.Data["map"] = "forest";
+
+            LogAssert.Expect(LogType.Warning, new Regex("differs from the key '(Map|map)' only by case"));
+            Assert.That(CreateLobby(host, options).Reason, Is.EqualTo(MultiplayerReason.InvalidArgument));
+            Assert.That(host.Manager.State, Is.EqualTo(SessionState.Offline));
+            Assert.That(_network.Lobbies, Is.Empty);
+        }
+
+        [Test]
+        public void LobbyData_DeletedByTheHost_LeavesEveryCopyAndLobbySearch_AndFreesItsRoom()
+        {
+            // FR-11: a long session that keeps changing its keys deletes the old ones.
+            LobbyCreateOptions options = PublicOptions(new SessionRules(4));
+            options.Data["map"] = "forest";
+            options.Data["mode"] = "coop";
+            Node host = CreateHost(CreateNode("Host"), options);
+            Node a = JoinNew("A", host);
+            Node b = JoinNew("B", host);
+            LobbyId lobby = host.Manager.CurrentLobbyId;
+            Node seeker = CreateNode("Seeker");
+            Assert.That(Search(seeker, new LobbySearchQuery().AddStringFilter("map", "forest")).Lobbies.Count, Is.EqualTo(1));
+
+            Assert.That(host.Manager.DeleteLobbyData("map").IsSuccess, Is.True);
+            Assert.That(host.LobbyDataChanges, Is.EqualTo(new[] { ("map", (string)null) }), "the host's own event arrives before the call returns");
+            Assert.That(host.Manager.DeleteLobbyData("map").IsSuccess, Is.True, "deleting a key that is gone changes nothing");
+            Assert.That(host.Manager.DeleteLobbyData("never").IsSuccess, Is.True);
+            Pump();
+
+            foreach (Node node in new[] { host, a, b })
+            {
+                string name = node.Backend.PlayerName;
+                Assert.That(node.LobbyDataChanges, Is.EqualTo(new[] { ("map", (string)null) }), name);
+                Assert.That(node.Manager.LobbyData, Is.EquivalentTo(new Dictionary<string, string> { ["mode"] = "coop" }), name);
+            }
+
+            Assert.That(host.Backend.GetLobbyData(lobby, "map"), Is.Null);
+            Assert.That(Search(seeker).Lobbies.Single().Data, Is.EquivalentTo(new Dictionary<string, string> { ["mode"] = "coop" }));
+            Assert.That(Search(seeker, new LobbySearchQuery().AddStringFilter("map", "forest")).Lobbies, Is.Empty, "search no longer finds the lobby by the key");
+
+            // The key and value it held leave the count.
+            string fill = new string('v', MultiplayerLimits.MaxLobbyDataSize - "fill".Length - "mode".Length - "coop".Length);
+            Assert.That(host.Manager.SetLobbyData("fill", fill).IsSuccess, Is.True);
+            Assert.That(host.Manager.SetLobbyData("x", "1").Reason, Is.EqualTo(MultiplayerReason.MessageTooLarge));
+            Assert.That(host.Manager.DeleteLobbyData("mode").IsSuccess, Is.True);
+            Assert.That(host.Manager.SetLobbyData("x", "1").IsSuccess, Is.True);
+            Pump();
+
+            // A player who joins later never hears of the deleted keys.
+            Node late = JoinNew("Late", host);
+            Assert.That(late.Manager.LobbyData.Keys, Is.EquivalentTo(new[] { "fill", "x" }));
+            Assert.That(a.Manager.LobbyData.Keys, Is.EquivalentTo(new[] { "fill", "x" }));
+        }
+
+        [Test]
+        public void LobbyData_WrittenEmpty_IsDeleted_FromEveryCopyAndLobbySearch()
+        {
+            // FR-11, FR-38, #313 in this process: a Steam lobby keeps a key it holds when the key
+            // is set empty but writes none it lacks, so an empty value deletes the key, and a lobby
+            // created with one starts without it; neither takes room toward the limit. The test of
+            // the machine-wide network and Steam's integration test check the same.
+            LobbyCreateOptions options = PublicOptions(new SessionRules(4));
+            options.Data["map"] = "desert";
+            options.Data["e1"] = string.Empty;
+            Node host = CreateHost(CreateNode("Host"), options);
+            Node a = JoinNew("A", host);
+            LobbyId lobby = host.Manager.CurrentLobbyId;
+            Node seeker = CreateNode("Seeker");
+            Assert.That(a.Manager.LobbyData, Is.EquivalentTo(new Dictionary<string, string> { ["map"] = "desert" }), "the lobby starts without the key written empty");
+
+            Assert.That(host.Manager.SetLobbyData("mode", "coop").IsSuccess, Is.True);
+            Assert.That(Search(seeker, new LobbySearchQuery().AddStringFilter("mode", "coop")).Lobbies.Count, Is.EqualTo(1));
+            Assert.That(host.Manager.SetLobbyData("MODE", string.Empty).IsSuccess, Is.True, "the key is found in any case, as a deletion finds it");
+            Assert.That(host.Manager.SetLobbyData("never", string.Empty).IsSuccess, Is.True, "a key the lobby data does not hold changes nothing");
+            Assert.That(a.Manager.SetLobbyData("map", string.Empty).Reason, Is.EqualTo(MultiplayerReason.NotHost));
+            Pump();
+
+            foreach (Node node in new[] { host, a })
+            {
+                string name = node.Backend.PlayerName;
+                Assert.That(node.Manager.LobbyData, Is.EquivalentTo(new Dictionary<string, string> { ["map"] = "desert" }), name);
+                Assert.That(node.LobbyDataChanges, Is.EqualTo(new[] { ("mode", "coop"), ("mode", (string)null) }), name);
+                Assert.That(node.Backend.GetLobbyData(lobby, "mode"), Is.Null, name);
+                Assert.That(node.Backend.GetLobbyData(lobby, "e1"), Is.Null, name);
+            }
+
+            Assert.That(_network.FindLobby(lobby).Data.Keys.Where(key => !LobbyDataKeys.IsReserved(key)), Is.EquivalentTo(new[] { "map" }));
+            Assert.That(Search(seeker).Lobbies.Single().Data, Is.EquivalentTo(new Dictionary<string, string> { ["map"] = "desert" }));
+            Assert.That(Search(seeker, new LobbySearchQuery().AddStringFilter("mode", "coop")).Lobbies, Is.Empty);
+
+            // The key written empty takes no room; a deleted one frees its own.
+            string fill = new string('v', MultiplayerLimits.MaxLobbyDataSize - "map".Length - "desert".Length - "fill".Length);
+            Assert.That(host.Manager.SetLobbyData("fill", fill).IsSuccess, Is.True);
+            Assert.That(host.Manager.SetLobbyData("x", "1").Reason, Is.EqualTo(MultiplayerReason.MessageTooLarge));
+            Assert.That(host.Manager.SetLobbyData("x", string.Empty).IsSuccess, Is.True);
+            Assert.That(host.Manager.SetLobbyData("fill", string.Empty).IsSuccess, Is.True);
+            Assert.That(host.Manager.SetLobbyData("x", "1").IsSuccess, Is.True);
+
+            // So does a lobby's data at creation, whose keys still may not differ only by case.
+            Node other = CreateNode("Other");
+            LobbyCreateOptions clash = PublicOptions(SessionRules.Default);
+            clash.Data["Map"] = "desert";
+            clash.Data["map"] = string.Empty;
+            LogAssert.Expect(LogType.Warning, new Regex("differs from the key '(Map|map)' only by case"));
+            Assert.That(CreateLobby(other, clash).Reason, Is.EqualTo(MultiplayerReason.InvalidArgument));
+            LobbyCreateOptions full = PublicOptions(SessionRules.Default);
+            full.Data["fill"] = new string('v', MultiplayerLimits.MaxLobbyDataSize - "fill".Length);
+            full.Data["empty"] = string.Empty;
+            Assert.That(CreateLobby(other, full).IsSuccess, Is.True);
+            Assert.That(other.Manager.LobbyData.Keys, Is.EquivalentTo(new[] { "fill" }));
+        }
+
+        [Test]
+        public void Backend_WritingAnEmptyValue_KeepsOnlyAKeyTheLobbyHolds_AndSearchFiltersItAsSteamDoes()
+        {
+            // #343 in this process: the backend itself, which the manager never hands an empty
+            // value (#313), takes one as a Steam lobby took it on AppID 480 on 2026-11-04.
+            LocalBackend owner = CreateRawBackend("Owner");
+            LocalBackend seeker = CreateRawBackend("Seeker");
+            Dictionary<string, string> data = new Dictionary<string, string>
+            {
+                ["map"] = "desert",
+                ["e1"] = string.Empty,
+                ["n1"] = null,
+                [EmptyValueKey] = "v",
+            };
+            LobbyId lobby = LobbyId.None;
+            owner.CreateLobby(LobbyVisibility.Public, 4, data, (reason, id) => lobby = id);
+            Pump();
+            Assert.That(lobby.IsValid, Is.True);
+            Assert.That(_network.FindLobby(lobby).Data.Keys, Is.EquivalentTo(new[] { "map", EmptyValueKey }), "an empty value at creation writes no key");
+
+            // An empty value writes no key the lobby lacks, answering true, and leaves one it holds empty.
+            Assert.That(owner.SetLobbyData(lobby, "never", string.Empty), Is.True);
+            Assert.That(owner.SetLobbyData(lobby, "never", null), Is.True);
+            Assert.That(owner.SetLobbyData(lobby, EmptyValueKey.ToUpperInvariant(), string.Empty), Is.True);
+            Assert.That(_network.FindLobby(lobby).Data, Is.EquivalentTo(new Dictionary<string, string> { ["map"] = "desert", [EmptyValueKey] = string.Empty }));
+            Assert.That(owner.GetLobbyData(lobby, EmptyValueKey), Is.Null, "the Steam backend reads an empty value as none");
+            Assert.That(owner.DeleteLobbyData(lobby, "never"), Is.False, "Steam refuses to delete a key the lobby lacks");
+
+            // Search returns the key with the empty value, and filters compare it as Steam's did.
+            IReadOnlyList<BackendLobby> all = null;
+            seeker.SearchLobbies(new LobbySearchQuery(), (reason, found) => all = found);
+            Pump();
+            Assert.That(all.Single().Data, Is.EquivalentTo(new Dictionary<string, string> { ["map"] = "desert", [EmptyValueKey] = string.Empty }));
+
+            List<string> mismatches = new List<string>();
+            foreach ((string description, Func<LobbySearchQuery, LobbySearchQuery> addTo, bool isKept) in EmptyValueFilterChecks())
+            {
+                IReadOnlyList<BackendLobby> found = null;
+                seeker.SearchLobbies(addTo(new LobbySearchQuery()), (reason, lobbies) => found = lobbies);
+                Pump();
+                if ((found.Count == 1) != isKept)
+                {
+                    mismatches.Add($"{description} should {(isKept ? "keep" : "drop")} the lobby");
+                }
+            }
+
+            Assert.That(mismatches, Is.Empty);
+
+            Assert.That(owner.DeleteLobbyData(lobby, EmptyValueKey), Is.True);
+            Assert.That(_network.FindLobby(lobby).Data.Keys, Is.EquivalentTo(new[] { "map" }));
+        }
+
+        [Test]
+        public void LobbyData_DeletionFromAClient_IsRefusedWithNotHost_AndTheLibrarysKeysStay()
+        {
+            // FR-11: deleting follows the rules of setting.
+            LobbyCreateOptions options = PublicOptions(new SessionRules(4));
+            options.Data["Map"] = "desert";
+            Node host = CreateHost(CreateNode("Host"), options);
+            Node a = JoinNew("A", host);
+            LobbyId lobby = host.Manager.CurrentLobbyId;
+
+            Assert.That(a.Manager.DeleteLobbyData("Map").Reason, Is.EqualTo(MultiplayerReason.NotHost));
+            foreach (string key in new[] { LobbyDataKeys.State, LobbyDataKeys.GameId, "MU3.HOST", string.Empty, null, new string('k', MultiplayerLimits.MaxDataKeyLength + 1) })
+            {
+                Assert.That(host.Manager.DeleteLobbyData(key).Reason, Is.EqualTo(MultiplayerReason.InvalidArgument), key);
+            }
+
+            Assert.That(CreateNode("Lonely").Manager.DeleteLobbyData("Map").Reason, Is.EqualTo(MultiplayerReason.InvalidState));
+            Pump();
+
+            Assert.That(host.LobbyDataChanges.Concat(a.LobbyDataChanges), Is.Empty);
+            Assert.That(a.Manager.LobbyData["Map"], Is.EqualTo("desert"));
+            Assert.That(host.Backend.GetLobbyData(lobby, "Map"), Is.EqualTo("desert"));
+            Assert.That(host.Backend.GetLobbyData(lobby, LobbyDataKeys.State), Is.EqualTo(LobbyDataKeys.StateLobby));
+            Assert.That(host.Backend.GetLobbyData(lobby, LobbyDataKeys.GameId), Is.EqualTo(GameId));
+
+            // The key is found in any case, as reading finds it, and every player hears it as it is
+            // spelled; deleting first is how a key changes its case.
+            Assert.That(host.Manager.DeleteLobbyData("MAP").IsSuccess, Is.True);
+            Assert.That(host.Manager.SetLobbyData("map", "forest").IsSuccess, Is.True);
+            Pump();
+            foreach (Node node in new[] { host, a })
+            {
+                Assert.That(node.LobbyDataChanges, Is.EqualTo(new[] { ("Map", (string)null), ("map", "forest") }), node.Backend.PlayerName);
+                Assert.That(node.Manager.LobbyData.Keys, Is.EquivalentTo(new[] { "map" }), node.Backend.PlayerName);
+            }
+
+            Assert.That(host.Backend.GetLobbyData(lobby, "map"), Is.EqualTo("forest"));
+        }
+
+        [Test]
+        public void LobbySearch_FindsTheKeyOfAFilterInAnyCase_AsSteamDoes()
+        {
+            // FR-6, FR-38: the local backends match filter keys the way Steam does.
+            LobbyCreateOptions options = PublicOptions(new SessionRules(4));
+            options.Data["Map"] = "desert";
+            options.Data["Level"] = "3";
+            CreateHost(CreateNode("Host"), options);
+            Node seeker = CreateNode("Seeker");
+
+            Assert.That(Search(seeker, new LobbySearchQuery().AddStringFilter("MAP", "desert")).Lobbies.Count, Is.EqualTo(1));
+            Assert.That(Search(seeker, new LobbySearchQuery().AddNumericFilter("level", 3)).Lobbies.Count, Is.EqualTo(1));
+            Assert.That(Search(seeker, new LobbySearchQuery().AddStringFilter("map", "forest")).Lobbies, Is.Empty);
+            Assert.That(Search(seeker, new LobbySearchQuery().AddStringFilter("map", "desert", LobbyComparison.NotEqual)).Lobbies, Is.Empty);
+            Assert.That(Search(seeker, new LobbySearchQuery().AddNumericFilter("LEVEL", 3, LobbyComparison.GreaterThan)).Lobbies, Is.Empty);
+        }
+
+        [Test]
+        public void LobbySearch_ComparesStringValues_AsSteamDoes()
+        {
+            // FR-6, FR-38, #239, #286: every comparison of a string filter, as Steam made it, on
+            // the lobby's values and on a key the lobby lacks or holds empty.
+            LobbyCreateOptions options = PublicOptions(new SessionRules(4));
+            foreach (KeyValuePair<string, string> pair in StringComparisonData())
+            {
+                options.Data[pair.Key] = pair.Value;
+            }
+
+            CreateHost(CreateNode("Host"), options);
+            Node seeker = CreateNode("Seeker");
+
+            List<string> mismatches = new List<string>();
+            foreach ((string key, string filter, LobbyComparison comparison, bool isKept) in StringComparisonChecks())
+            {
+                bool isFound = Search(seeker, new LobbySearchQuery().AddStringFilter(key, filter, comparison)).Lobbies.Count == 1;
+                if (isFound != isKept)
+                {
+                    mismatches.Add(DescribeStringComparison(key, filter, comparison, isKept));
+                }
+            }
+
+            Assert.That(mismatches, Is.Empty);
+        }
+
+        [Test]
+        public void LobbySearch_SkipsAFilterWhoseKeyIsNullOrEmpty_AsTheSteamBackendDoes()
+        {
+            // FR-6, FR-38, #314: the Steam backend hands Steam no filter without a key, so a
+            // string or numeric filter with a null or empty key leaves out no lobby here either.
+            LobbyCreateOptions options = PublicOptions(new SessionRules(4));
+            options.Data[KeylessFilterLobbyKey] = KeylessFilterLobbyValue;
+            CreateHost(CreateNode("Host"), options);
+            Node seeker = CreateNode("Seeker");
+
+            List<string> mismatches = new List<string>();
+            foreach ((string description, LobbySearchQuery query, bool isKept) in KeylessFilterChecks())
+            {
+                if ((Search(seeker, query).Lobbies.Count == 1) != isKept)
+                {
+                    mismatches.Add($"{description} should {(isKept ? "keep" : "drop")} the lobby");
+                }
+            }
+
+            Assert.That(mismatches, Is.Empty);
+        }
+
+        [Test]
+        public void LobbySearch_ReadsAKeyTheLobbyLacks_AsZero_InNumericFilters_AsSteamDoes()
+        {
+            // FR-6, FR-38, #353: Steam's numeric filters read a key the lobby lacks as 0, so
+            // Equal, EqualOrLessThan, and EqualOrGreaterThan 0 keep the lobby here too.
+            LobbyCreateOptions options = PublicOptions(new SessionRules(4));
+            options.Data[KeylessFilterLobbyKey] = KeylessFilterLobbyValue;
+            CreateHost(CreateNode("Host"), options);
+            Node seeker = CreateNode("Seeker");
+
+            List<string> mismatches = new List<string>();
+            foreach ((string description, LobbySearchQuery query, bool isKept) in MissingKeyNumericFilterChecks())
+            {
+                if ((Search(seeker, query).Lobbies.Count == 1) != isKept)
+                {
+                    mismatches.Add($"{description} should {(isKept ? "keep" : "drop")} the lobby");
+                }
+            }
+
+            Assert.That(mismatches, Is.Empty);
+        }
+
+        [Test]
+        public void LobbySearch_ReadsAValueThatIsNotAWholeNumber_InNumericFilters_AsSteamDoes()
+        {
+            // FR-6, FR-38, #362: Steam's numeric filters read every value as a number, so a value
+            // such as "12abc", "0x10", or "2147483648" keeps the lobby under the number Steam
+            // reads, here too.
+            LobbyCreateOptions options = PublicOptions(new SessionRules(4));
+            foreach (KeyValuePair<string, string> pair in NumericReadingData(SteamNumericReadings, NumericReadingKey))
+            {
+                options.Data[pair.Key] = pair.Value;
+            }
+
+            CreateHost(CreateNode("Host"), options);
+            Node seeker = CreateNode("Seeker");
+
+            List<string> mismatches = new List<string>();
+            foreach ((string description, LobbySearchQuery query, bool isKept) in NumericReadingChecks(SteamNumericReadings, NumericReadingKey))
+            {
+                if ((Search(seeker, query).Lobbies.Count == 1) != isKept)
+                {
+                    mismatches.Add($"{description} should {(isKept ? "keep" : "drop")} the lobby");
+                }
+            }
+
+            Assert.That(mismatches, Is.Empty);
+        }
+
+        [Test]
+        public void LobbySearch_ReadsAQuoteBeforeAnUnpairedSurrogate_AsUtf8CarriesIt_ThroughTheBackend()
+        {
+            // #362: only a caller of a backend itself writes such a value. The backend reads the
+            // surrogate as the U+FFFD that UTF-8 carries to Steam in its place.
+            LocalBackend owner = CreateRawBackend("Owner");
+            LocalBackend seeker = CreateRawBackend("Seeker");
+            LobbyId lobby = LobbyId.None;
+            owner.CreateLobby(LobbyVisibility.Public, 4, NumericReadingData(UnpairedSurrogateReadings, UnpairedSurrogateKey), (reason, id) => lobby = id);
+            Pump();
+            Assert.That(lobby.IsValid, Is.True);
+
+            List<string> mismatches = new List<string>();
+            foreach ((string description, LobbySearchQuery query, bool isKept) in NumericReadingChecks(UnpairedSurrogateReadings, UnpairedSurrogateKey))
+            {
+                IReadOnlyList<BackendLobby> found = null;
+                seeker.SearchLobbies(query, (reason, lobbies) => found = lobbies);
+                Pump();
+                if ((found.Count == 1) != isKept)
+                {
+                    mismatches.Add($"{description} should {(isKept ? "keep" : "drop")} the lobby");
+                }
+            }
+
+            Assert.That(mismatches, Is.Empty);
+        }
+
+        [Test]
+        public void Backend_TakesSurrogatesWithoutTheirPair_AsUtf8CarriesThemToSteam_InReadsSearchResultsAndFilters()
+        {
+            // FR-11, FR-38, #372: the manager refuses such text in every lobby text, the lobby
+            // data a game sets (#194) among them (#387), so the test
+            // writes it through the backend itself. The backend takes each such surrogate in a key,
+            // a value, or a filter as the U+FFFD that UTF-8 carries to Steam in its place, so
+            // GetLobbyData, the data search returns, and the filters read what they read on Steam.
+            LocalBackend owner = CreateRawBackend("Owner");
+            LocalBackend seeker = CreateRawBackend("Seeker");
+            LobbyId lobby = LobbyId.None;
+            owner.CreateLobby(LobbyVisibility.Public, 4, UnpairedSurrogateLobbyData(), (reason, id) => lobby = id);
+            Pump();
+            Assert.That(lobby.IsValid, Is.True);
+
+            List<string> mismatches = UnpairedSurrogateLookupMismatches("owner", key => owner.GetLobbyData(lobby, key)).ToList();
+            IReadOnlyList<BackendLobby> all = null;
+            seeker.SearchLobbies(new LobbySearchQuery(), (reason, found) => all = found);
+            Pump();
+            mismatches.AddRange(UnpairedSurrogateDataMismatches("seeker", all.Single().Data));
+
+            foreach ((string description, LobbySearchQuery query, bool isKept) in UnpairedSurrogateFilterChecks())
+            {
+                IReadOnlyList<BackendLobby> found = null;
+                seeker.SearchLobbies(query, (reason, lobbies) => found = lobbies);
+                Pump();
+                if ((found.Count == 1) != isKept)
+                {
+                    mismatches.Add($"{description} should {(isKept ? "keep" : "drop")} the lobby");
+                }
+            }
+
+            Assert.That(mismatches, Is.Empty);
+
+            // A key that differs from one the lobby holds only in such surrogates is that key, as
+            // on Steam, so SetLobbyData changes it and DeleteLobbyData deletes it.
+            Assert.That(owner.SetLobbyData(lobby, "HALF\uDFFFKEY", "w\uD800"), Is.True);
+            Assert.That(owner.GetLobbyData(lobby, "half\uFFFDkey"), Is.EqualTo("w\uFFFD"));
+            Assert.That(_network.FindLobby(lobby).Data.Count, Is.EqualTo(UnpairedSurrogateData.Length));
+            Assert.That(owner.DeleteLobbyData(lobby, "half\uDC00key"), Is.True);
+            Assert.That(owner.GetLobbyData(lobby, "half\uD800key"), Is.Null);
+        }
+
+        [Test]
+        public void Backend_TakesTextUpToItsFirstNul_AsSteamworksHandsItToSteam_InReadsSearchResultsAndFilters()
+        {
+            // FR-11, FR-38, #387: the manager refuses a NUL in every lobby text, so the test writes
+            // it through the backend itself. Steamworks.NET hands Steam each text as a C string,
+            // which ends at its first NUL, and Steam took keys, values, the keys it read them by,
+            // and filters so on AppID 480 on 2026-11-08; the backend takes them the same way, so
+            // GetLobbyData, the data search returns, and the filters read what they read on Steam.
+            LocalBackend owner = CreateRawBackend("Owner");
+            LocalBackend seeker = CreateRawBackend("Seeker");
+            LobbyId lobby = LobbyId.None;
+            owner.CreateLobby(LobbyVisibility.Public, 4, NulLobbyData(), (reason, id) => lobby = id);
+            Pump();
+            Assert.That(lobby.IsValid, Is.True);
+
+            List<string> mismatches = NulLookupMismatches("owner", key => owner.GetLobbyData(lobby, key)).ToList();
+            IReadOnlyList<BackendLobby> all = null;
+            seeker.SearchLobbies(new LobbySearchQuery(), (reason, found) => all = found);
+            Pump();
+            mismatches.AddRange(NulDataMismatches("seeker", all.Single().Data));
+
+            foreach ((string description, LobbySearchQuery query, bool isKept) in NulFilterChecks())
+            {
+                IReadOnlyList<BackendLobby> found = null;
+                seeker.SearchLobbies(query, (reason, lobbies) => found = lobbies);
+                Pump();
+                if ((found.Count == 1) != isKept)
+                {
+                    mismatches.Add($"{description} should {(isKept ? "keep" : "drop")} the lobby");
+                }
+            }
+
+            Assert.That(mismatches, Is.Empty);
+
+            // SetLobbyData and DeleteLobbyData take the key the same way. A key with nothing before
+            // its first NUL writes no key and answers true for the owner, as Steam answered for
+            // the empty key it reached Steam as, while a key empty to begin with answers false.
+            // Deleting it answers false, as Steam answered once a search returned the lobby (#405).
+            Assert.That(owner.SetLobbyData(lobby, "NUL.KEY\0other", "w\0tail"), Is.True);
+            Assert.That(owner.GetLobbyData(lobby, "nul.key\0more"), Is.EqualTo("w"));
+            Assert.That(owner.SetLobbyData(lobby, "\0lead", "v"), Is.True);
+            Assert.That(seeker.SetLobbyData(lobby, "\0lead", "v"), Is.False, "only the owner writes lobby data");
+            Assert.That(owner.SetLobbyData(lobby, string.Empty, "v"), Is.False);
+            Assert.That(_network.FindLobby(lobby).Data.Count, Is.EqualTo(NulData.Length));
+            Assert.That(owner.DeleteLobbyData(lobby, "nul.key\0y"), Is.True);
+            Assert.That(owner.GetLobbyData(lobby, "nul.key"), Is.Null);
+            Assert.That(owner.DeleteLobbyData(lobby, "\0lead"), Is.False, "no lobby holds the empty key");
+        }
+        #endregion
+
+        #region String Comparisons
+        // The members that MultiplayerSteamIntegrationTests read from here are public, since the
+        // Steam package's test assembly references this one to check Steam against the same data.
+
+        /// <summary>
+        /// How Steam's string filters compared a lobby's value with a filter's value, as the sign
+        /// of the lobby's value minus the filter's: what Steam's search on AppID 480 gave for all
+        /// six comparisons of each pair on 2026-11-01 (#239). Every backend gives these results;
+        /// <c>MultiplayerSteamIntegrationTests</c> checks Steam against them.
+        /// </summary>
+        internal static readonly (string Lobby, string Filter, int Sign)[] SteamStringComparisons =
+        {
+            ("desert", "desert", 0),
+            ("desert", "DESERT", 0),
+            ("Desert", "dESERT", 0),
+            ("b", "a", 1),
+            ("B", "a", 1),
+            ("a", "B", -1),
+            // Folded to upper case, '_' (0x5F) sorts after 'A' (0x41) and so after 'a' too.
+            ("_", "a", 1),
+            ("_", "A", 1),
+            ("a", "_", -1),
+            ("des", "DESERT", -1),
+            ("desert", "", 1),
+            // Only a to z fold; other letters compare by code point, as UTF-8 text sorts.
+            ("\u00E9", "\u00C9", 1),
+            ("\u03C3", "\u03A3", 1),
+            ("\U0001F600", "\uFF21", 1),
+        };
+
+        /// <summary>
+        /// A key that <see cref="StringComparisonData"/> lacks, and one it holds with an empty
+        /// value. Steam's string filters dropped a lobby under all six comparisons on AppID 480 on
+        /// 2026-11-01 for both (#286): a lobby created with a key written empty keeps no such key, on
+        /// Steam as on every backend, since the manager leaves the key out (#313).
+        /// </summary>
+        internal const string MissingStringKey = "missing";
+        public const string EmptyStringKey = "empty";
+
+        internal static readonly LobbyComparison[] AllLobbyComparisons =
+        {
+            LobbyComparison.Equal, LobbyComparison.NotEqual, LobbyComparison.LessThan,
+            LobbyComparison.GreaterThan, LobbyComparison.EqualOrLessThan, LobbyComparison.EqualOrGreaterThan,
+        };
+
+        /// <summary>
+        /// Lobby data that holds each lobby value of <see cref="SteamStringComparisons"/> under a
+        /// key of its own, and <see cref="EmptyStringKey"/> with an empty value.
+        /// </summary>
+        public static Dictionary<string, string> StringComparisonData()
+        {
+            Dictionary<string, string> data = new Dictionary<string, string>();
+            for (int i = 0; i < SteamStringComparisons.Length; i++)
+            {
+                data["cmp" + i] = SteamStringComparisons[i].Lobby;
+            }
+
+            data[EmptyStringKey] = string.Empty;
+            return data;
+        }
+
+        /// <summary>Each filter to search with on <see cref="StringComparisonData"/>, and whether it keeps the lobby.</summary>
+        public static IEnumerable<(string Key, string Filter, LobbyComparison Comparison, bool IsKept)> StringComparisonChecks()
+        {
+            for (int i = 0; i < SteamStringComparisons.Length; i++)
+            {
+                foreach (LobbyComparison comparison in AllLobbyComparisons)
+                {
+                    yield return ("cmp" + i, SteamStringComparisons[i].Filter, comparison, IsKeptBy(SteamStringComparisons[i].Sign, comparison));
+                }
+            }
+
+            // A filter value that an empty value would equal, and one that it would sort before.
+            foreach (string key in new[] { MissingStringKey, EmptyStringKey })
+            {
+                foreach (string filter in new[] { string.Empty, "x" })
+                {
+                    foreach (LobbyComparison comparison in AllLobbyComparisons)
+                    {
+                        yield return (key, filter, comparison, false);
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// The key that <see cref="EmptyValueFilterChecks"/> search a lobby by, which the lobby
+        /// holds with an empty value: only a caller of a backend itself writes one, since the
+        /// manager deletes a key written empty (#313).
+        /// </summary>
+        public const string EmptyValueKey = "raw";
+
+        /// <summary>
+        /// Each filter to search with on <see cref="EmptyValueKey"/>, held with an empty value, and
+        /// whether it keeps the lobby: what Steam's search on AppID 480 gave for all six
+        /// comparisons of each on 2026-11-04 (#343). A string filter compares the empty value as an
+        /// empty string, and a numeric filter reads it as 0. Every backend gives these results;
+        /// <c>MultiplayerSteamIntegrationTests</c> checks Steam against them.
+        /// </summary>
+        public static IEnumerable<(string Description, Func<LobbySearchQuery, LobbySearchQuery> AddTo, bool IsKept)> EmptyValueFilterChecks()
+        {
+            foreach (string filter in new[] { string.Empty, "x" })
+            {
+                foreach (LobbyComparison comparison in AllLobbyComparisons)
+                {
+                    yield return ($"the empty value {comparison} '{filter}'",
+                        query => query.AddStringFilter(EmptyValueKey, filter, comparison),
+                        IsKeptBy(filter.Length == 0 ? 0 : -1, comparison));
+                }
+            }
+
+            foreach (int number in new[] { 0, 1, -1 })
+            {
+                foreach (LobbyComparison comparison in AllLobbyComparisons)
+                {
+                    yield return ($"the empty value {comparison} the number {number}",
+                        query => query.AddNumericFilter(EmptyValueKey, number, comparison),
+                        IsKeptBy(0.CompareTo(number), comparison));
+                }
+            }
+        }
+
+        /// <summary>The one game key, and its value, of the lobby that <see cref="KeylessFilterChecks"/> search for.</summary>
+        public const string KeylessFilterLobbyKey = "map";
+        public const string KeylessFilterLobbyValue = "desert";
+
+        /// <summary>
+        /// Searches with a string or numeric filter whose key is null or empty, under every
+        /// comparison, and whether each keeps a lobby that holds only
+        /// <see cref="KeylessFilterLobbyKey"/>: the Steam backend skips such a filter rather than
+        /// hand Steam the key, so it keeps the lobby on every backend (#314), and a filter with a
+        /// key beside it still decides.
+        /// </summary>
+        internal static IEnumerable<(string Description, LobbySearchQuery Query, bool IsKept)> KeylessFilterChecks()
+        {
+            foreach (string key in new[] { null, string.Empty })
+            {
+                string name = key == null ? "null" : "empty";
+                foreach (LobbyComparison comparison in AllLobbyComparisons)
+                {
+                    yield return ($"a string filter with a {name} key, {comparison} 'x',", new LobbySearchQuery().AddStringFilter(key, "x", comparison), true);
+                    yield return ($"a numeric filter with a {name} key, {comparison} 0,", new LobbySearchQuery().AddNumericFilter(key, 0, comparison), true);
+                }
+
+                yield return ($"a string filter with a {name} key beside one the lobby passes", new LobbySearchQuery()
+                    .AddStringFilter(key, "x")
+                    .AddStringFilter(KeylessFilterLobbyKey, KeylessFilterLobbyValue), true);
+                yield return ($"a numeric filter with a {name} key beside one the lobby fails", new LobbySearchQuery()
+                    .AddNumericFilter(key, 0)
+                    .AddStringFilter(KeylessFilterLobbyKey, "forest"), false);
+            }
+        }
+
+        /// <summary>
+        /// A key that the lobby <see cref="MissingKeyNumericFilterChecks"/> search for lacks: it
+        /// holds only <see cref="KeylessFilterLobbyKey"/>.
+        /// </summary>
+        public const string MissingNumericKey = "level";
+
+        /// <summary>
+        /// Each numeric filter on <see cref="MissingNumericKey"/>, which the lobby lacks, and
+        /// whether it keeps the lobby: Steam's numeric filters read such a key as 0 on AppID 480
+        /// on 2026-11-04 (#353), unlike its string filters, which drop the lobby (#286). Every
+        /// backend gives these results; <c>MultiplayerSteamIntegrationTests</c> checks Steam
+        /// against them.
+        /// </summary>
+        public static IEnumerable<(string Description, LobbySearchQuery Query, bool IsKept)> MissingKeyNumericFilterChecks()
+        {
+            foreach (int number in new[] { 0, 1, -1 })
+            {
+                foreach (LobbyComparison comparison in AllLobbyComparisons)
+                {
+                    yield return ($"a key the lobby lacks {comparison} the number {number}",
+                        new LobbySearchQuery().AddNumericFilter(MissingNumericKey, number, comparison),
+                        IsKeptBy(0.CompareTo(number), comparison));
+                }
+            }
+        }
+
+        /// <summary>
+        /// Lobby values and the number Steam's numeric filters read each as: on AppID 480 on
+        /// 2026-11-04, <c>Equal</c> that number kept the lobby and <c>NotEqual</c> it dropped it
+        /// for every value here (#362). Every backend reads them by that rule
+        /// (<see cref="LobbySearchQuery.AddNumericFilter"/>);
+        /// <c>MultiplayerSteamIntegrationTests</c> checks Steam against them.
+        /// </summary>
+        public static readonly (string Lobby, int Read)[] SteamNumericReadings =
+        {
+            // Decimal digits after one sign, up to the first other character, never octal.
+            ("-4", -4), ("+3", 3), ("-0", 0), ("7 ", 7), ("007", 7), ("010", 10), ("08", 8),
+            ("12abc", 12), ("5.5", 5), ("1e3", 1), ("1 2", 1), ("0b101", 0), ("1\uFF11", 1),
+            // No digit where one is due: white space is not skipped, one sign only, and only ASCII digits count.
+            ("abc", 0), ("x10", 0), (" 7", 0), ("\t7", 0), ("+ 3", 0), ("-", 0), ("+", 0), ("--1", 0), ("-+1", 0), ("\uFF11", 0),
+            // Hexadecimal digits in either case after 0x or 0X.
+            ("0x10", 16), ("-0x10", -16), ("0X10", 16), ("+0x10", 16), ("0xaBc", 2748), ("0x1g", 1), ("0x", 0), ("-0x", 0),
+            ("0x-1", 0), ("0x 10", 0), ("0x0x10", 0), ("00x10", 0), ("0x\uFF11", 0),
+            // The character after a quote as the first byte of its UTF-8 form, a signed byte.
+            ("'A", 65), ("-'A", -65), ("+'A", 65), ("'AB", 65), ("'7", 55), ("''A", 39), ("'", 0), ("0'A", 0),
+            ("'\u00E9", -61), ("-'\u00E9", 61), ("'\uD55C", -19), ("'\U0001F600", -16),
+            // Summed in 64 bits that wrap around, of which the low 32 count.
+            ("2147483648", -2147483648), ("-2147483649", 2147483647), ("4294967296", 0),
+            ("99999999999", 1215752191), ("-99999999999", -1215752191), ("0x7FFFFFFF", 2147483647), ("0xFFFFFFFF", -1),
+            ("0x80000000", -2147483648), ("0x123456789", 591751049), ("9223372036854775807", -1), ("9223372036854775808", 0),
+            ("-9223372036854775808", 0), ("-9223372036854775809", -1), ("18446744073709551617", 1),
+            ("99999999999999999999", 1661992959), ("0x10000000000000001", 1),
+        };
+
+        /// <summary>The key prefix of <see cref="SteamNumericReadings"/> in <see cref="NumericReadingData"/>.</summary>
+        public const string NumericReadingKey = "num";
+
+        /// <summary>
+        /// A quote followed by an unpaired surrogate, which only a caller of a backend itself
+        /// writes, since the manager refuses such a value: UTF-8 cannot carry the surrogate, so
+        /// it reaches Steam and a lobby file as U+FFFD, whose first byte, 0xEF, reads -17.
+        /// </summary>
+        public static readonly (string Lobby, int Read)[] UnpairedSurrogateReadings =
+        {
+            ("'\uD800", -17), ("'\uDC00", -17), ("-'\uD83Dx", 17),
+        };
+
+        /// <summary>The key prefix of <see cref="UnpairedSurrogateReadings"/> in <see cref="NumericReadingData"/>.</summary>
+        public const string UnpairedSurrogateKey = "lone";
+
+        /// <summary>Lobby data that holds each value of <paramref name="readings"/> under <paramref name="keyPrefix"/> and its index.</summary>
+        public static Dictionary<string, string> NumericReadingData((string Lobby, int Read)[] readings, string keyPrefix)
+        {
+            Dictionary<string, string> data = new Dictionary<string, string>();
+            for (int i = 0; i < readings.Length; i++)
+            {
+                data[keyPrefix + i] = readings[i].Lobby;
+            }
+
+            return data;
+        }
+
+        /// <summary>
+        /// For each value of <paramref name="readings"/> in <see cref="NumericReadingData"/>, a
+        /// numeric filter <c>Equal</c> the number it reads, which keeps the lobby, then one
+        /// <c>NotEqual</c> it, which drops it.
+        /// </summary>
+        public static IEnumerable<(string Description, LobbySearchQuery Query, bool IsKept)> NumericReadingChecks((string Lobby, int Read)[] readings, string keyPrefix)
+        {
+            for (int i = 0; i < readings.Length; i++)
+            {
+                string value = DescribeText(readings[i].Lobby);
+                int read = readings[i].Read;
+                yield return ($"[{value}] Equal {read}", new LobbySearchQuery().AddNumericFilter(keyPrefix + i, read), true);
+                yield return ($"[{value}] NotEqual {read}", new LobbySearchQuery().AddNumericFilter(keyPrefix + i, read, LobbyComparison.NotEqual), false);
+            }
+        }
+
+        /// <summary>The prefix of every key of <see cref="UnpairedSurrogateData"/>.</summary>
+        internal const string UnpairedSurrogateDataKey = "half";
+
+        /// <summary>
+        /// Lobby data with UTF-16 surrogates without their pair in its values and keys, which a
+        /// test writes through a backend itself, since the manager refuses such text in the lobby
+        /// data a game sets (#194) and in every other lobby text (#387),
+        /// and the data as every backend holds it: UTF-8 carries such a surrogate to Steam, and to
+        /// the other processes of a machine-wide network, as U+FFFD, and the local backends take it
+        /// so in every process (#372), while a pair stays as it is.
+        /// <c>MultiplayerSteamIntegrationTests</c> checks Steam against these.
+        /// </summary>
+        internal static readonly (string Key, string Value, string CarriedKey, string CarriedValue)[] UnpairedSurrogateData =
+        {
+            ("half.high", "a\uD800b", "half.high", "a\uFFFDb"),
+            ("half.low", "\uDC00", "half.low", "\uFFFD"),
+            // A surrogate without its pair on each side of a pair, which stays.
+            ("half.pair", "\uD800\uD83D\uDE00\uDE00", "half.pair", "\uFFFD\uD83D\uDE00\uFFFD"),
+            ("half\uD800key", "v", "half\uFFFDkey", "v"),
+            ("half\uDC00number", "7", "half\uFFFDnumber", "7"),
+        };
+
+        /// <summary>Lobby data that holds each entry of <see cref="UnpairedSurrogateData"/> as written.</summary>
+        public static Dictionary<string, string> UnpairedSurrogateLobbyData()
+        {
+            return UnpairedSurrogateData.ToDictionary(entry => entry.Key, entry => entry.Value);
+        }
+
+        /// <summary>
+        /// Keys to read the lobby of <see cref="UnpairedSurrogateLobbyData"/> by, and what every
+        /// backend's <c>GetLobbyData</c> answers for each: a key with a surrogate without its pair
+        /// is found as written, as UTF-8 carries it, and with another such surrogate in its place,
+        /// in any case, since each reaches Steam as the same key.
+        /// </summary>
+        internal static readonly (string Key, string Value)[] UnpairedSurrogateLookups =
+        {
+            ("half.high", "a\uFFFDb"),
+            ("half.pair", "\uFFFD\uD83D\uDE00\uFFFD"),
+            ("half\uD800key", "v"),
+            ("half\uFFFDkey", "v"),
+            ("HALF\uDBFFKEY", "v"),
+        };
+
+        /// <summary>Each read of <see cref="UnpairedSurrogateLookups"/> through <paramref name="read"/> that answers otherwise than every backend does.</summary>
+        public static IEnumerable<string> UnpairedSurrogateLookupMismatches(string reader, Func<string, string> read)
+        {
+            foreach ((string key, string value) in UnpairedSurrogateLookups)
+            {
+                string answer = read(key);
+                if (answer != value)
+                {
+                    yield return $"{reader}: GetLobbyData [{DescribeText(key)}] should answer [{DescribeText(value)}], not {(answer == null ? "null" : $"[{DescribeText(answer)}]")}";
+                }
+            }
+        }
+
+        /// <summary>
+        /// What in <paramref name="data"/>, the data a search returned for the lobby of
+        /// <see cref="UnpairedSurrogateLobbyData"/>, differs from that data as every backend holds it.
+        /// </summary>
+        public static IEnumerable<string> UnpairedSurrogateDataMismatches(string reader, IReadOnlyDictionary<string, string> data)
+        {
+            foreach ((string Key, string Value, string CarriedKey, string CarriedValue) entry in UnpairedSurrogateData)
+            {
+                if (!data.TryGetValue(entry.CarriedKey, out string held) || held != entry.CarriedValue)
+                {
+                    yield return $"{reader}: search should return [{DescribeText(entry.CarriedKey)}] with [{DescribeText(entry.CarriedValue)}], not {(held == null ? "nothing" : $"[{DescribeText(held)}]")}";
+                }
+            }
+
+            int count = data.Keys.Count(name => name.StartsWith(UnpairedSurrogateDataKey, StringComparison.OrdinalIgnoreCase));
+            if (count != UnpairedSurrogateData.Length)
+            {
+                yield return $"{reader}: search should return {UnpairedSurrogateData.Length} of these keys, not {count}";
+            }
+        }
+
+        /// <summary>
+        /// Filters with surrogates without their pair in their keys and values, on the lobby of
+        /// <see cref="UnpairedSurrogateLobbyData"/>, and whether each keeps the lobby: such a
+        /// surrogate counts as U+FFFD on both sides on every backend, as UTF-8 carries it to Steam,
+        /// so it equals U+FFFD and any other such surrogate, and sorts where U+FFFD sorts, before
+        /// a character beyond U+FFFF, which a low surrogate counted by itself would sort after.
+        /// </summary>
+        public static IEnumerable<(string Description, LobbySearchQuery Query, bool IsKept)> UnpairedSurrogateFilterChecks()
+        {
+            (string Key, string Filter, LobbyComparison Comparison, bool IsKept)[] checks =
+            {
+                ("half.high", "a\uFFFDb", LobbyComparison.Equal, true),
+                ("half.high", "a\uD800b", LobbyComparison.Equal, true),
+                ("half.high", "a\uDFFFb", LobbyComparison.Equal, true),
+                ("half.high", "a\uDFFFb", LobbyComparison.NotEqual, false),
+                ("half.low", "\U0001F600", LobbyComparison.LessThan, true),
+                ("half.pair", "\uDBFF\uD83D\uDE00\uDC00", LobbyComparison.Equal, true),
+                ("HALF\uDBFFKEY", "v", LobbyComparison.Equal, true),
+            };
+
+            foreach ((string key, string filter, LobbyComparison comparison, bool isKept) in checks)
+            {
+                yield return ($"[{DescribeText(key)}] {comparison} [{DescribeText(filter)}]", new LobbySearchQuery().AddStringFilter(key, filter, comparison), isKept);
+            }
+
+            // A numeric filter finds a key with such a surrogate the same way.
+            yield return ("number [half\\uDFFFnumber] Equal 7", new LobbySearchQuery().AddNumericFilter("half\uDFFFnumber", 7), true);
+            yield return ("number [half\\uDFFFnumber] NotEqual 7", new LobbySearchQuery().AddNumericFilter("half\uDFFFnumber", 7, LobbyComparison.NotEqual), false);
+        }
+
+        /// <summary>The prefix of every key of <see cref="NulData"/> and <see cref="NulDataWithoutAKey"/> but one.</summary>
+        internal const string NulDataKey = "nul";
+
+        /// <summary>
+        /// Lobby data with NUL characters in its keys and values, which a test writes through a
+        /// backend itself, since the manager refuses a NUL in every lobby text (#194, #387), and
+        /// the data as every backend holds it: Steamworks.NET hands Steam each text as a C string,
+        /// which ends at its first NUL, as Steam took it on AppID 480 on 2026-11-08, and the local
+        /// backends take it so in every process (#387), while a surrogate without its pair before
+        /// the NUL still reads as U+FFFD (#372). <c>MultiplayerSteamIntegrationTests</c> checks
+        /// Steam against these.
+        /// </summary>
+        internal static readonly (string Key, string Value, string CarriedKey, string CarriedValue)[] NulData =
+        {
+            ("nul.value", "ab\0cd", "nul.value", "ab"),
+            ("nul.key\0tail", "v", "nul.key", "v"),
+            ("nul.half", "a\uD800\0b", "nul.half", "a\uFFFD"),
+            ("nul.number", "7\0tail", "nul.number", "7"),
+        };
+
+        /// <summary>
+        /// Lobby data beside <see cref="NulData"/> that no backend keeps: a key with nothing before
+        /// its first NUL, which reaches Steam as the empty key, which Steam's lobby kept no more
+        /// than a moment and its search never returned on AppID 480 on 2026-11-08, and a value
+        /// with nothing before its first NUL under a key the lobby lacks, an empty value, for which
+        /// a lobby writes no key (#343).
+        /// </summary>
+        internal static readonly (string Key, string Value)[] NulDataWithoutAKey =
+        {
+            ("\0lead", "v"),
+            ("nul.lead", "\0tail"),
+        };
+
+        /// <summary>Lobby data that holds each entry of <see cref="NulData"/> and <see cref="NulDataWithoutAKey"/> as written.</summary>
+        public static Dictionary<string, string> NulLobbyData()
+        {
+            Dictionary<string, string> data = NulData.ToDictionary(entry => entry.Key, entry => entry.Value);
+            foreach ((string key, string value) in NulDataWithoutAKey)
+            {
+                data.Add(key, value);
+            }
+
+            return data;
+        }
+
+        /// <summary>
+        /// Keys to read the lobby of <see cref="NulLobbyData"/> by, and what every backend's
+        /// <c>GetLobbyData</c> answers for each: the key counts up to its first NUL too, so keys
+        /// that differ only after a NUL are one key, found in any case.
+        /// </summary>
+        internal static readonly (string Key, string Value)[] NulLookups =
+        {
+            ("nul.value", "ab"),
+            ("nul.value\0cd", "ab"),
+            ("NUL.KEY", "v"),
+            ("nul.key\0other", "v"),
+            ("nul.half", "a\uFFFD"),
+            ("nul.number", "7"),
+            ("nul.lead", null),
+        };
+
+        /// <summary>Each read of <see cref="NulLookups"/> through <paramref name="read"/> that answers otherwise than every backend does.</summary>
+        public static IEnumerable<string> NulLookupMismatches(string reader, Func<string, string> read)
+        {
+            foreach ((string key, string value) in NulLookups)
+            {
+                string answer = read(key);
+                if (answer != value)
+                {
+                    yield return $"{reader}: GetLobbyData [{DescribeText(key)}] should answer {DescribeAnswer(value)}, not {DescribeAnswer(answer)}";
+                }
+            }
+        }
+
+        /// <summary>
+        /// What in <paramref name="data"/>, the data a search returned for the lobby of
+        /// <see cref="NulLobbyData"/>, differs from that data as every backend holds it: the
+        /// entries of <see cref="NulData"/> up to their first NUL, and no other key.
+        /// </summary>
+        public static IEnumerable<string> NulDataMismatches(string reader, IReadOnlyDictionary<string, string> data)
+        {
+            foreach ((string Key, string Value, string CarriedKey, string CarriedValue) entry in NulData)
+            {
+                if (!data.TryGetValue(entry.CarriedKey, out string held) || held != entry.CarriedValue)
+                {
+                    yield return $"{reader}: search should return [{DescribeText(entry.CarriedKey)}] with [{DescribeText(entry.CarriedValue)}], not {(held == null ? "nothing" : $"[{DescribeText(held)}]")}";
+                }
+            }
+
+            int count = data.Keys.Count(name => name.StartsWith(NulDataKey, StringComparison.OrdinalIgnoreCase));
+            if (count != NulData.Length)
+            {
+                yield return $"{reader}: search should return {NulData.Length} keys that start with '{NulDataKey}', not {count}";
+            }
+
+            foreach (string name in data.Keys.Where(name => name.Length == 0 || name.IndexOf('\0') >= 0))
+            {
+                yield return $"{reader}: search should return no key [{DescribeText(name)}]";
+            }
+        }
+
+        /// <summary>
+        /// Filters with NUL characters in their keys and values, on the lobby of
+        /// <see cref="NulLobbyData"/>, and whether each keeps the lobby: every backend takes a
+        /// filter's key and value up to their first NUL, as Steam's search took them on AppID 480
+        /// on 2026-11-08, so a value compares as the text before its NUL, and a key with nothing
+        /// before it is the empty key, which no lobby holds, though a string filter on it compares
+        /// an empty value, unlike a key the lobby lacks (#286), and a numeric filter reads it as 0
+        /// (#353).
+        /// </summary>
+        public static IEnumerable<(string Description, LobbySearchQuery Query, bool IsKept)> NulFilterChecks()
+        {
+            (string Key, string Filter, LobbyComparison Comparison, bool IsKept)[] checks =
+            {
+                ("nul.value", "ab", LobbyComparison.Equal, true),
+                ("nul.value", "ab\0cd", LobbyComparison.Equal, true),
+                ("nul.value", "ab\0zz", LobbyComparison.Equal, true),
+                ("nul.value", "ab\0zz", LobbyComparison.NotEqual, false),
+                ("nul.value", "ab\0zz", LobbyComparison.LessThan, false),
+                ("nul.value", "\0ab", LobbyComparison.Equal, false),
+                ("nul.value", "\0ab", LobbyComparison.NotEqual, true),
+                ("nul.key\0junk", "v", LobbyComparison.Equal, true),
+                ("NUL.HALF", "a\uDBFF\0z", LobbyComparison.Equal, true),
+                ("\0nul.value", "ab", LobbyComparison.Equal, false),
+                ("\0nul.value", "ab", LobbyComparison.NotEqual, true),
+                ("\0nul.value", "ab", LobbyComparison.LessThan, true),
+                ("\0nul.value", "", LobbyComparison.Equal, true),
+            };
+
+            foreach ((string key, string filter, LobbyComparison comparison, bool isKept) in checks)
+            {
+                yield return ($"[{DescribeText(key)}] {comparison} [{DescribeText(filter)}]", new LobbySearchQuery().AddStringFilter(key, filter, comparison), isKept);
+            }
+
+            (string Key, int Value, LobbyComparison Comparison, bool IsKept)[] numbers =
+            {
+                ("nul.number\0junk", 7, LobbyComparison.Equal, true),
+                ("nul.number\0junk", 7, LobbyComparison.NotEqual, false),
+                ("\0nul.number", 0, LobbyComparison.Equal, true),
+                ("\0nul.number", 7, LobbyComparison.Equal, false),
+            };
+
+            foreach ((string key, int value, LobbyComparison comparison, bool isKept) in numbers)
+            {
+                yield return ($"number [{DescribeText(key)}] {comparison} {value}", new LobbySearchQuery().AddNumericFilter(key, value, comparison), isKept);
+            }
+        }
+
+        /// <summary>An answer of <c>GetLobbyData</c> for a failure message.</summary>
+        private static string DescribeAnswer(string answer) => answer == null ? "null" : $"[{DescribeText(answer)}]";
+
+        /// <summary>Text with every character outside printable ASCII written as its escape, for a failure message.</summary>
+        private static string DescribeText(string text)
+        {
+            System.Text.StringBuilder builder = new System.Text.StringBuilder(text.Length);
+            foreach (char c in text)
+            {
+                if (c < 0x20 || c > 0x7E)
+                {
+                    builder.Append("\\u").Append(((int)c).ToString("X4", System.Globalization.CultureInfo.InvariantCulture));
+                }
+                else
+                {
+                    builder.Append(c);
+                }
+            }
+
+            return builder.ToString();
+        }
+
+        public static string DescribeStringComparison(string key, string filter, LobbyComparison comparison, bool isKept)
+        {
+            string lobby = key == MissingStringKey ? "a lobby without the key"
+                : key == EmptyStringKey ? "a lobby with the key empty"
+                : $"'{SteamStringComparisons[int.Parse(key.Substring(3), System.Globalization.CultureInfo.InvariantCulture)].Lobby}'";
+            return $"{lobby} {comparison} '{filter}' should {(isKept ? "keep" : "drop")} the lobby";
+        }
+
+        private static bool IsKeptBy(int sign, LobbyComparison comparison)
+        {
+            switch (comparison)
+            {
+                case LobbyComparison.Equal: return sign == 0;
+                case LobbyComparison.NotEqual: return sign != 0;
+                case LobbyComparison.LessThan: return sign < 0;
+                case LobbyComparison.GreaterThan: return sign > 0;
+                case LobbyComparison.EqualOrLessThan: return sign <= 0;
+                default: return sign >= 0;
+            }
+        }
+        #endregion
+
+        #region Participant Data
+        [Test]
+        public void ParticipantData_SetByEachPlayer_ReachesEveryPlayer()
+        {
+            // FR-9, FR-11
+            (Node host, Node[] clients) = CreateSession(2);
+            Node a = clients[0], b = clients[1];
+
+            Assert.That(a.Manager.SetParticipantData("character", "knight").IsSuccess, Is.True);
+            Assert.That(DataOf(a, a.Id), Is.Empty, "the host decides, and reports A's own data back");
+            Assert.That(host.Manager.SetParticipantData("character", "wizard").IsSuccess, Is.True);
+            Assert.That(host.DataChanges.Count, Is.EqualTo(1), "the host's own event arrives before the call returns");
+            Pump();
+
+            foreach (Node node in new[] { host, a, b })
+            {
+                string name = node.Backend.PlayerName;
+                Assert.That(DataOf(node, host.Id)["character"], Is.EqualTo("wizard"), name);
+                Assert.That(DataOf(node, a.Id)["character"], Is.EqualTo("knight"), name);
+                Assert.That(DataOf(node, b.Id), Is.Empty, name);
+                Assert.That(node.DataChanges.Select(change => (change.Participant.Id, change.Key)), Is.EqualTo(new[] { (host.Id, "character"), (a.Id, "character") }), name);
+                Assert.That(node.DataChanges.Select(change => change.Participant.Data["character"]), Is.EqualTo(new[] { "wizard", "knight" }), name);
+            }
+
+            // A participant handed out before keeps the data it had then.
+            Assert.That(a.Manager.SetParticipantData("character", "archer").IsSuccess, Is.True);
+            Pump();
+            Assert.That(b.DataChanges[1].Participant.Data["character"], Is.EqualTo("knight"));
+            Assert.That(b.DataChanges[2].Participant.Data["character"], Is.EqualTo("archer"));
+            Assert.That(DataOf(b, a.Id)["character"], Is.EqualTo("archer"));
+            Assert.That(b.Changed, Is.Empty, "data changes have an event of their own");
+        }
+
+        [Test]
+        public void ParticipantData_DeletedByItsPlayer_ReachesEveryPlayer_AndFreesItsRoom()
+        {
+            // FR-9, FR-11
+            (Node host, Node[] clients) = CreateSession(2);
+            Node a = clients[0], b = clients[1];
+            Node[] everyone = { host, a, b };
+            Assert.That(a.Manager.SetParticipantData("character", "knight").IsSuccess, Is.True);
+            Assert.That(a.Manager.SetParticipantData("team", "red").IsSuccess, Is.True);
+            Assert.That(host.Manager.SetParticipantData("character", "wizard").IsSuccess, Is.True);
+            Pump();
+            Dictionary<Node, int> earlier = everyone.ToDictionary(node => node, node => node.DataChanges.Count);
+
+            Assert.That(a.Manager.DeleteParticipantData("team").IsSuccess, Is.True);
+            Assert.That(DataOf(a, a.Id).ContainsKey("team"), Is.True, "the host decides, and reports A's own deletion back");
+            Assert.That(host.Manager.DeleteParticipantData("character").IsSuccess, Is.True);
+            Assert.That(host.DataChanges.Count, Is.EqualTo(earlier[host] + 1), "the host's own event arrives before the call returns");
+            Assert.That(a.Manager.DeleteParticipantData("never").IsSuccess, Is.True, "deleting a key that is not there changes nothing");
+            Assert.That(host.Manager.DeleteParticipantData("never").IsSuccess, Is.True);
+            Pump();
+
+            foreach (Node node in everyone)
+            {
+                string name = node.Backend.PlayerName;
+                Assert.That(DataOf(node, a.Id), Is.EquivalentTo(new Dictionary<string, string> { ["character"] = "knight" }), name);
+                Assert.That(DataOf(node, host.Id), Is.Empty, name);
+                List<(Participant Participant, string Key)> deletions = node.DataChanges.Skip(earlier[node]).ToList();
+                Assert.That(deletions.Select(change => (change.Participant.Id, change.Key)), Is.EqualTo(new[] { (host.Id, "character"), (a.Id, "team") }), name);
+                Assert.That(deletions.All(change => !change.Participant.Data.ContainsKey(change.Key)), Is.True, $"{name} hears the player without the key");
+            }
+
+            // The room a deletion frees counts on the client at once, before the host reported it.
+            int half = MultiplayerLimits.MaxParticipantDataSize / 2;
+            Assert.That(b.Manager.SetParticipantData("a", new string('v', half + 100)).IsSuccess, Is.True);
+            Assert.That(b.Manager.SetParticipantData("b", new string('v', half)).Reason, Is.EqualTo(MultiplayerReason.MessageTooLarge));
+            Assert.That(b.Manager.DeleteParticipantData("a").IsSuccess, Is.True);
+            Assert.That(b.Manager.SetParticipantData("b", new string('v', half)).IsSuccess, Is.True);
+            Pump();
+            foreach (Node node in everyone)
+            {
+                Assert.That(DataOf(node, b.Id).Keys, Is.EquivalentTo(new[] { "b" }), node.Backend.PlayerName);
+            }
+
+            Assert.That(a.Manager.DeleteParticipantData("mu3.ready").Reason, Is.EqualTo(MultiplayerReason.InvalidArgument));
+            Assert.That(a.Manager.DeleteParticipantData(null).Reason, Is.EqualTo(MultiplayerReason.InvalidArgument));
+            Assert.That(CreateNode("Lonely").Manager.DeleteParticipantData("character").Reason, Is.EqualTo(MultiplayerReason.InvalidState));
+        }
+
+        [Test]
+        public void ParticipantData_DeletionFromAClient_DeletesOnlyItsOwn()
+        {
+            // FR-11, NFR-5: the request names no player, and the host's own deletions from a client are dropped.
+            (Node host, Node[] clients) = CreateSession(1);
+            Node a = clients[0];
+            Assert.That(a.Manager.SetParticipantData("team", "blue").IsSuccess, Is.True);
+            LocalBackend raw = CreateRawBackend("Raw", new RecordingListener());
+            ConnectionId connection = ConnectAsPlayer(raw, host);
+            raw.Send(connection, DataPacket(PacketKind.SetParticipantData, "team", "red"), DeliveryMode.Reliable);
+            raw.Send(connection, DataPacket(PacketKind.SetParticipantData, "role", "scout"), DeliveryMode.Reliable);
+            Pump();
+
+            raw.Send(connection, KeyPacket(PacketKind.DeleteParticipantData, "team"), DeliveryMode.Reliable);
+            LogAssert.Expect(LogType.Warning, new Regex("Dropped a participant data deletion from .*: InvalidArgument"));
+            raw.Send(connection, KeyPacket(PacketKind.DeleteParticipantData, "mu3.ready"), DeliveryMode.Reliable);
+            LogAssert.Expect(LogType.Warning, new Regex("Dropped ParticipantDataDeleted from client"));
+            raw.Send(connection, ParticipantDataDeletedPacket(a.Id, "team"), DeliveryMode.Reliable);
+            LogAssert.Expect(LogType.Warning, new Regex("Dropped LobbyDataDeleted from client"));
+            raw.Send(connection, KeyPacket(PacketKind.LobbyDataDeleted, "map"), DeliveryMode.Reliable);
+            Pump();
+
+            foreach (Node node in new[] { host, a })
+            {
+                Assert.That(DataOf(node, raw.LocalPlayerId), Is.EquivalentTo(new Dictionary<string, string> { ["role"] = "scout" }), node.Backend.PlayerName);
+                Assert.That(DataOf(node, a.Id)["team"], Is.EqualTo("blue"), node.Backend.PlayerName);
+            }
+        }
+
+        [Test]
+        public void ParticipantData_FromAClient_ChangesOnlyItsOwn()
+        {
+            // FR-11, NFR-5: the request names no player, and the host's own packets from a client are dropped.
+            (Node host, Node[] clients) = CreateSession(1);
+            Node a = clients[0];
+            LocalBackend raw = CreateRawBackend("Raw", new RecordingListener());
+            ConnectionId connection = ConnectAsPlayer(raw, host);
+
+            raw.Send(connection, DataPacket(PacketKind.SetParticipantData, "team", "red"), DeliveryMode.Reliable);
+            LogAssert.Expect(LogType.Warning, new Regex("Dropped ParticipantDataChanged from client"));
+            raw.Send(connection, ParticipantDataChangedPacket(a.Id, "team", "spoofed"), DeliveryMode.Reliable);
+            LogAssert.Expect(LogType.Warning, new Regex("Dropped LobbyDataChanged from client"));
+            raw.Send(connection, DataPacket(PacketKind.LobbyDataChanged, "map", "spoofed"), DeliveryMode.Reliable);
+            Pump();
+
+            foreach (Node node in new[] { host, a })
+            {
+                Assert.That(DataOf(node, raw.LocalPlayerId)["team"], Is.EqualTo("red"));
+                Assert.That(DataOf(node, a.Id), Is.Empty);
+                Assert.That(node.Manager.LobbyData.ContainsKey("map"), Is.False);
+                Assert.That(node.DataChanges.Select(change => change.Participant.Id), Is.EqualTo(new[] { raw.LocalPlayerId }));
+            }
+        }
+
+        [Test]
+        public void ParticipantData_RefusesReservedKeysAndTooMuchData_HereAndAtTheHost()
+        {
+            // FR-11, NFR-5: a client that skips its own check still cannot get past the host.
+            (Node host, Node[] clients) = CreateSession(1);
+            Node a = clients[0];
+
+            Assert.That(a.Manager.SetParticipantData("mu3.ready", "true").Reason, Is.EqualTo(MultiplayerReason.InvalidArgument));
+            Assert.That(a.Manager.SetParticipantData("MU3.Ready", "true").Reason, Is.EqualTo(MultiplayerReason.InvalidArgument));
+            Assert.That(a.Manager.SetParticipantData("character", null).Reason, Is.EqualTo(MultiplayerReason.InvalidArgument));
+            foreach (string text in UncleanTexts)
+            {
+                Assert.That(a.Manager.SetParticipantData(text, "value").Reason, Is.EqualTo(MultiplayerReason.InvalidArgument), Escape(text));
+                Assert.That(a.Manager.SetParticipantData("character", text).Reason, Is.EqualTo(MultiplayerReason.InvalidArgument), Escape(text));
+            }
+
+            Assert.That(a.Manager.SetParticipantData("character", new string('v', MultiplayerLimits.MaxParticipantDataSize)).Reason, Is.EqualTo(MultiplayerReason.MessageTooLarge));
+            Assert.That(host.Manager.SetParticipantData(LobbyDataKeys.State, "game").Reason, Is.EqualTo(MultiplayerReason.InvalidArgument));
+            Assert.That(CreateNode("Lonely").Manager.SetParticipantData("character", "knight").Reason, Is.EqualTo(MultiplayerReason.InvalidState));
+
+            LocalBackend raw = CreateRawBackend("Raw", new RecordingListener());
+            ConnectionId connection = ConnectAsPlayer(raw, host);
+            List<string> refusals = new List<string>();
+            void Record(string message, string stackTrace, LogType type)
+            {
+                if (message.Contains("Dropped participant data"))
+                {
+                    refusals.Add(message);
+                }
+            }
+
+            Application.logMessageReceived += Record;
+            try
+            {
+                // A flood of bad requests logs each reason once. A lone surrogate turns into a
+                // replacement character on its way, so only a NUL reaches the host unchanged.
+                for (int i = 0; i < 3; i++)
+                {
+                    raw.Send(connection, DataPacket(PacketKind.SetParticipantData, "mu3.ready", "true"), DeliveryMode.Reliable);
+                    raw.Send(connection, DataPacket(PacketKind.SetParticipantData, "map", "a\0b"), DeliveryMode.Reliable);
+                    raw.Send(connection, DataPacket(PacketKind.SetParticipantData, "c", new string('v', MultiplayerLimits.MaxParticipantDataSize)), DeliveryMode.Reliable);
+                }
+
+                Pump();
+            }
+            finally
+            {
+                Application.logMessageReceived -= Record;
+            }
+
+            Assert.That(refusals.Count, Is.EqualTo(2), string.Join("\n", refusals));
+            Assert.That(refusals[0], Does.Contain(": InvalidArgument."));
+            Assert.That(refusals[1], Does.Contain(": MessageTooLarge."));
+            Assert.That(DataOf(host, raw.LocalPlayerId), Is.Empty);
+            Assert.That(host.DataChanges.Concat(a.DataChanges), Is.Empty);
+        }
+
+        [Test]
+        public void ParticipantData_FromAClient_IsCheckedAgainstItsOwnRequests_NotTheCopyStillOnItsWay()
+        {
+            // FR-11: what a client is told is what the host does, before any change came back.
+            (Node host, Node[] clients) = CreateSession(1);
+            Node a = clients[0];
+            int half = MultiplayerLimits.MaxParticipantDataSize / 2;
+            List<string> refusals = new List<string>();
+            void Record(string message, string stackTrace, LogType type)
+            {
+                if (message.Contains("Dropped participant data"))
+                {
+                    refusals.Add(message);
+                }
+            }
+
+            Application.logMessageReceived += Record;
+            try
+            {
+                Assert.That(a.Manager.SetParticipantData("a", new string('v', half + 100)).IsSuccess, Is.True);
+                Assert.That(a.Manager.SetParticipantData("b", new string('v', half)).Reason, Is.EqualTo(MultiplayerReason.MessageTooLarge),
+                    "the first request has not come back yet, but the host will hold it");
+
+                Assert.That(a.Manager.SetParticipantData("a", string.Empty).IsSuccess, Is.True);
+                Assert.That(a.Manager.SetParticipantData("b", new string('v', half)).IsSuccess, Is.True,
+                    "the room the second request freed counts before the host reported it");
+                Assert.That(DataOf(a, a.Id), Is.Empty);
+                Pump();
+            }
+            finally
+            {
+                Application.logMessageReceived -= Record;
+            }
+
+            Assert.That(refusals, Is.Empty);
+            foreach (Node node in new[] { host, a })
+            {
+                Assert.That(DataOf(node, a.Id)["a"], Is.Empty);
+                Assert.That(DataOf(node, a.Id)["b"].Length, Is.EqualTo(half));
+                Assert.That(node.DataChanges.Count, Is.EqualTo(3));
+            }
+        }
+
+        [Test]
+        public void AFullSession_AtEveryDataLimit_StillAdmitsAPlayerWhoJoinsLate()
+        {
+            // FR-11, FR-24: the welcome carries the start data, the lobby data, and every
+            // player's data at once, so it has to fit in one send at every limit together. The
+            // data uses the shortest keys there are, whose length fields cost the most, and the
+            // lobby data the shortest values it keeps, since an empty value deletes its key (#313).
+            Dictionary<string, string> lobbyData = DataOfSize(MultiplayerLimits.MaxLobbyDataSize, isLobbyData: true);
+            LobbyCreateOptions options = PublicOptions(new SessionRules(MultiplayerLimits.MaxCapacity, requireReady: false, allowLateJoin: true));
+            foreach (KeyValuePair<string, string> pair in lobbyData)
+            {
+                options.Data.Add(pair.Key, pair.Value);
+            }
+
+            Node host = CreateHost(CreateNode("Host"), options);
+            Dictionary<string, string> playerData = DataOfSize(MultiplayerLimits.MaxParticipantDataSize);
+            List<LocalBackend> players = new List<LocalBackend>();
+            for (int i = 0; i < MultiplayerLimits.MaxCapacity - 2; i++)
+            {
+                LocalBackend raw = CreateRawBackend($"Player {i:D2} {new string('n', MultiplayerLimits.MaxPlayerNameLength)}", new RecordingListener());
+                ConnectionId connection = ConnectAsPlayer(raw, host);
+                foreach (KeyValuePair<string, string> pair in playerData)
+                {
+                    raw.Send(connection, DataPacket(PacketKind.SetParticipantData, pair.Key, pair.Value), DeliveryMode.Reliable);
+                }
+
+                players.Add(raw);
+            }
+
+            foreach (KeyValuePair<string, string> pair in playerData)
+            {
+                Assert.That(host.Manager.SetParticipantData(pair.Key, pair.Value).IsSuccess, Is.True);
+            }
+
+            Pump();
+            Assert.That(players.All(raw => DataOf(host, raw.LocalPlayerId).Count == playerData.Count), Is.True);
+            Assert.That(host.Manager.StartGame(new byte[MultiplayerLimits.MaxStartDataSize]).IsSuccess, Is.True);
+            Pump();
+
+            Node late = CreateNode("Late");
+            Assert.That(Join(late, host).IsSuccess, Is.True);
+
+            Assert.That(late.Manager.State, Is.EqualTo(SessionState.InGame));
+            Assert.That(late.Manager.Participants.Count, Is.EqualTo(MultiplayerLimits.MaxCapacity));
+            Assert.That(late.Manager.StartData.Length, Is.EqualTo(MultiplayerLimits.MaxStartDataSize));
+            Assert.That(late.Manager.LobbyData, Is.EquivalentTo(lobbyData));
+            Assert.That(DataOf(late, host.Id), Is.EquivalentTo(playerData));
+            Assert.That(players.All(raw => DataOf(late, raw.LocalPlayerId).Count == playerData.Count), Is.True);
+        }
+
+        [Test]
+        public void Data_ReachesALateJoiner_AndOutlivesTheGame_ButNotTheSession()
+        {
+            // FR-11
+            Node host = CreateHost("Host", rules: new SessionRules(4, requireReady: false, allowLateJoin: true));
+            Node a = JoinNew("A", host);
+            Assert.That(host.Manager.SetLobbyData("map", "desert").IsSuccess, Is.True);
+            Assert.That(a.Manager.SetParticipantData("character", "knight").IsSuccess, Is.True);
+            Pump();
+            Assert.That(host.Manager.StartGame().IsSuccess, Is.True);
+            Assert.That(host.Manager.SetParticipantData("character", "wizard").IsSuccess, Is.True, "in a game too");
+            Pump();
+
+            Node late = JoinNew("Late", host);
+            Assert.That(late.Manager.LobbyData["map"], Is.EqualTo("desert"));
+            Assert.That(DataOf(late, a.Id)["character"], Is.EqualTo("knight"));
+            Assert.That(DataOf(late, host.Id)["character"], Is.EqualTo("wizard"));
+            Assert.That(late.LobbyDataChanges, Is.Empty);
+            Assert.That(late.DataChanges, Is.Empty);
+            Assert.That(a.Joined.Single(participant => participant.Id == late.Id).Data, Is.Empty);
+
+            Assert.That(host.Manager.EndGame().IsSuccess, Is.True);
+            Pump();
+            foreach (Node node in new[] { host, a, late })
+            {
+                Assert.That(node.Manager.LobbyData["map"], Is.EqualTo("desert"));
+                Assert.That(DataOf(node, a.Id)["character"], Is.EqualTo("knight"));
+            }
+
+            a.Manager.Leave();
+            Pump();
+            Assert.That(a.Manager.LobbyData, Is.Empty);
+            Assert.That(host.Manager.SetLobbyData("map", "forest").IsSuccess, Is.True);
+            host.Manager.Leave();
+            Assert.That(host.Manager.LobbyData, Is.Empty);
+        }
+        #endregion
+
+        #region Data Helpers
+        // A NUL, where Steam ends a string, and surrogates without their pair, which UTF-8 replaces.
+        internal static readonly string[] UncleanTexts = { "a\0b", "a\uD800", "\uDC00a", "\uDBFF" };
+
+        private static string Escape(string text) => string.Concat(text.Select(c => c < 0x20 || char.IsSurrogate(c) ? $"\\u{(int)c:X4}" : c.ToString()));
+
+        /// <summary>
+        /// Data whose keys and values take exactly <paramref name="size"/> UTF-8 bytes in as many
+        /// entries as distinct keys allow: every one-character key, then two-character keys. As
+        /// <paramref name="isLobbyData"/>, no two keys differ only by case and every value holds a
+        /// character, since lobby data keeps no empty value.
+        /// </summary>
+        private static Dictionary<string, string> DataOfSize(int size, bool isLobbyData = false)
+        {
+            Dictionary<string, string> data = new Dictionary<string, string>();
+            HashSet<string> taken = new HashSet<string>(isLobbyData ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
+            string value = isLobbyData ? "v" : string.Empty;
+            int left = size;
+            for (char c = '!'; c <= '~' && left >= 1 + value.Length; c++)
+            {
+                if (taken.Add(c.ToString()))
+                {
+                    data.Add(c.ToString(), value);
+                    left -= 1 + value.Length;
+                }
+            }
+
+            for (char first = '!'; first <= '~' && left >= 2 + value.Length; first++)
+            {
+                for (char second = '!'; second <= '~' && left >= 2 + value.Length; second++)
+                {
+                    string key = new string(new[] { first, second });
+                    if (taken.Add(key))
+                    {
+                        data.Add(key, value);
+                        left -= 2 + value.Length;
+                    }
+                }
+            }
+
+            if (left > 0)
+            {
+                data["!"] += new string('v', left);
+            }
+
+            return data;
+        }
+
+        private static IReadOnlyDictionary<string, string> DataOf(Node node, PlayerId player)
+        {
+            Assert.That(node.Manager.TryGetParticipant(player, out Participant participant), Is.True, $"{player} at {node.Backend.PlayerName}");
+            return participant.Data;
+        }
+
+        private static byte[] DataPacket(PacketKind kind, string key, string value)
+        {
+            PacketWriter writer = new PacketWriter();
+            writer.Begin(kind);
+            writer.WriteString(key);
+            writer.WriteString(value);
+            return writer.Written.ToArray();
+        }
+
+        private static byte[] ParticipantDataChangedPacket(PlayerId player, string key, string value)
+        {
+            PacketWriter writer = new PacketWriter();
+            writer.Begin(PacketKind.ParticipantDataChanged);
+            writer.WriteULong(player.Value);
+            writer.WriteString(key);
+            writer.WriteString(value);
+            return writer.Written.ToArray();
+        }
+
+        private static byte[] KeyPacket(PacketKind kind, string key)
+        {
+            PacketWriter writer = new PacketWriter();
+            writer.Begin(kind);
+            writer.WriteString(key);
+            return writer.Written.ToArray();
+        }
+
+        private static byte[] ParticipantDataDeletedPacket(PlayerId player, string key)
+        {
+            PacketWriter writer = new PacketWriter();
+            writer.Begin(PacketKind.ParticipantDataDeleted);
+            writer.WriteULong(player.Value);
+            writer.WriteString(key);
+            return writer.Written.ToArray();
+        }
+        #endregion
+    }
+}

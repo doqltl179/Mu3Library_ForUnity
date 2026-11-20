@@ -1,12 +1,12 @@
 ---
 name: sample-integrity-engineer
-description: "Maintains the importable package samples under Mu3Library_*/Samples~: sample scenes, sample scripts, sample assets, the samples entries in package.json, and what a consuming project gets when it imports them. Use when sample content or its import integrity is the dominant concern; not for package runtime, editor tooling, or optional integration code."
+description: "Maintains the importable package samples under packages/<name>/Samples~: sample scenes, sample scripts, sample assets, the samples entries in package.json, and what a consuming project gets when it imports them. Use when sample content or its import integrity is the dominant concern; not for package runtime, editor tooling, or optional integration code."
 department: client
 tier: standard
 access: read-write
 extends: game-tools-engineer
 volatility: evolving
-reviewed: 2026-10-09
+reviewed: 2026-11-15
 ---
 
 # Sample Integrity Engineer
@@ -16,7 +16,7 @@ Mission: keep every package sample importable and working in a consuming project
 ## Owns
 - `Samples~` content of each package and the `samples` entries of its `package.json`.
 - Sample-only orchestration and presentation, per «Package Surfaces» in [package-architecture.md](../wiki/rules/package-architecture.md).
-- The development-project view of a sample: `UnityProject_*/Assets/Mu3LibrarySamples*` is a Git-ignored link to `Samples~`, a junction on Windows and a symbolic link elsewhere, that `commands.worktree_setup` (`mu3-samples link`) creates ([overview.md](../wiki/overview.md)).
+- The generated-project view of a sample: the project generated from `tools/unity-projects/full` links Base's `Samples~` as `Assets/Mu3LibrarySamples`, as that config's `sample-links.json` declares, a junction on Windows and a symbolic link elsewhere, which a run of `compile-unity.sh full` or `test-unity.sh full` creates ([unity-yaml-guide.md](../wiki/unity-yaml-guide.md) «Reaching A Sample»).
 
 ## Does Not Own
 - Reusable package runtime behavior a sample exposes → `game-runtime-engineer`

@@ -1,5 +1,5 @@
 ---
-owns: "Design rules the package runtime has settled on: Base managers' callbacks, initialization, disposal, object ownership, and shared command guards; superseded async operations; the Watermelon board command contracts and list; and the Watermelon board and sample rules"
+owns: "Design rules the package runtime has settled on: Base managers' callbacks, initialization, disposal, object ownership, and shared command guards; superseded async operations; the Watermelon board command contracts and list; and the Watermelon board rules"
 volatility: evolving
 reviewed: 2026-10-31
 ---
@@ -11,7 +11,7 @@ Rules the package runtime follows because a defect or review proved them. Each n
 ## When
 
 - changing or reviewing a Base manager's initialization, subscriptions, disposal, or async operations,
-- changing the Watermelon board, its commands, or its sample.
+- changing the Watermelon board or its commands.
 
 ## Route Away When
 
@@ -40,11 +40,9 @@ Rules the package runtime follows because a defect or review proved them. Each n
 - A command reaches the board through `IBoardCommandContext`, which the board implements, never through loosened member access. Protected members that the interface also exposes are reached through explicit interface implementations.
 - Commands may add commands to the list that runs them or remove them from it, so the list defers structural changes: `BoardController` buffers additions in `_pendingCommands`, records removal requests, and applies both outside the loop that advances the list.
 
-## Watermelon Board And Sample
+## Watermelon Board
 
 - The collider decides gameplay, so a resolution-relative resize sizes the collider and draws the sprite around it, and a per-asset shape correction changes only the art. Fitting the sprite to the item diameter and shrinking the collider inside it made a new `BoardConfig` move every item index's contact area.
 - When a fixed default rule keeps catalog entries meant for later extensions, the default simulation is gated to the range it supports, so extension-only entries are neither activated nor destroyed early.
-- The sample keeps `Prepare` and `GameStart` as separate lifecycle stages: it subscribes before preparing and starts only from the prepared event, so a failed preparation cannot publish a running board.
 - A generated guide sprite that the `SpriteRenderer` tiles holds one source segment, and the renderer repeats it; the repeated pattern is never baked into the image. A tiled renderer draws over `SpriteRenderer.size`, not over the sprite bounds, and assigning a sprite at runtime leaves that size unchanged, so `BoardAreaView` fits the guide line through `size` and keeps the transform scale equal on both axes, where the scale only sets how big one segment is drawn.
 - Board code maps between normalized and coordinate space through `CoordinateBounds.Lerp` and `Normalize`, which give each axis its own interpolation value; `Vector2.Lerp` takes one value for both axes, so it cannot replace them.
-- Generated sample audio uses layered harmonic timbres, restrained ambience, and a sufficiently long musical bed. Oscillator-only effects read as 8-bit, which misses a request for a polished subculture-game feel.

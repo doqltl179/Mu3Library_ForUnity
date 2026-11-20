@@ -8,22 +8,19 @@ using UnityEditor.AddressableAssets.Settings.GroupSchemas;
 using UnityEditor.Build.Reporting;
 using UnityEditor.SceneManagement;
 using UnityEngine;
-using UnityEngine.AddressableAssets;
 
 // The build entry of the verification build (tools/README.md#verification-build).
-// mu3-verify-build copies it into its copy of UnityProject_BuiltIn only, runs it with
-// -executeMethod Mu3VerifyBuild.Build, and prints the MU3VERIFY lines it logs.
+// mu3-verify-build copies it into the project it generated from tools/unity-projects/full only,
+// runs it with -executeMethod Mu3VerifyBuild.Build, and prints the MU3VERIFY lines it logs.
 public static class Mu3VerifyBuild
 {
     private const string Prefix = "MU3VERIFY ";
-    private const string ProfileName = "GitHub_Windows";
     private const string EmptyScenePath = "Assets/Mu3VerifyBuild/Empty.unity";
 
-    // Arguments: -mu3-content build|none, -mu3-bundles <folder Remote.BuildPath names>,
-    // -mu3-out <player .exe path>, and -mu3-scene <scene asset path> once per scene (none builds
-    // one empty scene). Exits 0 when the player built, 1 when the build failed, and 2 when an
-    // argument is wrong or the settings do not read back what mu3-verify-build wrote, before
-    // anything is built.
+    // Arguments: -mu3-content build|none, -mu3-out <player .exe path>, and -mu3-scene <scene asset
+    // path> once per scene (none builds one empty scene). Exits 0 when the player built, 1 when the
+    // build failed, and 2 when an argument is wrong or the settings do not read back what
+    // mu3-verify-build wrote, before anything is built.
     public static void Build()
     {
         int exitCode;
@@ -44,23 +41,22 @@ public static class Mu3VerifyBuild
     private static int Run()
     {
         string content = ArgumentAfter("-mu3-content");
-        string bundles = ArgumentAfter("-mu3-bundles");
         string output = ArgumentAfter("-mu3-out");
         List<string> scenes = ArgumentsAfter("-mu3-scene");
-        if ((content != "build" && content != "none") || string.IsNullOrEmpty(bundles) || string.IsNullOrEmpty(output))
+        if ((content != "build" && content != "none") || string.IsNullOrEmpty(output))
         {
-            Debug.LogError($"{Prefix}refused: bad arguments content={content} bundles={bundles} out={output}");
+            Debug.LogError($"{Prefix}refused: bad arguments content={content} out={output}");
             return 2;
         }
 
         AddressableAssetSettings settings = AddressableAssetSettingsDefaultObject.Settings;
         if (settings == null)
         {
-            Debug.LogError(Prefix + "refused: the copy has no Addressables settings");
+            Debug.LogError(Prefix + "refused: the project has no Addressables settings");
             return 2;
         }
 
-        List<string> problems = SettingsProblems(settings, content, bundles);
+        List<string> problems = SettingsProblems(settings, content);
         foreach (string problem in problems)
         {
             Debug.LogError(Prefix + "refused: " + problem);
@@ -117,53 +113,36 @@ public static class Mu3VerifyBuild
         return report.summary.result == BuildResult.Succeeded ? 0 : 1;
     }
 
-    // Why the settings Unity loaded differ from what mu3-verify-build wrote into the copy's file, or
-    // checked there; empty when they match. Each value is read back here, so a file Unity read
-    // differently stops the build before the content build could write outside the checkout.
-    // Local.BuildPath keeps the Default profile's value (#498), which builds local bundles into the
-    // copy's Addressables.BuildPath, the folder the player build copies into StreamingAssets/aa.
-    private static List<string> SettingsProblems(AddressableAssetSettings settings, string content, string bundles)
+    // Why the settings Unity loaded differ from what mu3-verify-build wrote into the project's file,
+    // or would let a content build write outside the project; empty when neither. The config builds
+    // every group into the project's Library and no remote catalog (ADR 0001 D17), so a group or a
+    // catalog that builds anywhere else stops the build before the content build could write there.
+    private static List<string> SettingsProblems(AddressableAssetSettings settings, string content)
     {
         var problems = new List<string>();
         AddressableAssetProfileSettings profiles = settings.profileSettings;
         string active = settings.activeProfileId;
-        string remoteBuild = profiles.EvaluateString(active, profiles.GetValueByName(active, "Remote.BuildPath"));
-        string localBuild = profiles.EvaluateString(active, profiles.GetValueByName(active, "Local.BuildPath"));
-        string localLoad = profiles.EvaluateString(active, profiles.GetValueByName(active, "Local.LoadPath"));
-        string remoteLoad = profiles.EvaluateString(active, profiles.GetValueByName(active, "Remote.LoadPath"));
-        string localBundles = Addressables.BuildPath + "/" + EditorUserBuildSettings.activeBuildTarget;
-        string catalogBuild = settings.RemoteCatalogBuildPath.GetValue(settings);
+        string project = Path.GetFullPath(".");
         AddressableAssetSettings.PlayerBuildOption expected = content == "build"
             ? AddressableAssetSettings.PlayerBuildOption.BuildWithPlayer
             : AddressableAssetSettings.PlayerBuildOption.DoNotBuildWithPlayer;
 
         Debug.Log($"{Prefix}settings profile={profiles.GetProfileName(active)} " +
-            $"BuildAddressablesWithPlayerBuild={settings.BuildAddressablesWithPlayerBuild} ({(int)settings.BuildAddressablesWithPlayerBuild})");
-        Debug.Log($"{Prefix}settings Remote.BuildPath={remoteBuild}");
-        Debug.Log($"{Prefix}settings Local.BuildPath={localBuild} (not changed)");
-        Debug.Log($"{Prefix}settings RemoteCatalogBuildPath={catalogBuild}");
-        Debug.Log($"{Prefix}settings Remote.LoadPath={remoteLoad} (not changed)");
-        Debug.Log($"{Prefix}settings Local.LoadPath={localLoad} (not changed)");
+            $"BuildAddressablesWithPlayerBuild={settings.BuildAddressablesWithPlayerBuild} ({(int)settings.BuildAddressablesWithPlayerBuild}) " +
+            $"BuildRemoteCatalog={settings.BuildRemoteCatalog}");
 
-        if (profiles.GetProfileName(active) != ProfileName)
-        {
-            problems.Add($"the active profile is {profiles.GetProfileName(active)}, not {ProfileName}");
-        }
         if (settings.BuildAddressablesWithPlayerBuild != expected)
         {
             problems.Add($"BuildAddressablesWithPlayerBuild is {settings.BuildAddressablesWithPlayerBuild}, not {expected}");
         }
-        if (!SamePath(remoteBuild, bundles))
+        if (settings.BuildRemoteCatalog)
         {
-            problems.Add($"Remote.BuildPath is {remoteBuild}, not {bundles}");
-        }
-        if (!SamePath(localBuild, localBundles))
-        {
-            problems.Add($"Local.BuildPath is {localBuild}, not {localBundles}, in the folder the player build copies into StreamingAssets/aa");
-        }
-        if (!SamePath(catalogBuild, bundles))
-        {
-            problems.Add($"the remote catalog builds to {catalogBuild}, not {bundles}");
+            string catalogBuild = settings.RemoteCatalogBuildPath.GetValue(settings);
+            Debug.Log($"{Prefix}settings RemoteCatalogBuildPath={catalogBuild}");
+            if (!IsInside(catalogBuild, project))
+            {
+                problems.Add($"the remote catalog builds to {catalogBuild}, outside the project {project}");
+            }
         }
         foreach (AddressableAssetGroup group in settings.groups)
         {
@@ -174,9 +153,9 @@ public static class Mu3VerifyBuild
             }
             string groupBuild = schema.BuildPath.GetValue(settings);
             Debug.Log($"{Prefix}settings group {group.Name} BuildPath={groupBuild} LoadPath={schema.LoadPath.GetValue(settings)}");
-            if (!SamePath(groupBuild, bundles) && !SamePath(groupBuild, localBundles))
+            if (!IsInside(groupBuild, project))
             {
-                problems.Add($"the group {group.Name} builds to {groupBuild}, neither {bundles} nor {localBundles}");
+                problems.Add($"the group {group.Name} builds to {groupBuild}, outside the project {project}");
             }
         }
         // A player built without content copies whatever an earlier content build left here.
@@ -188,14 +167,16 @@ public static class Mu3VerifyBuild
         return problems;
     }
 
-    private static bool SamePath(string path, string expected)
+    private static bool IsInside(string path, string folder)
     {
         if (string.IsNullOrEmpty(path))
         {
             return false;
         }
         string Normalize(string value) => Path.GetFullPath(value).TrimEnd('\\', '/').ToLowerInvariant();
-        return Normalize(path) == Normalize(expected);
+        string full = Normalize(path);
+        string root = Normalize(folder);
+        return full == root || full.StartsWith(root + Path.DirectorySeparatorChar) || full.StartsWith(root + Path.AltDirectorySeparatorChar);
     }
 
     private static string ArgumentAfter(string name)

@@ -1,0 +1,25 @@
+{
+    "name": "Mu3Library.Addressables",
+    "rootNamespace": "Mu3Library.Addressable",
+    "references": [
+        "Mu3Library.Foundation",
+        "UniTask",
+        "Unity.Addressables",
+        "Unity.ResourceManager"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [
+        {
+            "name": "com.cysharp.unitask",
+            "expression": "",
+            "define": "MU3LIBRARY_UNITASK_SUPPORT"
+        }
+    ],
+    "noEngineReferences": false
+}

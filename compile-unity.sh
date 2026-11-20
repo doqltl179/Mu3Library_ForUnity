@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 
-# Compiles the development projects with the Unity Editor in batch mode.
-# Other entry points source this file for its target selection, Editor lookup,
-# and isolated mirror; compile_main at the bottom runs only when it is executed.
+# Compiles, with the Unity Editor in batch mode, the Unity projects generated
+# from the configs in tools/unity-projects. Other entry points source this file
+# for its target selection, Editor lookup, lock check, and project generation;
+# compile_main at the bottom runs only when it is executed.
 
 set -euo pipefail
 
@@ -24,21 +25,29 @@ fi
 SCRIPT_DIR="$(cd "${SCRIPT_DIR:-/}" && pwd)"
 readonly SCRIPT_DIR
 readonly REPO_ROOT="$SCRIPT_DIR"
-readonly PACKAGE_CONFIG="$REPO_ROOT/unity-cli-packages.tsv"
+# One folder per config; each config is a target of the same name.
+readonly CONFIGS_DIR="$REPO_ROOT/tools/unity-projects"
+# Reads the configs, the checkout packages their manifests name, and the work
+# folder, and generates a config's project; it runs with nothing but the
+# standard library (tools/cli/README.md).
+readonly PROJECTS_TOOL="$REPO_ROOT/tools/cli/src/common/unity_projects.py"
 
 # The word the selection messages use for what the entry point does with a target.
 SELECTION_LABEL="compile"
 TARGET="changed"
 TARGET_WAS_SET=0
 BASE_REF=""
-RUN_MODE="auto"
 # An Editor version that replaces each project's own, set by --editor-version.
 EDITOR_VERSION=""
 DRY_RUN=0
-KEEP_STAGING=0
-STAGING_ROOT=""
-RUN_PROJECT_PATH=""
-RUN_LOCATION=""
+# The folder that holds the generated projects: --work-dir, or else
+# ${MU3_WORK_ROOT}/Mu3Library_ForUnity/<unit>, as load_project_configs reads it,
+# or why there is none.
+WORK_DIR_ARGUMENT=""
+WORK_DIR=""
+WORK_DIR_ERROR=""
+# The Python of version 3.10 or later that runs the tools, found by find_tools_python.
+TOOLS_PYTHON=""
 RUN_NOTE=""
 UNITY_STATUS=0
 readonly COMPILE_LOG_DIR="$REPO_ROOT/log/unity-compile"
@@ -82,20 +91,24 @@ COMPILE_WARNINGS=()
 # Data Store service of the run started and ended and its exit code, and counts
 # the Unity processes that are not the run's own; test-unity.sh also has it put
 # its runs under a fixed load.
-readonly LOAD_HELPER="$REPO_ROOT/tools/cli/src/mu3_fixed_load/fixed_load.py"
+readonly LOAD_HELPER="$REPO_ROOT/tools/cli/src/fixed_load/fixed_load.py"
 LOAD_PYTHON=""
 LOAD_UNAVAILABLE=""
 LOAD_HELPER_PID=""
 LOAD_STOP_FILE=""
 
-SKIP_SAMPLES=0
-readonly LINK_SAMPLES_COMMAND="PYTHONPATH=tools/cli/src python -m mu3_samples link"
-
+# One entry per config, at the index of its name in TARGET_KEYS: the Editor
+# version its ProjectVersion.txt names, 1 when its manifest lists testables,
+# the folder its project is generated in (empty without a work folder), and the
+# checkout package folders its manifest names, separated by spaces.
 TARGET_KEYS=()
-PACKAGE_PATHS=()
-PROJECT_PATHS=()
-# Project-relative path of the link to the package's Samples~ folder, or empty.
-SAMPLE_LINKS=()
+CONFIG_EDITOR_VERSIONS=()
+CONFIG_TESTABLES=()
+PROJECT_FOLDERS=()
+CONFIG_PACKAGES=()
+# Every checkout package folder, and at the same index the configs whose
+# manifest names it, separated by spaces.
+PACKAGE_FOLDERS=()
 PACKAGE_CONSUMER_TARGETS=()
 CHANGED_FILES=()
 RELEVANT_CHANGES=()
@@ -105,11 +118,9 @@ SELECTED_TARGETS=()
 # that their callers need no command substitution.
 HOST_PLATFORM=""
 TARGET_INDEX=0
-PROJECT_EDITOR_VERSION=""
 FOUND_UNITY_PATH=""
 HUB_EDITOR_SUFFIX=""
 PROJECT_LOCK_STATE=""
-SAMPLE_LINK_PROBLEM=""
 
 fail() {
     printf 'error: %s\n' "$*" >&2
@@ -165,85 +176,100 @@ find_target() {
     return 1
 }
 
-load_package_config() {
-    local line_number=0
-    local target_key
-    local package_path
-    local project_path
-    local samples_link
-    local extra
+# Sets TOOLS_PYTHON to the first of python and python3 that runs Python 3.10
+# or later, the version tools/cli needs, or fails: it reads the configs and
+# generates the projects. python comes first: on Windows python3 is often the
+# stand-in of the Microsoft Store, which only says how to install Python.
+find_tools_python() {
+    local candidate
 
-    [[ -f "$PACKAGE_CONFIG" ]] || fail "package mapping not found: $PACKAGE_CONFIG"
-
-    while IFS=$'\t' read -r target_key package_path project_path samples_link extra \
-        || [[ -n "$target_key$package_path$project_path$samples_link$extra" ]]; do
-        line_number=$((line_number + 1))
-
-        if [[ -z "$target_key" || "$target_key" == \#* ]]; then
-            continue
-        fi
-
-        if [[ -z "$package_path" || -z "$project_path" || -n "$extra" ]]; then
-            fail "invalid package mapping at $PACKAGE_CONFIG:$line_number"
-        fi
-        if [[ ! "$target_key" =~ ^[a-z0-9][a-z0-9-]*$ || "$target_key" == "changed" || "$target_key" == "all" ]]; then
-            fail "invalid or reserved target '$target_key' at $PACKAGE_CONFIG:$line_number"
-        fi
-        if [[ "$package_path" == /* || "$project_path" == /*
-            || "/$package_path/" == *"/../"* || "/$project_path/" == *"/../"* ]]; then
-            fail "package and project paths must remain inside the repository at $PACKAGE_CONFIG:$line_number"
-        fi
-        if [[ "$samples_link" == /* || "/$samples_link/" == *"/../"* ]]; then
-            fail "the samples link must be a path inside the project at $PACKAGE_CONFIG:$line_number"
-        fi
-        if find_target "$target_key"; then
-            fail "duplicate target '$target_key' at $PACKAGE_CONFIG:$line_number"
-        fi
-        [[ -d "$REPO_ROOT/$package_path" ]] || fail "package directory not found: $REPO_ROOT/$package_path"
-        [[ -d "$REPO_ROOT/$project_path" ]] || fail "Unity project directory not found: $REPO_ROOT/$project_path"
-
-        TARGET_KEYS+=("$target_key")
-        PACKAGE_PATHS+=("$package_path")
-        PROJECT_PATHS+=("$project_path")
-        SAMPLE_LINKS+=("$samples_link")
-    done < "$PACKAGE_CONFIG"
-
-    [[ "${#TARGET_KEYS[@]}" -gt 0 ]] || fail "no package mappings found in $PACKAGE_CONFIG"
-}
-
-# The closing quote keeps a package from matching one whose path only starts with it.
-project_references_package() {
-    local project_path="$1"
-    local package_path="$2"
-    local manifest_file="$REPO_ROOT/$project_path/Packages/manifest.json"
-    local line
-
-    [[ -f "$manifest_file" && -r "$manifest_file" ]] || return 1
-    while IFS= read -r line || [[ -n "$line" ]]; do
-        line="${line%$'\r'}"
-        if [[ "$line" == *"\"file:../../$package_path\""* ]]; then
+    [[ -z "$TOOLS_PYTHON" ]] || return 0
+    for candidate in python python3; do
+        if command -v "$candidate" >/dev/null 2>&1 \
+            && "$candidate" -I -c 'import sys; sys.exit(sys.version_info < (3, 10))' >/dev/null 2>&1; then
+            TOOLS_PYTHON="$candidate"
             return 0
         fi
-    done < "$manifest_file"
-
-    return 1
+    done
+    fail "neither python nor python3 runs Python 3.10 or later, which reads tools/unity-projects and generates the Unity projects"
 }
 
-# A package compiles in every development project whose manifest references it, and
-# each of those projects installs different optional packages, so it gives the shared
-# sources a different define set. A change to the package therefore has to compile in
-# all of them, not only in the project the mapping pairs it with. Each entry lists the
-# targets for the package at the same index, separated by spaces.
-load_package_consumers() {
+# Runs the tool that reads the configs and generates the projects, with the
+# repository root given and its output in UTF-8, whatever the console's code
+# page.
+run_projects_tool() {
+    local command="$1"
+
+    shift
+    find_tools_python
+    "$TOOLS_PYTHON" -I -X utf8 "$(to_windows_path "$PROJECTS_TOOL")" "$command" \
+        --root "$(to_windows_path "$REPO_ROOT")" "$@"
+}
+
+# Reads every config, the checkout package folders its manifest names, and its
+# project folder under the work folder into the arrays above, as the tool
+# describes them in lines of tab-separated fields. A config that the tool cannot
+# read stops the script with the tool's error.
+load_project_configs() {
+    local arguments=()
+    local output
+    local line
+    local rest
+    local fields
     local consumers
     local i
     local j
 
+    if [[ -n "$WORK_DIR_ARGUMENT" ]]; then
+        arguments+=(--work-dir "$(to_windows_path "$WORK_DIR_ARGUMENT")")
+    fi
+    if [[ -n "$EDITOR_VERSION" ]]; then
+        arguments+=(--editor-version "$EDITOR_VERSION")
+    fi
+    output="$(run_projects_tool describe ${arguments[@]+"${arguments[@]}"})" || exit 1
+
+    while IFS= read -r line; do
+        # Python on Windows ends each line with CR LF. A field may be empty, so
+        # the line is split at each tab rather than by read, which would merge
+        # two tabs into one.
+        rest="${line%$'\r'}"
+        fields=()
+        while [[ "$rest" == *$'\t'* ]]; do
+            fields+=("${rest%%$'\t'*}")
+            rest="${rest#*$'\t'}"
+        done
+        fields+=("$rest")
+        case "${fields[0]}" in
+            package)
+                PACKAGE_FOLDERS+=("${fields[1]}")
+                ;;
+            config)
+                TARGET_KEYS+=("${fields[1]}")
+                CONFIG_EDITOR_VERSIONS+=("${fields[2]}")
+                CONFIG_TESTABLES+=("${fields[3]}")
+                PROJECT_FOLDERS+=("${fields[4]}")
+                CONFIG_PACKAGES+=("${fields[5]}")
+                ;;
+            work-dir)
+                WORK_DIR="${fields[1]}"
+                ;;
+            work-dir-error)
+                WORK_DIR_ERROR="${fields[1]}"
+                ;;
+        esac
+    done <<< "$output"
+
+    [[ "${#TARGET_KEYS[@]}" -gt 0 ]] || fail "no project configs found in ${CONFIGS_DIR#"$REPO_ROOT"/}"
+
+    # A package compiles in every config whose manifest names it, and each of
+    # those configs installs different optional packages, so it gives the
+    # shared sources a different define set. A change to the package therefore
+    # has to compile in all of them.
     PACKAGE_CONSUMER_TARGETS=()
-    for ((i = 0; i < ${#TARGET_KEYS[@]}; i++)); do
+    for ((i = 0; i < ${#PACKAGE_FOLDERS[@]}; i++)); do
         consumers=""
         for ((j = 0; j < ${#TARGET_KEYS[@]}; j++)); do
-            if [[ "$j" -eq "$i" ]] || project_references_package "${PROJECT_PATHS[$j]}" "${PACKAGE_PATHS[$i]}"; then
+            if [[ " ${CONFIG_PACKAGES[$j]} " == *" ${PACKAGE_FOLDERS[$i]} "* ]]; then
                 consumers="${consumers:+$consumers }${TARGET_KEYS[$j]}"
             fi
         done
@@ -252,37 +278,38 @@ load_package_consumers() {
 }
 
 usage() {
-    local i
+    local config_dir
 
     cat <<'EOF'
 Usage: ./compile-unity.sh [changed|all|target] [options]
 
 Selection:
-  changed          Compile every project that consumes a package affected by
-                   Git changes (default).
-  all              Compile every configured package project.
+  changed          Compile every project whose config names a package affected
+                   by Git changes, or whose config changed (default).
+  all              Compile the project of every config.
 EOF
 
-    for ((i = 0; i < ${#TARGET_KEYS[@]}; i++)); do
-        printf '  %-16s Compile %s for %s\n' \
-            "${TARGET_KEYS[$i]}" "${PACKAGE_PATHS[$i]}" "${PROJECT_PATHS[$i]}"
+    for config_dir in "$CONFIGS_DIR"/*/; do
+        [[ -d "$config_dir" ]] || continue
+        config_dir="${config_dir%/}"
+        printf '  %-16s Compile the project of tools/unity-projects/%s\n' "${config_dir##*/}" "${config_dir##*/}"
     done
 
     cat <<'EOF'
 
 Options:
   --base <git-ref>  Include committed changes from <git-ref>...HEAD.
-  --dry-run         Print changed files, selected targets, and where each
-                    target would run, without Unity.
-  --isolated        Always compile a temporary source-only project mirror.
-  --in-place        Compile the repository project directly; fail if it is open.
-  --keep-staging    Keep an isolated project after the run for diagnostics.
-  --without-samples Run even when a project's link to its package samples is
-                    missing, leaving the samples out with a warning.
+  --dry-run         Print changed files, selected targets, and the project
+                    folder each target would generate or refresh, without
+                    Unity and without creating anything.
+  --work-dir <folder>
+                    Generate the projects in <folder>/<target> instead of
+                    ${MU3_WORK_ROOT}/Mu3Library_ForUnity/<unit>/<target>.
   --editor-version <version>
                     Run with the Unity Hub Editor of that exact version, such
                     as 6000.3.17f1, instead of the one ProjectVersion.txt
-                    names, always in an isolated mirror retargeted to it.
+                    names, in a project of its own, <target>-<version>,
+                    retargeted to it.
   --stall-timeout <seconds>
                     Stop Unity and fail the target once its log has not
                     grown for this long (default 300; 0 waits as long as
@@ -290,126 +317,69 @@ Options:
   -h, --help        Show this help.
 
 Environment:
+  MU3_WORK_ROOT
+      Folder outside the checkout that holds the work folders, such as D:/w.
+      Without --work-dir the projects go to
+      ${MU3_WORK_ROOT}/Mu3Library_ForUnity/<unit>/<target>, where <unit> is
+      the first 32 characters of the current branch with slashes as dashes
+      and without trailing dots; a run with neither, or on a detached HEAD
+      without --work-dir, stops before Unity starts.
   UNITY_EDITOR or UNITY
       Optional path to a Unity executable (or Unity.app) that overrides the
       project version lookup. Without an override, the script reads each
-      ProjectVersion.txt and uses the matching Unity Hub installation.
+      config's ProjectVersion.txt and uses the matching Unity Hub installation.
   UNITY_HUB_EDITOR_ROOT
       Optional folder that holds one folder per installed Editor version, for
       a Unity Hub set to install Editors outside its default location
       (Program Files\Unity\Hub\Editor, /Applications/Unity/Hub/Editor, or
       ~/Unity/Hub/Editor). mu3-unity doctor reads the same variable.
-  TMPDIR
-      Where isolated mirrors are created. Keep it short on Windows.
+
+Each target is a config in tools/unity-projects. Before Unity starts, the
+script generates the target's project from its config, or refreshes the one
+an earlier run generated: it writes each file of the config that differs,
+removes each file an earlier run wrote that the config no longer holds, points
+each package the manifest names as "checkout" at its folder in this checkout,
+and keeps Library/ for the next run. It needs python or python3 of version
+3.10 or later from PATH. It refuses a project folder it did not make, and a
+project that an Editor has open: a project counts as open while a process holds
+its Temp/UnityLockfile, and a lock file that no process holds, left by an
+Editor that crashed, is reported and ignored. On Windows PowerShell checks the
+holder, elsewhere lsof does; without either, an existing lock file stops the
+target.
+
+Changed mode includes staged, unstaged, and untracked files. With --base it
+also includes committed changes from the requested ref through HEAD. A changed
+package selects every config whose Packages/manifest.json names it, because
+each project compiles it with different defines, and a change inside
+tools/unity-projects/<target> selects that target.
+
+--editor-version checks a package against another Editor, such as the lowest
+one its package.json declares. The project's ProjectVersion.txt names the
+requested version, its packages-lock.json is left out, and each Unity package
+version in its manifest becomes the one that Editor bundles; a built-in module
+the Editor does not ship is dropped, and a package it does not bundle stays as
+it is.
 
 On Windows Unity cannot import a package file whose path has 260 characters or
 more, and the run does not fail for it. Before Unity starts, the script warns
-when the project folder Unity opens, in place or in a mirror, has 98 characters
-or more; after Unity exits, it warns when the log names files Unity could not
-read for that reason. Once every target of a run of several has compiled, the
-script repeats the warnings; a failed compile ends the run at once, right after
-its own warnings and error. Run from a shorter path, such as a drive letter
-that subst maps to the checkout; see tools/README.md.
-
-Changed mode includes staged, unstaged, and untracked files. With --base it
-also includes committed changes from the requested ref through HEAD. Package
-ownership and development projects are configured in unity-cli-packages.tsv.
-A changed package selects every configured project whose Packages/manifest.json
-references it, because each project compiles it with different defines.
-
-Unity skips a package's Samples~ folder, so a project compiles the samples only
-through the link the fourth column of unity-cli-packages.tsv names. A run stops
-before Unity starts when a selected project lacks that link; create the links
-with: PYTHONPATH=tools/cli/src python -m mu3_samples link
-
-The default execution mode compiles in place when a project is closed. If the
-same project is open in Unity, it compiles a temporary mirror instead, leaving
-the running editor, repository packages, and repository Library untouched.
-A project counts as open while a process holds its Temp/UnityLockfile; a lock
-file that no process holds, left by an Editor that crashed, is reported and
-ignored. On Windows PowerShell checks the holder, elsewhere lsof does; without
-either, an existing lock file counts as open.
-
---editor-version checks a package against another Editor, such as the lowest
-one its package.json declares, without letting that Editor open and rewrite a
-repository project. The mirror's ProjectVersion.txt names the requested
-version, its packages-lock.json is removed, and each Unity package version in
-its manifest becomes the one that Editor bundles; a built-in module the Editor
-does not ship is dropped, and a package it does not bundle stays as it is.
+when the project folder has 98 characters or more; after Unity exits, it warns
+when the log names files Unity could not read for that reason. Once every
+target of a run of several has compiled, the script repeats the warnings; a
+failed compile ends the run at once, right after its own warnings and error.
+Keep MU3_WORK_ROOT or --work-dir short; see tools/README.md.
 
 The script prints Unity's log as Unity writes it and keeps it in
 log/unity-compile/<target>.log. A compile that stops writing, such as one
 waiting on a dialog that batch mode cannot show, is stopped with its child
 processes after --stall-timeout seconds and fails its target.
 
-Beside that log, a helper run with python or python3 of version 3.10 or later
-from PATH records in <target>.load when each Unity Data Store service of the
-run, the process that serves the Editor the files it imported, started and
-ended and its exit code, and a run whose Unity launched the service keeps the
-log the service wrote, the project's Logs/UDS-Service.log, as
-<target>.uds-service.log, also from an isolated mirror. The script judges
-neither; without the Python, it warns and records no service.
+Beside that log, a helper records in <target>.load when each Unity Data Store
+service of the run, the process that serves the Editor the files it imported,
+started and ended and its exit code, and a run whose Unity launched the service
+keeps the log the service wrote, the project's Logs/UDS-Service.log, as
+<target>.uds-service.log. The script judges neither; without the helper, it
+warns and records no service.
 EOF
-}
-
-# Removes a checked staging root. On Windows a Unity child process can keep
-# files of the mirror open for a moment after Unity exits, so removal retries
-# briefly. Prints the last removal error and returns 1 when it gives up.
-remove_staging_root() {
-    local staging_root="$1"
-    local attempt
-    local removal_error=""
-
-    for attempt in 1 2 3; do
-        if removal_error="$(rm -rf -- "$staging_root" 2>&1)"; then
-            return 0
-        fi
-        if [[ "$attempt" -lt 3 ]]; then
-            sleep "$attempt"
-        fi
-    done
-
-    printf '%s\n' "${removal_error%%$'\n'*}"
-    return 1
-}
-
-# Removes the isolated mirror of the last run. It never fails: the run's own
-# result decides the exit status, and a mirror it cannot remove only warns.
-cleanup_staging() {
-    local staging_root="$STAGING_ROOT"
-    local removal_error
-    STAGING_ROOT=""
-    RUN_PROJECT_PATH=""
-
-    if [[ -z "$staging_root" ]]; then
-        return 0
-    fi
-
-    if [[ "$KEEP_STAGING" -eq 1 ]]; then
-        printf 'Kept isolated project: %s\n' "$staging_root"
-        return 0
-    fi
-
-    if [[ ! -f "$staging_root/.mu3library-unity-compile" ]]; then
-        printf 'warning: refusing to remove unrecognized staging path: %s\n' "$staging_root" >&2
-        return 0
-    fi
-
-    case "${staging_root##*/}" in
-        mu3library-unity-compile.*)
-            if ! removal_error="$(remove_staging_root "$staging_root")"; then
-                printf 'warning: could not remove the isolated project; delete it by hand: %s\n' "$staging_root" >&2
-                if [[ -n "$removal_error" ]]; then
-                    printf 'warning: %s\n' "$removal_error" >&2
-                fi
-            fi
-            ;;
-        *)
-            printf 'warning: refusing to remove unsafe staging path: %s\n' "$staging_root" >&2
-            ;;
-    esac
-
-    return 0
 }
 
 add_changed_file() {
@@ -500,32 +470,32 @@ is_package_compile_relevant() {
 targets_for_changed_path() {
     local changed_path="$1"
     local package_path
-    local package_relative_path
-    local project_path
+    local config
     local i
 
-    for ((i = 0; i < ${#TARGET_KEYS[@]}; i++)); do
-        package_path="${PACKAGE_PATHS[$i]}"
-        project_path="${PROJECT_PATHS[$i]}"
-
-        if [[ "$changed_path" == "$package_path" || "$changed_path" == "$package_path/"* ]]; then
-            package_relative_path="${changed_path#"$package_path"/}"
-            if ! is_package_compile_relevant "$package_relative_path"; then
+    for ((i = 0; i < ${#PACKAGE_FOLDERS[@]}; i++)); do
+        package_path="${PACKAGE_FOLDERS[$i]}"
+        if [[ "$changed_path" == "$package_path/"* ]]; then
+            # A package that no config names compiles nowhere.
+            if ! is_package_compile_relevant "${changed_path#"$package_path"/}" \
+                || [[ -z "${PACKAGE_CONSUMER_TARGETS[$i]}" ]]; then
                 return 1
             fi
             printf '%s\n' "${PACKAGE_CONSUMER_TARGETS[$i]}"
             return 0
         fi
-
-        case "$changed_path" in
-            "$project_path/Assets/"*|"$project_path/Packages/"*|"$project_path/ProjectSettings/"*)
-                printf '%s\n' "${TARGET_KEYS[$i]}"
-                return 0
-                ;;
-        esac
     done
 
     case "$changed_path" in
+        tools/unity-projects/*/*)
+            config="${changed_path#tools/unity-projects/}"
+            config="${config%%/*}"
+            if find_target "$config"; then
+                printf '%s\n' "$config"
+                return 0
+            fi
+            return 1
+            ;;
         tools/*|docs/*|.github/*)
             return 1
             ;;
@@ -551,8 +521,6 @@ select_changed_targets() {
         return
     fi
 
-    load_package_consumers
-
     for changed_file in "${CHANGED_FILES[@]}"; do
         if mapped_line="$(targets_for_changed_path "$changed_file")"; then
             IFS=' ' read -r -a mapped_targets <<< "$mapped_line"
@@ -572,72 +540,12 @@ select_changed_targets() {
     done
 }
 
-# Unity skips folders whose name ends in ~, so a development project compiles a
-# package's samples only through a link from its Assets folder to Samples~.
-# Sets SAMPLE_LINK_PROBLEM to why the target's link is unusable and returns 1,
-# or returns 0 when the link works or the target configures none.
-sample_link_problem() {
-    local target_key="$1"
-    local index
-    local link_path
-    local samples_path
-
-    SAMPLE_LINK_PROBLEM=""
-    find_target "$target_key" || return 0
-    index="$TARGET_INDEX"
-    [[ -n "${SAMPLE_LINKS[$index]}" ]] || return 0
-
-    link_path="${PROJECT_PATHS[$index]}/${SAMPLE_LINKS[$index]}"
-    samples_path="${PACKAGE_PATHS[$index]}/Samples~"
-
-    if [[ ! -d "$REPO_ROOT/$samples_path" ]]; then
-        SAMPLE_LINK_PROBLEM="$samples_path does not exist"
-        return 1
-    fi
-    if [[ ! -e "$REPO_ROOT/$link_path" ]]; then
-        SAMPLE_LINK_PROBLEM="$link_path is missing"
-        return 1
-    fi
-    if [[ ! "$REPO_ROOT/$link_path" -ef "$REPO_ROOT/$samples_path" ]]; then
-        SAMPLE_LINK_PROBLEM="$link_path does not link to $samples_path"
-        return 1
-    fi
-}
-
-# Reports each selected target whose samples would not compile, as the given
-# severity. Returns 1 when one of them should stop the run, which
-# --without-samples turns into a warning.
-check_sample_links() {
-    local severity="$1"
-    local target_key
-    local check_status=0
-
-    # bash before 4.4 treats an empty array as unset under set -u.
-    [[ "${#SELECTED_TARGETS[@]}" -gt 0 ]] || return 0
-
-    for target_key in "${SELECTED_TARGETS[@]}"; do
-        if sample_link_problem "$target_key"; then
-            continue
-        fi
-
-        if [[ "$SKIP_SAMPLES" -eq 1 ]]; then
-            printf 'warning: %s: %s, so its samples are left out as --without-samples asks.\n' \
-                "$target_key" "$SAMPLE_LINK_PROBLEM" >&2
-        else
-            printf '%s: %s: %s, so its samples would not compile. Run "%s" to link them, or pass --without-samples.\n' \
-                "$severity" "$target_key" "$SAMPLE_LINK_PROBLEM" "$LINK_SAMPLES_COMMAND" >&2
-            check_status=1
-        fi
-    done
-
-    return "$check_status"
-}
-
 print_selection() {
     local change_entry
     local changed_path
     local mapped_target
     local selected_target
+    local packages
 
     if [[ "$TARGET" == "changed" ]]; then
         printf 'Git changes inspected: %d\n' "${#CHANGED_FILES[@]}"
@@ -673,32 +581,10 @@ print_selection() {
     printf 'Selected %s targets:\n' "$SELECTION_LABEL"
     for selected_target in "${SELECTED_TARGETS[@]}"; do
         find_target "$selected_target"
-        printf '  - %s: %s -> %s\n' \
-            "$selected_target" "${PACKAGE_PATHS[$TARGET_INDEX]}" "${PROJECT_PATHS[$TARGET_INDEX]}"
+        packages="${CONFIG_PACKAGES[$TARGET_INDEX]// /, }"
+        printf '  - %s: tools/unity-projects/%s with %s\n' \
+            "$selected_target" "$selected_target" "${packages:-no checkout package}"
     done
-}
-
-# Sets PROJECT_EDITOR_VERSION to the Editor version that a project's
-# ProjectSettings/ProjectVersion.txt names on its m_EditorVersion line, up to
-# any further ": ", or to nothing when no line names one. Returns 1 when the
-# file is missing. A checkout with core.autocrlf holds the file with CRLF, and
-# read keeps the CR, so each line drops it, as it does in every file these
-# scripts read line by line.
-project_editor_version() {
-    local project_path="$1"
-    local version_file="$REPO_ROOT/$project_path/ProjectSettings/ProjectVersion.txt"
-    local line
-
-    PROJECT_EDITOR_VERSION=""
-    [[ -f "$version_file" ]] || return 1
-    while IFS= read -r line || [[ -n "$line" ]]; do
-        line="${line%$'\r'}"
-        if [[ "$line" == "m_EditorVersion: "* ]]; then
-            line="${line#m_EditorVersion: }"
-            PROJECT_EDITOR_VERSION="${line%%: *}"
-            return 0
-        fi
-    done < "$version_file"
 }
 
 # Unity Hub's install location, which holds one folder per Editor version.
@@ -786,7 +672,6 @@ hub_editor_suffix() {
 unity_executable() {
     local target_key="$1"
     local warn_about_override=1
-    local project_path
     local required_version
     local override_path="${UNITY_EDITOR:-${UNITY:-}}"
     local candidate
@@ -798,17 +683,13 @@ unity_executable() {
     fi
     FOUND_UNITY_PATH=""
     find_target "$target_key" || return 1
-    project_path="${PROJECT_PATHS[$TARGET_INDEX]}"
-    requester="$project_path"
+    requester="tools/unity-projects/$target_key"
     if [[ -n "$EDITOR_VERSION" ]]; then
         required_version="$EDITOR_VERSION"
         requester="--editor-version"
     else
-        project_editor_version "$project_path" || {
-            printf 'error: Unity version file not found for %s\n' "$project_path" >&2
-            return 1
-        }
-        required_version="$PROJECT_EDITOR_VERSION"
+        # The tool read it from the config's ProjectSettings/ProjectVersion.txt.
+        required_version="${CONFIG_EDITOR_VERSIONS[$TARGET_INDEX]}"
     fi
 
     if [[ -n "$override_path" ]]; then
@@ -897,12 +778,12 @@ file_holder_state() {
 }
 
 # Sets PROJECT_LOCK_STATE to absent, open, stale, or unknown for the
-# Temp/UnityLockfile of a project, given by its repository path. A running
-# Editor keeps the file open, so a lock file that no process holds was left
-# behind by an Editor that crashed or was killed.
+# Temp/UnityLockfile of a project folder. A running Editor keeps the file open,
+# so a lock file that no process holds was left behind by an Editor that
+# crashed or was killed.
 project_lock_state() {
-    local project_path="$1"
-    local lock_file="$REPO_ROOT/$project_path/Temp/UnityLockfile"
+    local project_folder="$1"
+    local lock_file="$project_folder/Temp/UnityLockfile"
 
     if [[ ! -e "$lock_file" ]]; then
         PROJECT_LOCK_STATE="absent"
@@ -917,88 +798,65 @@ project_lock_state() {
     esac
 }
 
-# Decides where a target runs: sets RUN_LOCATION to in-place or isolated and
-# RUN_NOTE to the reason printed with it. Returns 1, with the error in
-# RUN_NOTE, when --in-place meets a project that an Editor may hold.
-decide_run_location() {
+# Decides whether a target's project can be generated and run: returns 1, with
+# the reason in RUN_NOTE, when there is no work folder or an Editor may hold the
+# project, whose files a refresh would change under it. A stale lock file only
+# leaves a note in RUN_NOTE.
+project_run_problem() {
     local target_key="$1"
-    local project_path
-    local held_reason=""
-    local held_remedy="close it"
+    local project_folder
 
-    find_target "$target_key" || return 1
-    project_path="${PROJECT_PATHS[$TARGET_INDEX]}"
-    RUN_LOCATION="in-place"
     RUN_NOTE=""
-
-    # Another Editor would rewrite the repository project's settings and Library.
-    if [[ -n "$EDITOR_VERSION" ]]; then
-        RUN_LOCATION="isolated"
-        RUN_NOTE="--editor-version asks for Unity $EDITOR_VERSION"
-        return 0
+    if [[ -n "$WORK_DIR_ERROR" ]]; then
+        RUN_NOTE="$WORK_DIR_ERROR"
+        return 1
     fi
+    find_target "$target_key" || return 1
+    project_folder="${PROJECT_FOLDERS[$TARGET_INDEX]}"
 
-    project_lock_state "$project_path"
+    project_lock_state "$project_folder"
     case "$PROJECT_LOCK_STATE" in
         open)
-            held_reason="$project_path is open in Unity"
+            RUN_NOTE="$project_folder is open in Unity; close it, since the run refreshes the project's files"
+            return 1
             ;;
         unknown)
             # Closing an Editor does not help here: the lock may be stale, and only
-            # deleting it, or a way to check its holder, lets the run go in place.
+            # deleting it, or a way to check its holder, lets the run go on.
             detect_host_platform
             if [[ "$HOST_PLATFORM" == "windows" ]]; then
-                held_reason="$project_path/Temp/UnityLockfile exists and PowerShell could not open it to check whether an Editor holds it"
-                held_remedy="delete the file if no Editor has the project open"
+                RUN_NOTE="$project_folder/Temp/UnityLockfile exists and PowerShell could not open it to check whether an Editor holds it; delete the file if no Editor has the project open"
             else
-                held_reason="$project_path/Temp/UnityLockfile exists and no lsof is installed to check whether an Editor holds it"
-                held_remedy="install lsof, or delete the file if no Editor has the project open"
+                RUN_NOTE="$project_folder/Temp/UnityLockfile exists and no lsof is installed to check whether an Editor holds it; install lsof, or delete the file if no Editor has the project open"
             fi
+            return 1
             ;;
         stale)
-            RUN_NOTE="ignoring a stale $project_path/Temp/UnityLockfile that no running process holds"
-            ;;
-    esac
-
-    case "$RUN_MODE" in
-        isolated)
-            RUN_LOCATION="isolated"
-            RUN_NOTE="it was requested"
-            ;;
-        in-place)
-            if [[ -n "$held_reason" ]]; then
-                RUN_NOTE="$held_reason; $held_remedy, or omit --in-place to use an isolated mirror"
-                return 1
-            fi
-            ;;
-        auto)
-            if [[ -n "$held_reason" ]]; then
-                RUN_LOCATION="isolated"
-                RUN_NOTE="$held_reason"
-            fi
+            RUN_NOTE="ignoring a stale $project_folder/Temp/UnityLockfile that no running process holds"
             ;;
     esac
 }
 
-# Prints where a dry run would run the target.
-run_location_phrase() {
+# Prints the project folder a dry run would generate or refresh for a target,
+# or why it cannot run.
+project_plan_phrase() {
     local target_key="$1"
+    local action="refresh"
 
-    if ! decide_run_location "$target_key"; then
+    if ! project_run_problem "$target_key"; then
         printf 'cannot run: %s\n' "$RUN_NOTE"
-    elif [[ "$RUN_LOCATION" == "isolated" ]]; then
-        printf 'isolated mirror, because %s\n' "$RUN_NOTE"
-    elif [[ -n "$RUN_NOTE" ]]; then
-        printf 'in place, %s\n' "$RUN_NOTE"
-    else
-        printf 'in place\n'
+        return 0
     fi
+    if [[ ! -e "${PROJECT_FOLDERS[$TARGET_INDEX]}" ]]; then
+        action="generate"
+    fi
+    printf '%s %s%s\n' "$action" "${PROJECT_FOLDERS[$TARGET_INDEX]}" "${RUN_NOTE:+, $RUN_NOTE}"
 }
 
 # One target's line in the dry-run plan; an entry point that sources this file
 # can replace it to add its own conditions.
 run_plan_entry() {
-    run_location_phrase "$1"
+    project_plan_phrase "$1"
 }
 
 print_run_plan() {
@@ -1014,36 +872,18 @@ print_run_plan() {
     done
 }
 
-# Copies the contents of a directory, following symlinks so that the samples
-# linked into a Unity project become real files in the mirror.
-# Git Bash ships no rsync, so cp takes over there.
-copy_tree_contents() {
-    local source_dir="$1"
-    local destination_dir="$2"
-
-    if command -v rsync >/dev/null 2>&1; then
-        rsync -aL "$source_dir/" "$destination_dir/"
-        return
-    fi
-
-    cp -RL "$source_dir/." "$destination_dir/"
-}
-
 # Sets PATH_LIMIT_WARNING to a warning, or to nothing, about the folder that
-# Unity opens as the project, in place or in a mirror as the location says: on
-# Windows, when the longest path measured below a project reaches
-# WINDOWS_PATH_LIMIT there. Unity also clones git-URL package dependencies into
-# Library/PackageCache, which a path this long can break as well. Bash counts
-# the folder's length by the locale, as find_unreadable_long_paths says of awk.
+# Unity opens as the project: on Windows, when the longest path measured below
+# a project reaches WINDOWS_PATH_LIMIT there. Unity also clones git-URL package
+# dependencies into Library/PackageCache, which a path this long can break as
+# well. Bash counts the folder's length by the locale, as
+# find_unreadable_long_paths says of awk.
 check_project_path_length() {
     local project_folder="$1"
-    local location="$2"
     local windows_path
     local longest_path
     # A file path holds the folder, a separator, and the path below it.
     local longest_folder=$((WINDOWS_PATH_LIMIT - 2 - LONGEST_PROJECT_FILE_PATH))
-    local subject="project path"
-    local remedy="run from a project path of at most $longest_folder characters, such as on a drive letter that subst maps to the checkout"
 
     PATH_LIMIT_WARNING=""
     detect_host_platform
@@ -1053,11 +893,7 @@ check_project_path_length() {
     longest_path=$((${#windows_path} + 1 + LONGEST_PROJECT_FILE_PATH))
     [[ "$longest_path" -ge "$WINDOWS_PATH_LIMIT" ]] || return 0
 
-    if [[ "$location" == "isolated" ]]; then
-        subject="mirror path"
-        remedy="set TMPDIR so that the mirror path has at most $longest_folder characters"
-    fi
-    PATH_LIMIT_WARNING="the $subject $windows_path is ${#windows_path} characters, so the longest package file path measured below a project reaches $longest_path there, and Unity cannot import a file whose path has $WINDOWS_PATH_LIMIT characters or more on Windows; $remedy (tools/README.md)"
+    PATH_LIMIT_WARNING="the project path $windows_path is ${#windows_path} characters, so the longest package file path measured below a project reaches $longest_path there, and Unity cannot import a file whose path has $WINDOWS_PATH_LIMIT characters or more on Windows; set a shorter MU3_WORK_ROOT or pass a shorter --work-dir, so that the project path has at most $longest_folder characters (tools/README.md)"
 }
 
 # Sets UNREADABLE_PATHS_WARNING to a warning, or to nothing, about the files that
@@ -1136,183 +972,24 @@ find_unreadable_long_paths() {
     UNREADABLE_PATHS_WARNING+="; see ${log_file#"$REPO_ROOT"/}"
 }
 
-# Prints the folder in which an Editor keeps the packages it bundles: beside the
-# executable in Data/ on Windows and Linux, and in Contents/Resources of
-# Unity.app on macOS.
-editor_package_manager_dir() {
-    local unity_path="$1"
-    local executable_dir
-    local candidate
-
-    executable_dir="$(dirname "$unity_path")"
-    for candidate in "$executable_dir/Data/Resources/PackageManager" "$executable_dir/../Resources/PackageManager"; do
-        if [[ -d "$candidate/BuiltInPackages" ]]; then
-            printf '%s\n' "$candidate"
-            return 0
-        fi
-    done
-
-    return 1
-}
-
-# Prints the first "version" value of a JSON file, or of the object that opens
-# with the line "<key>": { when a key is given. Unity writes its manifests one
-# member per line, which is what this reads.
-json_version_value() {
-    local json_file="$1"
-    local object_key="${2:-}"
-
-    [[ -f "$json_file" ]] || return 1
-    awk -v key="\"$object_key\"" '
-        function trimmed(text) { sub(/^[[:space:]]+/, "", text); return text }
-        key != "\"\"" && !inside {
-            line = trimmed($0)
-            if (substr(line, 1, length(key)) == key && line ~ /\{[[:space:]]*$/) { inside = 1 }
-            next
-        }
-        key != "\"\"" && /^[[:space:]]*\}/ { exit 1 }
-        match($0, /"version"[[:space:]]*:[[:space:]]*"[^"]*"/) {
-            value = substr($0, RSTART, RLENGTH)
-            sub(/^"version"[[:space:]]*:[[:space:]]*"/, "", value)
-            sub(/"$/, "", value)
-            print value
-            found = 1
-            exit
-        }
-        END { exit !found }
-    ' "$json_file"
-}
-
-# Prints the version of a package that an Editor bundles: the one its package
-# manifest recommends, or else the one in the package's own built-in copy.
-editor_bundled_version() {
-    local package_manager_dir="$1"
-    local package_name="$2"
-
-    json_version_value "$package_manager_dir/Editor/manifest.json" "$package_name" \
-        || json_version_value "$package_manager_dir/BuiltInPackages/$package_name/package.json"
-}
-
-# Points a mirror at the Editor --editor-version asks for: ProjectVersion.txt
-# names it, the lock file goes so that Unity resolves the packages again, and
-# every com.unity.* dependency pinned to a version takes the version that
-# Editor bundles. A built-in module the Editor does not ship is dropped, since
-# Unity cannot resolve it; any other package it does not bundle stays.
-retarget_isolated_project() {
-    local staging_project="$1"
-    local unity_path="$2"
-    local manifest_file="$staging_project/Packages/manifest.json"
-    local package_manager_dir
-    local line
-    local in_dependencies=0
-    local found_dependencies=0
-    local last
-    local bundled
-    local entry_pattern='^([[:space:]]*)"(com\.unity\.[^"]+)"[[:space:]]*:[[:space:]]*"([0-9][^"]*)"(,?)[[:space:]]*$'
-    local output_lines=()
-    local changes=()
-
-    package_manager_dir="$(editor_package_manager_dir "$unity_path")" \
-        || fail "cannot find the packages that Unity $EDITOR_VERSION bundles next to $unity_path"
-
-    printf 'm_EditorVersion: %s\n' "$EDITOR_VERSION" > "$staging_project/ProjectSettings/ProjectVersion.txt"
-    rm -f -- "$staging_project/Packages/packages-lock.json"
-
-    while IFS= read -r line || [[ -n "$line" ]]; do
-        line="${line%$'\r'}"
-
-        if [[ "$in_dependencies" -eq 0 ]]; then
-            if [[ "$found_dependencies" -eq 0 && "$line" =~ ^[[:space:]]*\"dependencies\"[[:space:]]*:[[:space:]]*\{[[:space:]]*$ ]]; then
-                in_dependencies=1
-                found_dependencies=1
-            fi
-            output_lines+=("$line")
-            continue
-        fi
-
-        if [[ "$line" =~ ^[[:space:]]*\} ]]; then
-            # A dropped last entry leaves the comma of the entry before it.
-            in_dependencies=0
-            last="${output_lines[${#output_lines[@]}-1]}"
-            output_lines[${#output_lines[@]}-1]="${last%,}"
-            output_lines+=("$line")
-            continue
-        fi
-
-        if [[ ! "$line" =~ $entry_pattern ]]; then
-            output_lines+=("$line")
-            continue
-        fi
-
-        if bundled="$(editor_bundled_version "$package_manager_dir" "${BASH_REMATCH[2]}")"; then
-            if [[ "$bundled" != "${BASH_REMATCH[3]}" ]]; then
-                changes+=("${BASH_REMATCH[2]} ${BASH_REMATCH[3]} -> $bundled")
-            fi
-            output_lines+=("${BASH_REMATCH[1]}\"${BASH_REMATCH[2]}\": \"$bundled\"${BASH_REMATCH[4]}")
-        elif [[ "${BASH_REMATCH[2]}" == com.unity.modules.* ]]; then
-            changes+=("${BASH_REMATCH[2]} removed, Unity $EDITOR_VERSION does not ship it")
-        else
-            printf 'warning: Unity %s does not bundle %s, so the mirror keeps %s\n' \
-                "$EDITOR_VERSION" "${BASH_REMATCH[2]}" "${BASH_REMATCH[3]}" >&2
-            output_lines+=("$line")
-        fi
-    done < "$manifest_file"
-
-    [[ "$found_dependencies" -eq 1 ]] \
-        || fail "no dependencies block to retarget in $manifest_file"
-    printf '%s\n' "${output_lines[@]}" > "$manifest_file"
-
-    printf 'Retargeted the mirror to Unity %s: ProjectVersion.txt names it, packages-lock.json is removed' "$EDITOR_VERSION"
-    if [[ "${#changes[@]}" -eq 0 ]]; then
-        printf ', and every Unity package already has the version it bundles.\n'
-        return 0
-    fi
-    printf ', and these Unity packages follow it:\n'
-    printf '  - %s\n' "${changes[@]}"
-}
-
-prepare_isolated_project() {
+# Generates a target's project from its config, or refreshes the one an earlier
+# run generated, in its folder under the work folder; with --editor-version
+# the project names that Editor and takes the Unity package versions that the
+# Editor at the given path bundles. Fails when the tool does, as when the folder
+# is not one it made.
+generate_project() {
     local target_key="$1"
     local unity_path="$2"
-    local project_path
-    local source_project
-    local staging_project
-    local manifest_file
-    local source_dir
-    local package_path
-    local i
+    local editor_arguments=()
 
     find_target "$target_key" || return 1
-    project_path="${PROJECT_PATHS[$TARGET_INDEX]}"
-    source_project="$REPO_ROOT/$project_path"
-    manifest_file="$source_project/Packages/manifest.json"
-
-    STAGING_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/mu3library-unity-compile.XXXXXX")"
-    touch "$STAGING_ROOT/.mu3library-unity-compile"
-
-    staging_project="$STAGING_ROOT/$project_path"
-    mkdir -p "$staging_project"
-
-    for source_dir in Assets Packages ProjectSettings; do
-        [[ -d "$source_project/$source_dir" ]] || fail "missing Unity project directory: $source_project/$source_dir"
-        mkdir -p "$staging_project/$source_dir"
-        copy_tree_contents "$source_project/$source_dir" "$staging_project/$source_dir"
-    done
-
-    [[ -f "$manifest_file" ]] || fail "Unity package manifest not found: $manifest_file"
-    for ((i = 0; i < ${#PACKAGE_PATHS[@]}; i++)); do
-        package_path="${PACKAGE_PATHS[$i]}"
-        if project_references_package "$project_path" "$package_path"; then
-            mkdir -p "$STAGING_ROOT/$package_path"
-            copy_tree_contents "$REPO_ROOT/$package_path" "$STAGING_ROOT/$package_path"
-        fi
-    done
-
     if [[ -n "$EDITOR_VERSION" ]]; then
-        retarget_isolated_project "$staging_project" "$unity_path"
+        editor_arguments=(--editor-version "$EDITOR_VERSION" --editor "$(to_windows_path "$unity_path")")
     fi
-
-    RUN_PROJECT_PATH="$staging_project"
+    run_projects_tool generate --config "$target_key" \
+        --project "$(to_windows_path "${PROJECT_FOLDERS[$TARGET_INDEX]}")" \
+        ${editor_arguments[@]+"${editor_arguments[@]}"} \
+        || fail "the project of $target_key could not be generated in ${PROJECT_FOLDERS[$TARGET_INDEX]}"
 }
 
 # Prints the processes that descend from a process and share its process
@@ -1377,35 +1054,24 @@ stop_process_tree() {
     done
 }
 
-# Sets LOAD_PYTHON to the first of python and python3 that runs Python 3.10 or
-# later, the version tools/cli needs, or LOAD_UNAVAILABLE to why the helper cannot
-# run. python comes first: on Windows python3 is often the stand-in of the
-# Microsoft Store, which only says how to install Python.
+# Sets LOAD_PYTHON to the Python that runs the helper, the one find_tools_python
+# finds, or LOAD_UNAVAILABLE to why the helper cannot run.
 find_load_python() {
-    local candidate
-
     LOAD_PYTHON=""
     LOAD_UNAVAILABLE=""
     if [[ ! -f "$LOAD_HELPER" ]]; then
         LOAD_UNAVAILABLE="${LOAD_HELPER#"$REPO_ROOT"/} is missing"
         return 1
     fi
-    for candidate in python python3; do
-        if command -v "$candidate" >/dev/null 2>&1 \
-            && "$candidate" -I -c 'import sys; sys.exit(sys.version_info < (3, 10))' >/dev/null 2>&1; then
-            LOAD_PYTHON="$candidate"
-            return 0
-        fi
-    done
-    LOAD_UNAVAILABLE="neither python nor python3 runs Python 3.10 or later"
-    return 1
+    find_tools_python
+    LOAD_PYTHON="$TOOLS_PYTHON"
 }
 
 # Starts the helper for the run whose Unity log is UNITY_LOG_FILE, with its
 # record, <base>.load, and its stop file beside it. It first removes what an
 # earlier run left there, that record and the Data Store service's log that
 # keep_data_store_service_log keeps as <base>.uds-service.log, before the run
-# can fail, as when its mirror cannot be made, so that neither stands in for
+# can fail, as when its project cannot be generated, so that neither stands in for
 # this run's; a file it cannot remove, such as one another program holds open,
 # gets a warning and does not stop the run. The helper watches the run's Data
 # Store service and counts the Unity processes that do not descend from this
@@ -1541,47 +1207,37 @@ run_unity_logged() {
     return "$status"
 }
 
-# Runs Unity in batch mode for one target, in place or in an isolated mirror,
-# with the arguments that follow the verb and its log in UNITY_LOG_FILE, and
-# leaves its exit code in UNITY_STATUS. The mirror is removed before this returns.
+# Generates or refreshes one target's project, then runs Unity in batch mode on
+# it with the arguments that follow the verb and its log in UNITY_LOG_FILE, and
+# leaves its exit code in UNITY_STATUS. A target whose project cannot run or be
+# generated stops the script.
 run_unity_for_target() {
     local target_key="$1"
     local verb="$2"
     local unity_path
-    local project_path
-    local run_project_path
+    local project_folder
     local unity_command
 
     shift 2
     find_target "$target_key" || return 1
-    project_path="${PROJECT_PATHS[$TARGET_INDEX]}"
-    run_project_path="$REPO_ROOT/$project_path"
+    project_folder="${PROJECT_FOLDERS[$TARGET_INDEX]}"
     unity_executable "$target_key" quiet
     unity_path="$FOUND_UNITY_PATH"
 
-    if ! decide_run_location "$target_key"; then
-        fail "$RUN_NOTE"
+    if ! project_run_problem "$target_key"; then
+        fail "$target_key: $RUN_NOTE"
     fi
-
-    if [[ "$RUN_LOCATION" == "isolated" ]]; then
-        prepare_isolated_project "$target_key" "$unity_path"
-        run_project_path="$RUN_PROJECT_PATH"
-        printf '%s %s (%s) in an isolated mirror because %s.\n' \
-            "$verb" "$target_key" "$project_path" "$RUN_NOTE"
-    elif [[ -n "$RUN_NOTE" ]]; then
-        printf '%s %s (%s) in place, %s.\n' "$verb" "$target_key" "$project_path" "$RUN_NOTE"
-    else
-        printf '%s %s (%s) in place.\n' "$verb" "$target_key" "$project_path"
-    fi
+    generate_project "$target_key" "$unity_path"
+    printf '%s %s in %s%s.\n' "$verb" "$target_key" "$project_folder" "${RUN_NOTE:+, $RUN_NOTE}"
 
     printf 'Unity: %s\n' "$unity_path"
-    printf 'Project: %s\n' "$run_project_path"
-    check_project_path_length "$run_project_path" "$RUN_LOCATION"
+    printf 'Project: %s\n' "$project_folder"
+    check_project_path_length "$project_folder"
     if [[ -n "$PATH_LIMIT_WARNING" ]]; then
         printf 'warning: %s: %s\n' "$target_key" "$PATH_LIMIT_WARNING" >&2
     fi
 
-    unity_command=("$unity_path" -batchmode -projectPath "$run_project_path" "$@" -logFile -)
+    unity_command=("$unity_path" -batchmode -projectPath "$project_folder" "$@" -logFile -)
     UNITY_STALLED=0
     set +e
     run_unity_logged "${unity_command[@]}"
@@ -1593,15 +1249,13 @@ run_unity_for_target() {
         printf 'warning: %s: %s\n' "$target_key" "$UNREADABLE_PATHS_WARNING" >&2
     fi
 
-    keep_data_store_service_log "$run_project_path"
-    cleanup_staging
+    keep_data_store_service_log "$project_folder"
 }
 
 # Keeps the log that Unity's Data Store service wrote in the folder Unity
 # opened as the project, Logs/UDS-Service.log, beside Unity's log as
-# <name>.uds-service.log, when Unity's log says that it launched the service;
-# run_unity_for_target calls it before an isolated mirror goes. Every such run
-# keeps it, since Unity logs a service's end only as it next reads an imported
+# <name>.uds-service.log, when Unity's log says that it launched the service.
+# Every such run keeps it, since Unity logs a service's end only as it next reads an imported
 # file, so an end late in a run may never reach its log, and a service that
 # ended with its Editor gives the log to compare with. In a run that launched
 # no service, the log there is an earlier run's. start_load_helper removes the
@@ -1659,17 +1313,10 @@ parse_arguments() {
             --dry-run)
                 DRY_RUN=1
                 ;;
-            --isolated)
-                RUN_MODE="isolated"
-                ;;
-            --in-place)
-                RUN_MODE="in-place"
-                ;;
-            --keep-staging)
-                KEEP_STAGING=1
-                ;;
-            --without-samples)
-                SKIP_SAMPLES=1
+            --work-dir)
+                shift
+                [[ "$#" -gt 0 && -n "$1" ]] || fail "--work-dir requires a folder"
+                WORK_DIR_ARGUMENT="$1"
                 ;;
             --editor-version)
                 shift
@@ -1703,9 +1350,6 @@ parse_arguments() {
     if [[ -n "$BASE_REF" && "$TARGET" != "changed" ]]; then
         fail "--base can only be used with the changed target"
     fi
-    if [[ -n "$EDITOR_VERSION" && "$RUN_MODE" == "in-place" ]]; then
-        fail "--editor-version runs in an isolated mirror, so it cannot be combined with --in-place"
-    fi
 }
 
 select_requested_targets() {
@@ -1718,10 +1362,10 @@ select_requested_targets() {
     fi
 }
 
-# Checks every selected target before Unity starts, so that a missing Editor
-# or sample link does not surface only after earlier targets have spent
-# minutes running. It is also the one place that warns about an explicit
-# Editor that a target does not ask for.
+# Checks every selected target before Unity starts, so that a missing Editor,
+# a missing work folder, or a project open in an Editor does not surface only
+# after earlier targets have spent minutes running. It is also the one place
+# that warns about an explicit Editor that a target does not ask for.
 preflight_selected_targets() {
     local target_key
     local preflight_failed=0
@@ -1732,7 +1376,17 @@ preflight_selected_targets() {
         fi
     done
 
-    check_sample_links error || preflight_failed=1
+    if [[ -n "$WORK_DIR_ERROR" ]]; then
+        printf 'error: %s\n' "$WORK_DIR_ERROR" >&2
+        preflight_failed=1
+    else
+        for target_key in "${SELECTED_TARGETS[@]}"; do
+            if ! project_run_problem "$target_key"; then
+                printf 'error: %s: %s\n' "$target_key" "$RUN_NOTE" >&2
+                preflight_failed=1
+            fi
+        done
+    fi
 
     # A value sleep refuses, or 0, would turn the stall watch into a busy loop.
     if ! [[ "$UNITY_LOG_POLL_SECONDS" =~ ^[0-9]*\.?[0-9]+$ && "$UNITY_LOG_POLL_SECONDS" =~ [1-9] ]]; then
@@ -1746,24 +1400,27 @@ preflight_selected_targets() {
 compile_main() {
     local target_key
 
-    load_package_config
     parse_arguments "$@"
+    load_project_configs
     select_requested_targets
     print_selection
 
     if [[ "$DRY_RUN" -eq 1 ]]; then
+        # Without a work folder no target has a project folder to name.
+        if [[ "${#SELECTED_TARGETS[@]}" -gt 0 && -n "$WORK_DIR_ERROR" ]]; then
+            fail "$WORK_DIR_ERROR"
+        fi
         print_run_plan
-        check_sample_links warning || true
         exit 0
     fi
 
     if [[ "${#SELECTED_TARGETS[@]}" -eq 0 ]]; then
-        printf 'No Unity package or development-project changes detected; nothing to compile.\n'
+        printf 'No Unity package or project config changes detected; nothing to compile.\n'
         exit 0
     fi
 
     # The helper that a run starts stops with the script, however it ends.
-    trap 'stop_load_helper; cleanup_staging' EXIT
+    trap 'stop_load_helper' EXIT
 
     preflight_selected_targets || fail "preflight failed; no projects were compiled"
     if ! find_load_python; then

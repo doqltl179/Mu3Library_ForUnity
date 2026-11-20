@@ -12,18 +12,18 @@ dependencies = [
     "typer>=0.12,<1.0",
 ]
 
-# One command per tool; each also runs as python -m <package>. mu3_fixed_load is no command:
+# One command per tool; each also runs as python -m <package>. fixed_load is no command:
 # compile-unity.sh and test-unity.sh run its fixed_load.py by path.
 [project.scripts]
-mu3-repo = "mu3_repo.cli:app"
-mu3-unity = "mu3_unity.cli:app"
-mu3-samples = "mu3_samples.cli:app"
-mu3-di-strip-harness = "mu3_strip_harness.cli:app"
-mu3-verify-build = "mu3_verify_build.cli:app"
+mu3-repo = "repo.cli:app"
+mu3-unity = "unity.cli:app"
+mu3-di-strip-harness = "strip_harness.cli:app"
+mu3-multiplayer-harness = "multiplayer_harness.cli:app"
+mu3-verify-build = "verify_build.cli:app"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
-include = ["mu3_*"]
+include = ["common", "fixed_load", "multiplayer_harness", "repo", "strip_harness", "unity", "verify_build"]

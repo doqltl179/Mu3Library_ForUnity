@@ -4,7 +4,7 @@
 
 - 작성일: 2026-10-31
 - 승인일: 2026-10-31 (11장의 결정 사항 확정)
-- 대상 패키지: Mu3Library Base의 새 어셈블리 (결정 D2)
+- 대상 패키지: Mu3Library Base의 새 어셈블리 (결정 D2). Steam 백엔드는 [ADR 0001](../adr/0001-package-split-and-repository-restructure.md) D19에 따라 별도 패키지 Mu3 Library Steam(`packages/steam`)의 `Mu3Library.Steam.Multiplayer` 어셈블리로 옮겨졌다 ([#543](https://github.com/doqltl179/Mu3Library_ForUnity/issues/543)).
 - 관련 이슈: [#162](https://github.com/doqltl179/Mu3Library_ForUnity/issues/162)
 
 ## 1. 문제
@@ -420,7 +420,7 @@ Base의 `Samples~`에 로비 생성, 검색, 초대, 준비, 시작, 메시지 �
 | NFR-4 | 호스트 종료 통지 | 호스트가 정상적으로 나가면 클라이언트는 2초 안에 `HostLeft`를 받아야 한다. |
 | NFR-5 | 보안 | 발신자는 전송 계층이 확인한 계정 ID로만 판단한다. 잘못된 길이나 형식의 메시지는 버리고, 그 예외가 라이브러리 밖으로 전파되지 않는다. 클라이언트가 보낸 메시지가 다른 클라이언트의 연결이나 세션 상태를 직접 바꾸지 못한다. |
 | NFR-6 | 개인정보 | Steam 백엔드는 기본 설정에서 Valve 릴레이를 거쳐 연결해, 참가자의 IP 주소가 다른 참가자에게 드러나지 않아야 한다. 직접 연결 허용은 게임이 명시적으로 켜야 한다. |
-| NFR-7 | 호환성 | Unity 6000.3 이상, Windows x64, macOS, Linux x64 (Steam Deck 포함) 스탠드얼론과 에디터, Mono와 IL2CPP를 지원한다. 32비트 Windows 플레이어는 지원 대상이 아니며, `Mu3Library.Multiplayer.Steam`의 `includePlatforms`가 그 플레이어를 뺀다 ([#210](https://github.com/doqltl179/Mu3Library_ForUnity/issues/210)). Steamworks.NET이 없는 프로젝트에서도 Base가 컴파일 오류 없이 빌드된다. UniTask는 선택이며, 있으면 비동기 API를 함께 제공한다. 기존 Base 공개 API는 바꾸지 않는다. |
+| NFR-7 | 호환성 | Unity 6000.3 이상, Windows x64, macOS, Linux x64 (Steam Deck 포함) 스탠드얼론과 에디터, Mono와 IL2CPP를 지원한다. 32비트 Windows 플레이어는 지원 대상이 아니며, `Mu3Library.Steam.Multiplayer`의 `includePlatforms`가 그 플레이어를 뺀다 ([#210](https://github.com/doqltl179/Mu3Library_ForUnity/issues/210)). Steamworks.NET이 없는 프로젝트에서도 Base가 컴파일 오류 없이 빌드된다. UniTask는 선택이며, 있으면 비동기 API를 함께 제공한다. 기존 Base 공개 API는 바꾸지 않는다. |
 | NFR-8 | 지역화 | 라이브러리는 플레이어에게 보일 문장을 만들지 않고 사유 코드만 제공한다. 번역은 게임이 맡는다. 문서는 `README.md`와 그 `ko`, `ja` 사본, `CHANGELOG.md`와 그 사본을 함께 갱신한다. |
 | NFR-9 | 관측성 | 상태 전환과 실패는 사유 코드와 함께 로그로 남긴다. 메시지 단위 로그는 기본으로 꺼져 있고, 켜면 종류와 크기만 남긴다 (내용은 남기지 않는다). |
 | NFR-10 | 테스트 가능성 | 정원, 시작 조건, 강퇴, 재접속 예약 만료, 버전 불일치, 크기 제한, 송신량 제한 규칙은 Steam 없이 EditMode 테스트로 검증할 수 있어야 한다 (`commands.test`). |
@@ -484,7 +484,7 @@ Base의 `Samples~`에 로비 생성, 검색, 초대, 준비, 시작, 메시지 �
 
 ## 부록 B. 사유 코드
 
-구현의 `MultiplayerReason` (`Mu3Library_Base/Runtime/Scripts/Multiplayer/Data/MultiplayerReason.cs`)과 같은 확정 목록이다 (#206). 값은 연결을 닫는 사유로 참가자 사이를 오가므로 (연결 종료 코드는 1000 + 값, Steam이 앱의 정상 종료에 남겨 둔 1000~1999 범위) 번호를 바꾸거나 다시 쓰지 않는다. 라이브러리는 사용자에게 보일 문구를 만들지 않으며, 게임이 코드를 자기 문구로 바꾼다. 아래 경로는 대표 예이고, 요청마다 어떤 코드를 답하는지는 각 API의 XML 문서가 정한다. 세션을 바꾸는 요청은 끝났을 때 세션이 여전히 이어지고 변경과 그 요청의 이벤트가 모두 반영되었을 때만 성공으로 답한다. 요청 중에 세션이 끝나면 (요청 자신의 이벤트 핸들러나, 요청의 메시지가 닿지 않아 호스트가 내보낸 참가자의 이벤트 핸들러가 세션을 끝내는 경우 포함) 그 요청은 아래 목록의 코드와 상관없이 세션이 끝난 사유로 답한다. 예를 들어 핸들러가 `Leave`했으면 `LeftNormally`다 (#340).
+구현의 `MultiplayerReason` (`packages/base/Runtime/Multiplayer/Data/MultiplayerReason.cs`)과 같은 확정 목록이다 (#206). 값은 연결을 닫는 사유로 참가자 사이를 오가므로 (연결 종료 코드는 1000 + 값, Steam이 앱의 정상 종료에 남겨 둔 1000~1999 범위) 번호를 바꾸거나 다시 쓰지 않는다. 라이브러리는 사용자에게 보일 문구를 만들지 않으며, 게임이 코드를 자기 문구로 바꾼다. 아래 경로는 대표 예이고, 요청마다 어떤 코드를 답하는지는 각 API의 XML 문서가 정한다. 세션을 바꾸는 요청은 끝났을 때 세션이 여전히 이어지고 변경과 그 요청의 이벤트가 모두 반영되었을 때만 성공으로 답한다. 요청 중에 세션이 끝나면 (요청 자신의 이벤트 핸들러나, 요청의 메시지가 닿지 않아 호스트가 내보낸 참가자의 이벤트 핸들러가 세션을 끝내는 경우 포함) 그 요청은 아래 목록의 코드와 상관없이 세션이 끝난 사유로 답한다. 예를 들어 핸들러가 `Leave`했으면 `LeftNormally`다 (#340).
 
 | 코드 | 값 | 뜻 |
 |---|---|---|

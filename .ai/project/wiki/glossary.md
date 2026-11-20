@@ -15,11 +15,11 @@ One row per concept, one column per locale in `docs.locales`. `=` means "keep ex
 | Source term | Meaning and context | ko | ja |
 |---|---|---|---|
 | Mu3Library | Product name | = | = |
-| Base, URP, Watermelon Game | Package names in headings, tables, and release titles | = | = |
+| Addressables, Base, DI, Input System, Localization, Notifications, Steam, URP, Watermelon Game | Package names in headings, tables, and release titles | = | = |
 | `CoreBase`, DI, MVP | Code-level module names | = | = |
 | sample | A package sample under `Samples~` | 샘플 | サンプル |
 | define symbol | A `MU3LIBRARY_*` scripting define | = (`Define`) | = (`Define`) |
-| optional integration | Code that compiles only while an optional package (UniTask, Addressables, Localization, Input System, Mobile Notifications, Steamworks.NET) is installed | 선택 통합 | オプション統合 |
+| optional integration | Code that compiles only while an optional package (UniTask, Addressables, Input System, Steamworks.NET) is installed | 선택 통합 | オプション統合 |
 | built-in module | A `com.unity.modules.*` package that switches an engine feature on or off | 내장 모듈 | 組み込みモジュール |
 | unscaled time, scaled time | The clock a timed transition follows: `Time.unscaledDeltaTime` (keeps running while `Time.timeScale` is 0) or `Time.deltaTime`; the values of `TimeMode` | 비스케일 시간, 스케일 시간 | 非スケール時間、スケール時間 |
 | time scale | `Time.timeScale` named in prose | 타임 스케일 | タイムスケール |

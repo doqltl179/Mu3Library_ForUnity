@@ -8,7 +8,7 @@ import time
 import unittest
 from pathlib import Path
 
-from mu3_common.process import run_with_timeout
+from common.process import run_with_timeout
 
 
 # Starts a child that sleeps, writes the child's PID to the file it is given, and sleeps too, as

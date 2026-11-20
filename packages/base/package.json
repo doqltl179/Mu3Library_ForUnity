@@ -1,0 +1,47 @@
+{
+    "name": "com.github.doqltl179.mu3library.base",
+    "version": "0.29.0",
+    "displayName": "Mu3 Library",
+    "description": "A modular architecture framework for Unity featuring an MVP UI pattern, Audio/Scene management, WebRequest, Observable pattern, and more, with the lifecycle and injection contracts its managers implement for the separate DI package or another container. Supports optional packages like UniTask and Addressables.",
+    "unity": "6000.3",
+    "documentationUrl": "https://github.com/doqltl179/Mu3Library_ForUnity/blob/main/README.md",
+    "changelogUrl": "https://github.com/doqltl179/Mu3Library_ForUnity/blob/main/CHANGELOG.md",
+    "license": "MIT",
+    "author": {
+        "name": "Mu3",
+        "url": "https://github.com/doqltl179"
+    },
+    "keywords": [
+        "Mu3Library",
+        "MVP",
+        "UI Framework",
+        "Architecture",
+        "Audio Manager",
+        "WebRequest",
+        "Observable",
+        "ObjectPool",
+        "Scene Management",
+        "UniTask",
+        "Addressables"
+    ],
+    "dependencies": {
+        "com.unity.ugui": "2.0.0",
+        "com.unity.modules.assetbundle": "1.0.0",
+        "com.unity.modules.audio": "1.0.0",
+        "com.unity.modules.imageconversion": "1.0.0",
+        "com.unity.modules.imgui": "1.0.0",
+        "com.unity.modules.jsonserialize": "1.0.0",
+        "com.unity.modules.particlesystem": "1.0.0",
+        "com.unity.modules.screencapture": "1.0.0",
+        "com.unity.modules.ui": "1.0.0",
+        "com.unity.modules.unitywebrequest": "1.0.0",
+        "com.unity.modules.unitywebrequesttexture": "1.0.0"
+    },
+    "samples": [
+        {
+            "displayName": "Multiplayer",
+            "description": "A player-hosted session with buttons: create, search, and join a lobby by its lobby ID, invite friends on Steam, get ready, start, exchange a message, set and delete lobby data as the host and your own participant data as any player, and kick. The player list shows each player's ping as the host measures it, and, on Steam, the lists show the players' avatars. It plays on Steam only with the Steam package, com.github.doqltl179.mu3library.steam, and Steamworks.NET installed and the Steam client running, and otherwise on the local backend, where an editor and player builds on the same computer meet; with both installed it builds for the editor and 64-bit standalone players only. Its buttons are IMGUI, so it responds to input with or without the Input System package and needs no TextMesh Pro resources. Command-line options run the whole flow unattended; the sample's README lists them. It needs the DI package, com.github.doqltl179.mu3library.di, since its core derives from CoreBase.",
+            "path": "Samples~/Multiplayer"
+        }
+    ]
+}

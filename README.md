@@ -26,11 +26,11 @@
 
 ## ✨ Key Features
 
-- 🏗 **Modular Core System**: Clear separation of concerns through independent `CoreBase` modules
-- 💉 **Custom DI Container**: Supports Singleton, Transient, and Scoped lifetimes
+- 🏗 **Modular Core System**: Clear separation of concerns through independent `CoreBase` modules, in the separate DI package
+- 💉 **Custom DI Container**: Supports Singleton, Transient, and Scoped lifetimes, in the separate DI package
 - 🎨 **MVP UI Pattern**: Testable UI logic with View-Presenter-Model separation
 - 🔄 **Automatic Lifecycle Management**: Interface-based system with `IInitializable`, `IUpdatable`, `IDisposable`
-- 📦 **Optional Package Support**: Conditional activation for UniTask, Addressables, Localization, Input System, Mobile Notifications, Steamworks.NET
+- 📦 **Optional Package Support**: Conditional activation for UniTask, Addressables, Input System
 - 🎵 **Audio System**: BGM/SFX/Environment channels with volume control, mixer-group routing, BGM ducking, persisted volumes, and awaitable fades
 - ✨ **Particle Handler**: Convenient `ParticleSystem` playback, pause, stop, clear, restart, `Loop`/`IsLooping`/`SetLoop`/`PlayLoop`/`PlayOnce` controls, state queries, and lifecycle events on a required component
 - 🌐 **WebRequest**: HTTP GET/POST/PUT/PATCH/DELETE, download size queries, retry backoff, in-flight cancellation, download progress, UniTask support
@@ -38,12 +38,13 @@
 - 🛠 **Utility Collection**: Extension Methods, ObjectPool, EasingFunctions
 - ✅ **Initialization Result Contracts**: Addressables/Localization expose explicit init success/failure state
 - 🔁 **Resilient Networking**: WebRequest result-based APIs include status, headers, timeout, retry options, and opt-in cancellation propagation
-- 🧭 **Deterministic Core Updates**: Core execution order is explicit and stable
+- 🧭 **Deterministic Core Updates**: Core execution order is explicit and stable, in the separate DI package
 - ⏳ **Scene Async APIs**: Phase-based UniTask helpers for built-in and Addressables scenes, plus structured lifecycle callbacks with resolved scene names
-- 🎮 **Input System Manager**: Action asset management, interactive rebinding, and binding override persistence (optional)
-- 🧰 **Editor Utility Drawers**: Includes Input System and Localization name exporters, Addressable group and Localization data exports with labels/locales, groups/tables, and entries split into focused scripts that the data exporters can wrap in a define symbol, and Localization character collection tools
+- 🎮 **Input System Manager**: Action asset management, interactive rebinding, and binding override persistence, with a name exporter drawer, in the separate Input System package
+- 🌍 **Localization Manager**: String and localized asset lookup and locale changes that every subscriber hears, with a data exporter that splits locales, tables, and entries into focused scripts and a character collector, in the separate Localization package
+- 🗂 **Addressables Manager**: Asset loading and caching by key, download size queries and dependency downloads, and catalog checks and updates that reach Addressables one call at a time, with a group data exporter that splits labels, groups, and entries into focused scripts it can wrap in a define symbol, in the separate Addressables package
 - 🖼 **World-Space Background Utility**: Fits a required `SpriteRenderer` background to the camera viewport with optional automatic fitting, camera-front placement, and renderer display settings
-- 🍉 **Watermelon Game Template**: Reusable `Mu3Library.Game.WatermelonGame` runtime assembly with an eleven-item 2D merge board, configurable `BoardConfig`, board fitting and coordinate helpers, and a playable sample scene
+- 🍉 **Watermelon Game Template**: Reusable `Mu3Library.Game.WatermelonGame` runtime assembly with an eleven-item 2D merge board, configurable `BoardConfig`, and board fitting and coordinate helpers
 
 ## 📋 Requirements
 
@@ -58,88 +59,66 @@
 3. Enter one of the following URLs:
    ```
     # Base package
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Base#base/v0.28.0
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/base#base/v0.29.0
+
+    # Notifications package
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/notifications#notifications/v0.1.0
+
+    # Input System package (install Base first)
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/inputsystem#inputsystem/v0.1.0
+
+    # Localization package (install Base first)
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/localization#localization/v0.1.0
+
+    # Addressables package (install Base first)
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/addressables#addressables/v0.1.0
+
+    # DI package (install Base first)
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/di#di/v0.1.0
+
+    # Steam package (install Steamworks.NET and Base first)
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/steam#steam/v0.1.0
 
     # URP package (install Base first)
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_URP#urp/v0.4.0
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/urp#urp/v0.5.0
 
     # Watermelon Game package (install Base and URP first)
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=Mu3Library_Game_WatermelonGame#game/watermelon/v0.7.0
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/game/watermelon#game/watermelon/v0.8.0
    ```
 
 Install the packages in the order Base, URP, Watermelon Game: URP depends on Base, and Watermelon Game on both.
+
+The Notifications package holds local notifications for Android and iOS. It needs no other Mu3Library package.
+
+The Input System package holds `InputSystemManager` and its name exporter drawer. Install Base before it.
+
+The Localization package holds `LocalizationManager` and its data exporter and character collector drawers. Install Base before it.
+
+The Addressables package holds `AddressablesManager` and its group data exporter drawer. Install Base before it.
+
+The DI package holds the `CoreBase` container with its link.xml processor and its validator and runtime diagnostics drawers. Install Base before it.
+
+The Steam package holds `SteamBackend`, which runs multiplayer sessions on Steam. Install Steamworks.NET and Base before it.
 
 ### Option 2: Package Manager (Local Disk)
 1. Clone this repository
 2. Open `Window` > `Package Manager` in Unity Editor
 3. Click `+` button > `Add package from disk...`
 4. Select one of the following:
-    - `Mu3Library_Base/package.json`
-    - `Mu3Library_URP/package.json` (install Base first)
-    - `Mu3Library_Game_WatermelonGame/package.json` (install Base and URP first)
+    - `packages/base/package.json`
+    - `packages/notifications/package.json`
+    - `packages/inputsystem/package.json` (install Base first)
+    - `packages/localization/package.json` (install Base first)
+    - `packages/addressables/package.json` (install Base first)
+    - `packages/di/package.json` (install Base first)
+    - `packages/steam/package.json` (install Steamworks.NET and Base first)
+    - `packages/urp/package.json` (install Base first)
+    - `packages/game/watermelon/package.json` (install Base and URP first)
 
 ## 📚 Core Modules
 
 ### DI (Dependency Injection)
-Custom DI container that automates service registration and dependency injection.
-
-```csharp
-using Mu3Library.DI;
-
-public class AudioCore : CoreBase
-{
-    protected override void ConfigureContainer()
-    {
-        // Register AudioManager as a singleton — automatically maps to IAudioManager
-        RegisterClass<AudioManager>();
-    }
-}
-
-public class GameCore : CoreBase
-{
-    [SerializeField] private AudioClip _mainThemeClip;
-
-    // Auto-injection (within same Core)
-    [Inject] private IAudioManager _audioManager;
-
-    // Injection from different Core
-    [Inject(typeof(UICore))] private IMVPManager _mvpManager;
-
-    protected override void Start()
-    {
-        base.Start(); // Injection must be executed first!
-        _audioManager.PlayBgm(_mainThemeClip);
-    }
-}
-```
-
-A core that overrides `Awake`, `Start`, `OnEnable`, `OnDisable`, or `OnDestroy` must call the base method: together they register the core with `CoreRoot`, inject it, prepare it, and take it out again.
-
-`[Inject]` members that a base class declares, private ones included, are injected as well; the search up the class hierarchy stops at `CoreBase`. The editor DI validator checks the same members.
-
-A required `[Inject]` property needs a setter, which may be private, a required `[Inject]` field must not be `readonly`, and neither may be `static`. When the container injects an object with a required `[Inject]` member that it can never fill, a get-only property, one whose setter the linker removed in a stripped player, a `readonly` field, or a `static` field or property, it throws `InvalidOperationException` before it injects any member, as it does for a required member whose service is not registered. A `static` member belongs to the class, so the container never writes one: each object it injects would overwrite the value the other objects of the class read. The editor DI validator reports such a member on the classes the container creates and on the core itself. It does not check registered instances, which matches what runs: `ContainerScope.RegisterInstance` injects an instance as it registers it, so such a member makes it throw and leave nothing registered, and `Container.RegisterInstance` does not inject the instance it registers, so nothing throws for it. `InjectableMembers.GetUnwritableProperties`, `InjectableMembers.GetReadOnlyFields`, `InjectableMembers.GetStaticFields`, and `InjectableMembers.GetStaticProperties` list such members. An optional one (`[Inject(false)]`) is skipped.
-
-Registered services also receive `[Inject]` field and property injection after construction and before lifecycle callbacks. One registration, which is its implementation type, key, and lifetime, yields one instance whatever service type resolves it: one per container for a singleton and one per scope for a scoped service. A lifecycle callback that throws is logged with `Debug.LogException`, and the other services and cores keep running.
-
-```csharp
-public class AudioPlaybackService
-{
-    [Inject] private IAudioManager _audioManager;
-}
-
-public class AudioCore : CoreBase
-{
-    protected override void ConfigureContainer()
-    {
-        RegisterClass<AudioManager>();
-        RegisterClass<AudioPlaybackService>(); // [Inject] members are populated automatically
-    }
-}
-```
-
-`MVPManager` also uses the narrow `IObjectInjector` capability to apply `[Inject]` field and property injection to presenters created outside the container. The concrete `ContainerScope` and its internal injection implementation remain private to the DI assembly.
-
-In a player built with **Managed Stripping Level** set to Medium or High, the Unity linker removes code that nothing calls, and the container reaches constructors and `[Inject]` members only through reflection. For each such build, Base's editor therefore hands the linker a link.xml. It keeps the constructors of every class the build keeps anyway in the assemblies that reference `Mu3Library.DI` and in every script or precompiled assembly they reference, directly or not, so a service may live in an assembly that knows nothing of the container, and it keeps the `[Inject]` fields and properties of those classes, `static` ones too when they are required, so that the container finds them and throws in the player as it does in the Editor. A class that declares one of those fields keeps all its fields, since the linker keeps the `[Inject]` attribute of a field that a link.xml names only when code reads the field, and the container finds the field by that attribute: an `[Inject]` field that is there only so that the container creates a service, and that no code reads, would otherwise stay empty. Classes and assemblies that nothing uses are still removed. The `[Inject]` members are read from the assemblies the Editor loads, so an `[Inject]` member that only the player compiles, inside `#if !UNITY_EDITOR` for example, needs `[Preserve]` (`UnityEngine.Scripting`), and so does code that only your own reflection reaches. Precompiled assemblies are matched by file name, so a DLL whose file name differs from its assembly name is skipped without a warning, and a DLL the Editor does not load is covered only when one of those assemblies references it. A `link.xml` under the project's `Assets` folder works as well; Unity does not read one inside a package. The constructor entries cost little: in the Watermelon Game development project on Unity 6000.6.7f1 with Managed Stripping Level High, they added 21,504 bytes (0.19%) to the managed DLLs of a Mono player, most of it in Unity package assemblies such as the render pipeline's and the Input System's, and 123,904 bytes (0.52%) to `GameAssembly.dll` of an IL2CPP one.
+The DI container, with `CoreBase` and `CoreRoot`, moved to the separate DI package: see its [README](packages/di/README.md) for registration, injection, cores, and the link.xml it writes for player builds that strip managed code. Base keeps the contracts its managers implement, `IInitializable`, `IUpdatable`, `ILateUpdatable`, `IObjectInjector`, and `[Inject]`, in its `Mu3Library.Foundation` assembly. The examples below inject Base's services with `[Inject]`, as a core of the DI package does.
 
 ### MVP (Model-View-Presenter)
 Separates UI into View, Presenter, and Model for testable business logic.
@@ -256,25 +235,7 @@ void Start()
 Fades, ducks, loop intervals, and the gap between playlist tracks advance on unscaled time by default, so they keep running while `Time.timeScale` is 0, as the sources themselves keep playing then. Set `_audioManager.TimeMode = TimeMode.Scaled;` to have them follow the game's time scale. `PlayBgm`, `PlayBgmForce`, and `TransitionBgm` end a running BGM playlist, as `StopBgm` does.
 
 ### Addressables
-With Addressables support enabled, load all assets resolved by a key into a `Dictionary<string, T>` indexed by the matching resource location's `PrimaryKey`. `PrimaryKey` values must be non-empty and unique; otherwise the load operation fails.
-
-```csharp
-[Inject] private IAddressablesManager _addressablesManager;
-
-_addressablesManager.LoadAssetsWithKeys<Texture2D>("test-image", textures =>
-{
-    if (textures != null && textures.TryGetValue("TestImage", out Texture2D texture))
-    {
-        Debug.Log(texture.name);
-    }
-});
-
-// When UniTask support is also enabled:
-Dictionary<string, Texture2D> textures =
-    await _addressablesManager.LoadAssetsWithKeysAsync<Texture2D>("test-image");
-```
-
-Catalog checks and updates, `CheckForCatalogUpdates`, `UpdateCatalogs`, and their UniTask variants, reach Addressables one at a time in call order. A call made while another one runs, from that call's callback included, starts on the ResourceManager update after the earlier callback, once its handle is settled, and `Dispose` reports a call that has not reached Addressables yet with null. An update reaches Addressables only once the manager is initialized: a manager that has not initialized yet runs the initialization `Initialize` runs, with the same `IsInitializing` state and events, and an update made while one runs waits for it. If that initialization fails, the update's callback receives null, and later updates fail the same way without another attempt until an initialize call succeeds.
+`AddressablesManager`, which loads and caches assets by key and runs catalog checks and updates one call at a time, moved to the separate Addressables package: see its [README](packages/addressables/README.md) for its use. Base keeps the Addressables scene loading of the Scene Loader below.
 
 ### Scene Loader
 Supports explicit scene commands for both built-in and Addressables scenes.
@@ -375,15 +336,20 @@ When the following packages are installed, their features are automatically enab
 | Package | Define | Feature |
 |-------|--------|------|
 | [UniTask](https://github.com/Cysharp/UniTask) | `MU3LIBRARY_UNITASK_SUPPORT` | async/await asynchronous API |
-| Unity Addressables | `MU3LIBRARY_ADDRESSABLES_SUPPORT` | Dynamic asset loading |
-| Unity Localization | `MU3LIBRARY_LOCALIZATION_SUPPORT` | Multi-language support |
+| Unity Addressables | `MU3LIBRARY_ADDRESSABLES_SUPPORT` | Addressables scene loading |
 | Unity Input System | `MU3LIBRARY_INPUTSYSTEM_SUPPORT` | New input system |
-| Unity Mobile Notifications | `MU3LIBRARY_NOTIFICATIONS_SUPPORT` | Local notifications (Android/iOS, separate `Mu3Library.Notifications` assembly) |
-| [Steamworks.NET](https://github.com/rlabrecque/Steamworks.NET) | `MU3LIBRARY_STEAMWORKS_SUPPORT` | Steam backend for multiplayer sessions (2025.164.1 or later; separate `Mu3Library.Multiplayer.Steam` assembly, compiled in the editor while the build target is a standalone platform, and into 64-bit standalone players only: Windows x64, macOS, and Linux x64, not 32-bit Windows) |
+
+Local notifications for Android and iOS moved to the separate Notifications package, which installs Unity Mobile Notifications as its dependency, so no define symbol switches them on: see its [README](packages/notifications/README.md).
+
+`InputSystemManager` moved to the separate Input System package, which installs Unity Input System as its dependency: see its [README](packages/inputsystem/README.md). Base keeps `MU3LIBRARY_INPUTSYSTEM_SUPPORT` for the input module of the `EventSystem` that `MVPManager` creates, described below.
+
+`LocalizationManager` moved to the separate Localization package, which installs Unity Localization as its dependency, so no define symbol switches it on: see its [README](packages/localization/README.md).
+
+`AddressablesManager` moved to the separate Addressables package, which installs Unity Addressables as its dependency: see its [README](packages/addressables/README.md). Base keeps `MU3LIBRARY_ADDRESSABLES_SUPPORT` for the Addressables scene loading of `SceneLoader`, described above.
+
+The Steam backend for multiplayer sessions moved to the separate Steam package. Steamworks.NET is distributed through Git, so that package cannot install it and keeps the `MU3LIBRARY_STEAMWORKS_SUPPORT` gate: see its [README](packages/steam/README.md) for the installation order and the platforms it covers.
 
 On Unity 6.6, use UniTask 2.5.11 or later. The editor tracker window of earlier releases uses the non-generic `TreeView`, so `UniTask.Editor` no longer compiles there.
-
-Steam support covers the editor and 64-bit standalone players only: the `includePlatforms` of `Mu3Library.Multiplayer.Steam` leave out 32-bit Windows, so a 32-bit Windows player builds without that assembly. Put game code that uses its types in an assembly definition of your own that references `Mu3Library.Multiplayer.Steam` and copies the `includePlatforms`, `defineConstraints`, and `versionDefines` entry of `Mu3Library.Multiplayer.Steam.asmdef`; the entry is needed too, since a `versionDefines` symbol is defined only in the assembly that declares it. That code then compiles exactly where the Steam assembly does. `#if` on a `versionDefines` symbol and `UNITY_STANDALONE` cannot leave out a 32-bit Windows player, where both are defined, and adding `UNITY_64` is no way out either, since Unity 6.6 deprecates it, so that gate suits only a game that builds no 32-bit Windows player, as the Multiplayer sample does. Code without an assembly definition of its own (`Assembly-CSharp`) cannot read `versionDefines`, and `versionDefines` sees only a package that the Package Manager installed, not a `.unitypackage` import. Do not gate on `STEAMWORKS_NET`: the Steamworks.NET installer writes it into the project's scripting defines, where it stays after the package is removed.
 
 When no `EventSystem` exists yet, `MVPManager` creates one. Its input module follows the input backend that **Active Input Handling** in Player Settings enables, not only whether the Input System package is installed, because `InputSystemUIInputModule` reads nothing while the Input System backend is off:
 
@@ -417,41 +383,37 @@ The fallback Inspector is registered with `isFallback` for every `MonoBehaviour`
 
 ## 📖 Complete Module List
 
-- **Addressable**: Addressables integration (optional)
+- **Addressable**: Moved to the separate Addressables package ([README](packages/addressables/README.md))
 - **Attribute**: Custom attributes like `ConditionalHideAttribute` and `ButtonInvokeAttribute`
 - **Audio**: BGM/SFX management system
 - **Particle**: `ParticleHandler` MonoBehaviour for convenient `ParticleSystem` control, loop configuration, and lifecycle events (`OnPlayed`, `OnStopped`, `OnPaused`, `OnUnPaused`, `OnCleared`, `OnRestarted`, `OnLoopChanged`, `OnCompleted`)
-- **DI**: Dependency Injection container
+- **DI**: Moved to the separate DI package ([README](packages/di/README.md)); Base keeps the lifecycle and injection contracts in `Mu3Library.Foundation`
 - **Event**: Owner-managed subscription utilities, reusable one-shot helpers, and disposable `ISubscriptionInfo` tokens via `SubscribeHandler`
 - **Extensions**: Extension methods for GameObject, Transform, Vector3, etc.
-- **Localization**: Unity Localization wrapper (optional)
-- **Multiplayer**: Player-hosted sessions with lobbies, roster, ready check, lobby data that the host sets and deletes and per-player data that each player sets and deletes, both of which every player hears change, lobby chat, capacity rules, per-client rate limits, game start, kicks, slots kept for players who drop during a game until they reconnect, within a time each client sets for its own attempts, and enter their lobby again, which the game hears when they cannot, a host-side wait for every player to finish loading after the start, game messages relayed by the host, with `MessageWriter` and `MessageReader` for their payloads, the quality of each connection (ping, packet loss, and bytes per second) and, on every player, each player's ping as the host measures it, players' Steam avatars as textures, which follow a player's new picture and which the game releases once it no longer shows them, and Steam rich presence: a status, which the friends list shows through a `steam_display` token the game defines, and the players of one session grouped together through `steam_player_group`, over a pluggable backend: `SteamBackend` (Steam lobbies and Steam connections, with Steamworks.NET) and `LocalBackend` (several players inside one process, or, on a network from `LocalNetwork.CreateMachineWide`, editors and player builds on one computer), whose network can simulate latency, jitter, packet loss, and outages; per-type message counts; and, in the editor, the **Mu3Library > Windows > Multiplayer Debugger** window, which shows each running session's state, players, connection quality, and message counts in play mode, along with a **Host ping** column that shows each player's ping as the host measures it, on the host and on clients alike
+- **Localization**: Moved to the separate Localization package ([README](packages/localization/README.md))
+- **Multiplayer**: Player-hosted sessions with lobbies, roster, ready check, lobby data that the host sets and deletes and per-player data that each player sets and deletes, both of which every player hears change, lobby chat, capacity rules, per-client rate limits, game start, kicks, slots kept for players who drop during a game until they reconnect, within a time each client sets for its own attempts, and enter their lobby again, which the game hears when they cannot, a host-side wait for every player to finish loading after the start, game messages relayed by the host, with `MessageWriter` and `MessageReader` for their payloads, the quality of each connection (ping, packet loss, and bytes per second) and, on every player, each player's ping as the host measures it, players' avatars as textures, which follow a player's new picture and which the game releases once it no longer shows them, and a presence status, over a pluggable backend: `LocalBackend` (several players inside one process, or, on a network from `LocalNetwork.CreateMachineWide`, editors and player builds on one computer), whose network can simulate latency, jitter, packet loss, and outages, and `SteamBackend` (Steam lobbies and Steam connections, the players' Steam avatars, and Steam rich presence, which shows the status in the friends list), in the separate Steam package ([README](packages/steam/README.md)); per-type message counts; and, in the editor, the **Mu3Library > Windows > Multiplayer Debugger** window, which shows each running session's state, players, connection quality, and message counts in play mode, along with a **Host ping** column that shows each player's ping as the host measures it, on the host and on clients alike
+  - **Writing a backend**: A backend for another platform implements `IMultiplayerBackend` from `Mu3Library.Multiplayer.Backend`, and may also implement two optional interfaces that the manager looks for: `ILobbyInviteBackend`, when its lobbies that are not public let a player in only by invite, so the host invites back a player who returns to a kept slot, and `IUnavailableReasonBackend`, to name why the backend is not available, as the Steam backend names `SteamNotRunning`. `LobbyDataKeys` lists the lobby data keys that the manager reserves under the `mu3.` prefix and writes in every lobby it creates; a backend stores them like any other lobby data and may read them. A backend that starts a search after `SearchLobbies` returns keeps a copy of the query from `LobbySearchQuery.Clone()`
 - **ObjectPool**: Queue-based object pooling with duplicate inactive enqueue protection, batch `List<T>` enqueue and count- or argument-list-based `List<T>` dequeue support, optional no-argument creation callbacks, typed `CreateArguments` initialization callbacks, and `Clear()` cleanup
 - **Observable**: Data change detection system
 - **Preference**: PlayerPrefs wrapper
 - **Resource**: Resources folder loading
 - **Scene**: Scene loading abstraction with phase/status queries, lifecycle/progress callbacks, one-shot lifecycle subscription helpers, and unified rejection events
 - **UI**: MVP pattern implementation, the `UIAreaGrid`/`UIAreaElement` helper that anchors children to one of nine areas with per-axis uniform or independent cut lines, and the `SafeCanvas`/`SafeRect` pair that keeps a canvas inside the screen safe area
-- **IS**: Unity Input System wrapper and binding manager (optional)
+- **IS**: Moved to the separate Input System package ([README](packages/inputsystem/README.md))
 - **Utility**: Singleton, EasingFunctions, Settings, `Mu3Library.Utility.WorldSpaceBackground` for fitting a `SpriteRenderer` background to a camera viewport, and `Mu3Library.Utility.ScreenChangeNotifier` for following a screen that changed its size or its safe area while the game runs, without a per frame check of your own
 - **WebRequest**: HTTP request management
 
 ## 🎓 Samples
 
-You can import the following samples from the **Samples** tab in Package Manager:
+Base ships one sample, which you can import from the **Samples** tab in Package Manager. The URP and Watermelon Game packages ship no sample; their main features are listed under their packages below:
 
 Base package (**Mu3 Library**):
-- **Template**: Basic Core structure and usage examples
-- **Attribute**: `ConditionalHideAttribute` and `ButtonInvokeAttribute` usage
-- **UtilWindow**: Custom editor window and utility drawer examples
-- **Multiplayer**: A player-hosted session driven by buttons: create a public lobby, search for lobbies, join one by its lobby ID, invite friends through the Steam overlay, get ready, start the game with start data, exchange a message written with `MessageWriter` and read with `MessageReader`, set and delete lobby data as the host and your own participant data as any player, and kick a player. The player list shows each player's ping as the host measures it, and, on Steam, the lists show the players' avatars. It plays on Steam when Steamworks.NET is installed and the Steam client runs, and otherwise on the local backend over `LocalNetwork.CreateMachineWide`, where an editor and player builds on one computer meet; the local backend has no invites, so the host shares its lobby ID there. Without a player build, Multiplayer Play Mode runs it in the Editor alone, as checked on Unity 6000.6.7f1 with Multiplayer Play Mode 3.0.0, the version that Editor bundles: a virtual player inherits the main Editor's environment, so it finds the main Editor's lobbies in the same temporary folder. Turn on **Use Local Backend** for it, since the main Editor and a virtual player are one Steam account, and the host refuses an account that already joined with `DuplicateAccount`. Command-line options (`-mu3mp-host`, `-mu3mp-join`, and others) run the whole flow unattended and log `AUTO PASS` or `AUTO FAIL`; the sample's `README.md` lists them
+- **Multiplayer**: A player-hosted session driven by buttons: create a public lobby, search for lobbies, join one by its lobby ID, invite friends through the Steam overlay, get ready, start the game with start data, exchange a message written with `MessageWriter` and read with `MessageReader`, set and delete lobby data as the host and your own participant data as any player, and kick a player. The player list shows each player's ping as the host measures it, and, on Steam, the lists show the players' avatars. It plays on Steam when the Steam package and Steamworks.NET are installed and the Steam client runs, and otherwise on the local backend over `LocalNetwork.CreateMachineWide`, where an editor and player builds on one computer meet; the local backend has no invites, so the host shares its lobby ID there. Without a player build, Multiplayer Play Mode runs it in the Editor alone, as checked on Unity 6000.6.7f1 with Multiplayer Play Mode 3.0.0, the version that Editor bundles: a virtual player inherits the main Editor's environment, so it finds the main Editor's lobbies in the same temporary folder. Turn on **Use Local Backend** for it, since the main Editor and a virtual player are one Steam account, and the host refuses an account that already joined with `DuplicateAccount`. Command-line options (`-mu3mp-host`, `-mu3mp-join`, and others) run the whole flow unattended and log `AUTO PASS` or `AUTO FAIL`; the sample's `README.md` lists them. It needs the DI package, whose `CoreBase` its core derives from, so install that package before you import the sample
 
 URP package (**Mu3 Library URP**):
-- **ScreenEffect**: URP screen effect sample scene and supporting scripts with grayscale, shake, gaussian blur, and depth outline effects and matching handler scripts
 - **Camera Stack Helper**: `Mu3Library.URP.Cam.CameraStackSetter` adds `SetCameraStackToMain(...)` and `SetCameraStack(...)` helpers so any URP overlay camera can be inserted into `Camera.main` or an explicit root camera stack with optional insertion index control
 
 Watermelon Game package (**Mu3 Library Game - Watermelon**):
-- **Watermelon Game**: Playable 2D falling-fruit merge scene with a configurable board, fruit sprites, and sample manager/core scripts
 - **Fruit item indexes**: The board configuration always contains 11 fruit entries, addressed by zero-based list index
 - **Item contact area**: The board-relative resize sizes the item collider, so an item index keeps the same contact area in every `BoardConfig`; `BoardItemInfo.ColliderScale` decides how much of the sprite that collider covers, `BoardItemInfo.ColliderOffset` moves it as a fraction of the collider diameter, and the sprite is drawn around the collider
 - **Board fitting**: `BoardArea.Fit(...)` fits the board sprite inside the configured camera viewport padding
@@ -462,11 +424,10 @@ Watermelon Game package (**Mu3 Library Game - Watermelon**):
 - **Scoring extension point**: Override `BoardItemScoreRule.GetScore(int)` to customize the default triangular score progression
 - **Board commands**: `BoardController.EnqueueCommand(...)` takes commands into the board's public command queue. `IUpdatableBoardCommand` and `ICancelableBoardCommand` let a command run frame by frame and be canceled, and `BoardCommand` builds both on lifecycle hooks. `BoardController.CommandContext` is the narrow surface through which an external command reaches items, the score, and sounds, and the package carries Flow, Item, and Score commands, `MergingCommand` among them
 - **Board sound volumes**: `BoardController.SfxVolume` and `BoardController.BgmVolume` control board playback independently from `BoardConfig.SoundConfig`; both clamp to 0–1
-- **Sample assets**: The package sample includes the `BoardConfig` asset, fruit/background images, sample manager/core scripts, and the `Demo` scene
 
-**Sample input and text:** the scenes of the Template and Attribute samples of Base and the ScreenEffect sample of URP respond to input with or without the Input System package. Their `EventSystem` holds a `StandaloneInputModule`, which reads the Input Manager, and a `SampleInputModuleSelector`, which replaces it with an `InputSystemUIInputModule` when the scene starts if the Input System package is installed and **Active Input Handling** is "Input System Package (New)" or "Both", the rule `MVPManager` follows for the `EventSystem` it creates. The Template sample's `Sample_IS` scene shows `InputSystemManager`, so its own features need the Input System package with "Input System Package (New)" or "Both"; its UI responds in every setup. The Template sample's keyboard shortcuts and mouse clicks go through its `SampleInput` class, which reads the Input System while its backend is on and the Input Manager otherwise. The TextMesh Pro text of these samples renders in a player built without the TMP Essential Resources: each sample ships the font asset, style sheet, and shader its text uses under `Fonts/` and `Shaders/`, and its `Third-Party Notices.txt` lists their licenses. TextMesh Pro reports the size of a text as 0 to the layout system there, so the Template sample's `SampleTextPreferredSize` measures the texts that a layout sizes itself to, such as the WebRequest scene's scrolling log. In the Editor, TextMesh Pro draws no text until the TMP Essential Resources are imported, and it offers to import them. Addressables, Localization, and UniTask stay optional for the Template sample: it compiles without them, and a part that needs a missing package logs that the package is not installed. The UtilWindow sample's Addressable and Localization data exporters write the Template sample's key scripts inside `TEMPLATE_ADDRESSABLES_SUPPORT` and `TEMPLATE_LOCALIZATION_SUPPORT`, set in their **Define Symbol** field, so regenerated key scripts still compile without those packages. The Multiplayer sample of Base draws its buttons with IMGUI, which needs no `EventSystem`, input module, or TextMesh Pro resources, so it responds to input with or without the Input System package and shows its text in a player and in the Editor alike.
+**Sample input and text:** The Multiplayer sample of Base draws its buttons with IMGUI, which needs no `EventSystem`, input module, or TextMesh Pro resources, so it responds to input with or without the Input System package and shows its text in a player and in the Editor alike.
 
-In this repository, the base sample sources live under `Mu3Library_Base/Samples~`, the URP sample source lives under `Mu3Library_URP/Samples~/ScreenEffect`, and the Watermelon Game sample source lives under `Mu3Library_Game_WatermelonGame/Samples~/WatermelonGame`.
+In this repository, the Multiplayer sample source lives under `packages/base/Samples~/Multiplayer`.
 
 To stack an MVP render camera with the new helper, pass the render camera explicitly:
 
@@ -476,64 +437,9 @@ using Mu3Library.URP.Cam;
 CameraStackSetter.SetCameraStack(targetCamera, _mvpManager.RenderCamera);
 ```
 
-**Template Key Components:**
-- Scenes: Main, Sample_MVP, Sample_Addressables, Sample_Localization, Sample_WebRequest, Sample_Audio, Sample_Audio3D, Sample_IS
-- Localization: Locales (KO/JA/EN), String Table samples
-- Resources: Prefabs and settings for MVP samples
-
-The default color materials (Black, Blue, Green, Magenta, Red, White) are not part of the Template sample. They ship with the Base package runtime in `Mu3Library_Base/Runtime/Materials/`, so a project has them under `Packages/com.github.doqltl179.mu3library.base/Runtime/Materials/` as soon as Base is installed.
-
 ## 🏗 Architecture Overview
 
-### Core System
-Each `CoreBase` owns an independent DI container (`ContainerScope`), and `CoreRoot` manages the lifecycle.
-
-```
-CoreRoot (Singleton)
-├── AudioCore (Independent ContainerScope)
-│   └── AudioManager, BgmController, SfxController
-├── UICore (Independent ContainerScope)
-│   └── MVPManager, Presenters...
-└── NetworkCore (Independent ContainerScope)
-    └── WebRequestManager
-```
-
-### Cross-Core Communication
-To access services from different Cores:
-
-```csharp
-// Method 1: Manual acquisition in Start()
-protected override void Start()
-{
-    base.Start();
-    _audioManager = GetClassFromOtherCore<AudioCore, IAudioManager>();
-}
-
-// Method 2: Inject attribute (in a core, a registered service, or a presenter)
-[Inject(typeof(AudioCore))] private IAudioManager _audioManager;
-```
-
-To run code once a specific Core has finished initializing, subscribe through `ICoreRoot`:
-
-```csharp
-CoreRoot.Instance.SubscribeOnCoreInitializedOnce<AudioCore>(() =>
-{
-    _audioManager = CoreRoot.Instance.GetClass<AudioCore, IAudioManager>();
-});
-```
-
-The callback is invoked once after the target Core has completed its initialization.
-
-For asynchronous preparation work, subscribe to the preparation completion notification:
-
-```csharp
-CoreRoot.Instance.SubscribeOnCorePreparedOnce<AudioCore>(() =>
-{
-    // Run code after AudioCore preparation completes.
-});
-```
-
-The callback is invoked once after the target Core has completed its preparation.
+Cores, the container each one owns, and how one core reaches the services of another moved with the container to the DI package: see [Cores and CoreRoot](packages/di/README.md#cores-and-coreroot) in its README.
 
 ## 📝 Recent Updates
 
@@ -559,6 +465,12 @@ This project is distributed under the MIT License.
 
 **Package Info:**
 - Base: `com.github.doqltl179.mu3library.base`
+- Notifications: `com.github.doqltl179.mu3library.notifications`
+- Input System: `com.github.doqltl179.mu3library.inputsystem` (depends on Base)
+- Localization: `com.github.doqltl179.mu3library.localization` (depends on Base)
+- Addressables: `com.github.doqltl179.mu3library.addressables` (depends on Base)
+- DI: `com.github.doqltl179.mu3library.di` (depends on Base)
+- Steam: `com.github.doqltl179.mu3library.steam` (depends on Base and needs Steamworks.NET)
 - URP: `com.github.doqltl179.mu3library.urp` (depends on Base)
 - Watermelon Game: `com.github.doqltl179.mu3library.game.watermelon` (depends on Base and URP)
 - Versions and release notes: [`CHANGELOG.md`](CHANGELOG.md)

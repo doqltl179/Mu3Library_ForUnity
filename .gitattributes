@@ -1,9 +1,8 @@
 *.md text eol=lf
 
-# The shell entrypoint and its configuration are read by bash, which treats a
-# trailing CR as part of the value and breaks on a CRLF checkout.
+# The shell entrypoints are read by bash, which treats a trailing CR as part of
+# a value and breaks on a CRLF checkout.
 *.sh text eol=lf
-*.tsv text eol=lf
 .envrc text eol=lf
 
 # The Unity Editor writes the YAML of its scenes, assets, and .meta files with LF line

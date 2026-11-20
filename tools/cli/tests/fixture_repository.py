@@ -10,30 +10,36 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from mu3_common.bash import bash_script_command
-from mu3_common.checkout import repo_root
+from common.bash import bash_script_command
+from common.checkout import repo_root
+from common.unity_projects import PROJECT_MARKER, WORK_FOLDER, remove_generated_project
 from shell_harness import bash_or_skip, run_sourced
 
-# Mirrors the shape of this repository: one package every project consumes, one
-# layered on it, one leaf, a package whose name only extends another one's, and a
-# project whose manifest does not reference the package the mapping pairs it with.
-MAPPING = (
-    ("shared", "PkgShared", "ProjShared"),
-    ("layered", "PkgLayered", "ProjLayered"),
-    ("leaf", "PkgLeaf", "ProjLeaf"),
-    ("extra", "PkgSharedExtra", "ProjExtra"),
-    ("orphan", "PkgOrphan", "ProjOrphan"),
-)
-PROJECT_PACKAGES = {
-    "ProjShared": ("PkgShared",),
-    "ProjLayered": ("PkgShared", "PkgLayered"),
-    "ProjLeaf": ("PkgShared", "PkgLayered", "PkgLeaf"),
-    "ProjExtra": ("PkgSharedExtra",),
-    "ProjOrphan": (),
+# Mirrors the shape of this repository: one package every config names, one layered on it, one
+# leaf, a package whose folder name only extends another one's, and a config that names none.
+PACKAGES = ("PkgShared", "PkgLayered", "PkgLeaf", "PkgSharedExtra")
+CONFIG_PACKAGES = {
+    "shared": ("PkgShared",),
+    "layered": ("PkgShared", "PkgLayered"),
+    "leaf": ("PkgShared", "PkgLayered", "PkgLeaf"),
+    "extra": ("PkgSharedExtra",),
+    "orphan": (),
 }
+# The scripts take the configs in the order of their names.
+CONFIGS = tuple(sorted(CONFIG_PACKAGES))
 ENTRY_POINTS = ("compile-unity.sh", "test-unity.sh")
-# The helper test-unity.sh runs beside each run, which the fixture keeps at its path.
-LOAD_HELPER = Path("tools") / "cli" / "src" / "mu3_fixed_load" / "fixed_load.py"
+CONFIGS_FOLDER = Path("tools", "unity-projects")
+# The helper test-unity.sh runs beside each run, and the package whose unity_projects.py reads the
+# configs and generates the projects, which the fixture keeps at their paths.
+LOAD_HELPER = Path("tools") / "cli" / "src" / "fixed_load" / "fixed_load.py"
+COMMON_PACKAGE = Path("tools") / "cli" / "src" / "common"
+# The fixture's branch, which names the unit's folder under the work root.
+BRANCH = "main"
+
+
+def package_name(package: str) -> str:
+    return f"fixture.{package.lower()}"
+
 
 # Stands in for the Unity Editor: names the project, the arguments it ran with, and the
 # -testFilter value as one argument, and the MSYS2_ARG_CONV_EXCL it got, prints the log line
@@ -102,22 +108,15 @@ exit "${FAKE_UNITY_STATUS:-0}"
 """
 
 
-def repository_ignore_line(path: str) -> str | None:
-    """Return this repository's .gitignore line for a repository-relative path, as written there."""
-    for line in (repo_root() / ".gitignore").read_text(encoding="utf-8-sig").splitlines():
-        if line.strip().strip("/") == path:
-            return line.strip()
-    return None
-
-
 class FixtureRepositoryTestCase(unittest.TestCase):
     """Builds the fixture once per class; tests remove whatever they add to it."""
 
-    # Targets whose project links to the package's Samples~ folder, as the fourth mapping column.
-    SAMPLE_LINKS: dict[str, str] = {}
-    # Projects whose manifest lists their packages under "testables", as a development project
-    # must for Unity to run a package's tests.
-    TESTABLE_PROJECTS: frozenset[str] = frozenset()
+    # Configs whose project links a folder below Assets/ to a package's Samples~ folder, as
+    # sample-links.json declares it: config -> (link, package folder).
+    SAMPLE_LINKS: dict[str, tuple[str, str]] = {}
+    # Configs whose manifest lists their packages under "testables", as a config must for Unity
+    # to run a package's tests.
+    TESTABLE_CONFIGS: frozenset[str] = frozenset()
     # Lines of the fixture's .gitignore, committed with the baseline.
     GITIGNORE_LINES: tuple[str, ...] = ()
     # The name of the fixture's root folder inside its temporary directory, which a longer name
@@ -127,6 +126,8 @@ class FixtureRepositoryTestCase(unittest.TestCase):
     root: Path
     fake_unity: Path
     git_config: Path
+    # The work root a run without unity_environment sees; nothing creates it.
+    class_work_root: Path
     repository_environment: frozenset[str]
 
     @classmethod
@@ -138,6 +139,7 @@ class FixtureRepositoryTestCase(unittest.TestCase):
         cls.addClassCleanup(temporary_directory.cleanup)
         cls.root = Path(temporary_directory.name) / cls.ROOT_NAME
         cls.root.mkdir()
+        cls.class_work_root = Path(temporary_directory.name) / "unused-work-root"
         # Git may treat the system temp directory as owned by someone else.
         cls.git_config = Path(temporary_directory.name) / "gitconfig"
         cls.git_config.write_text("[safe]\n\tdirectory = *\n", encoding="utf-8")
@@ -159,43 +161,38 @@ class FixtureRepositoryTestCase(unittest.TestCase):
                 shutil.copy2(repo_root() / entry_point, cls.root / entry_point)
         (cls.root / LOAD_HELPER).parent.mkdir(parents=True)
         shutil.copy2(repo_root() / LOAD_HELPER, cls.root / LOAD_HELPER)
-        (cls.root / "unity-cli-packages.tsv").write_text(
-            "".join(
-                "\t".join([key, package, project, *([cls.SAMPLE_LINKS[key]] if key in cls.SAMPLE_LINKS else [])]) + "\n"
-                for key, package, project in MAPPING
-            ),
-            encoding="utf-8",
-            newline="\n",
-        )
-        for key, package, project in MAPPING:
-            if key in cls.SAMPLE_LINKS:
+        shutil.copytree(repo_root() / COMMON_PACKAGE, cls.root / COMMON_PACKAGE, ignore=shutil.ignore_patterns("__pycache__"))
+
+        linked_packages = {package for _, package in cls.SAMPLE_LINKS.values()}
+        for package in PACKAGES:
+            runtime = cls.root / package / "Runtime"
+            runtime.mkdir(parents=True)
+            (runtime / "Code.cs").write_text("// fixture\n", encoding="utf-8")
+            (cls.root / package / "package.json").write_text(
+                json.dumps({"name": package_name(package), "version": "1.0.0"}, indent=2) + "\n", encoding="utf-8"
+            )
+            if package in linked_packages:
                 samples = cls.root / package / "Samples~"
                 samples.mkdir(parents=True)
                 (samples / "Sample.cs").write_text("// sample\n", encoding="utf-8")
 
-            runtime = cls.root / package / "Runtime"
-            runtime.mkdir(parents=True)
-            (runtime / "Code.cs").write_text("// fixture\n", encoding="utf-8")
-
-            manifest: dict[str, object] = {
-                "dependencies": {
-                    f"fixture.{consumed.lower()}": f"file:../../{consumed}" for consumed in PROJECT_PACKAGES[project]
-                }
-            }
-            if project in cls.TESTABLE_PROJECTS:
-                manifest["testables"] = [f"fixture.{consumed.lower()}" for consumed in PROJECT_PACKAGES[project]]
-            packages = cls.root / project / "Packages"
-            packages.mkdir(parents=True)
-            (packages / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
-            settings = cls.root / project / "ProjectSettings"
-            settings.mkdir()
-            (settings / "ProjectVersion.txt").write_text("m_EditorVersion: 6000.6.7f1\n", encoding="utf-8")
-            (cls.root / project / "Assets").mkdir()
+        for config, packages in CONFIG_PACKAGES.items():
+            folder = cls.root / CONFIGS_FOLDER / config
+            manifest: dict[str, object] = {"dependencies": {package_name(package): "checkout" for package in packages}}
+            if config in cls.TESTABLE_CONFIGS:
+                manifest["testables"] = [package_name(package) for package in packages]
+            (folder / "Packages").mkdir(parents=True)
+            (folder / "Packages" / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+            (folder / "ProjectSettings").mkdir()
+            (folder / "ProjectSettings" / "ProjectVersion.txt").write_text("m_EditorVersion: 6000.6.7f1\n", encoding="utf-8")
+            if config in cls.SAMPLE_LINKS:
+                link, package = cls.SAMPLE_LINKS[config]
+                (folder / "sample-links.json").write_text(json.dumps({link: package_name(package)}) + "\n", encoding="utf-8")
 
         if cls.GITIGNORE_LINES:
             (cls.root / ".gitignore").write_text("".join(f"{line}\n" for line in cls.GITIGNORE_LINES), encoding="utf-8")
 
-        cls._git("init", "--quiet")
+        cls._git("init", "--quiet", f"--initial-branch={BRANCH}")
         cls._git("add", "--all")
         cls._git("-c", "commit.gpgsign=false", "commit", "--quiet", "--message", "fixture baseline")
 
@@ -231,6 +228,7 @@ class FixtureRepositoryTestCase(unittest.TestCase):
                 "GIT_AUTHOR_EMAIL": "fixture@example.invalid",
                 "GIT_COMMITTER_NAME": "fixture",
                 "GIT_COMMITTER_EMAIL": "fixture@example.invalid",
+                "MU3_WORK_ROOT": str(cls.class_work_root),
             }
         )
         return environment
@@ -249,26 +247,51 @@ class FixtureRepositoryTestCase(unittest.TestCase):
         if completed.returncode != 0:
             raise RuntimeError(f"git {' '.join(arguments)} failed in the fixture: {completed.stderr.strip()}")
 
-    def unity_environment(self, **variables: str) -> dict[str, str]:
-        """The fixture environment with the fake Unity and a mirror directory of this test's own.
+    @classmethod
+    def unit_folder(cls, work_root: Path) -> Path:
+        """The work folder of the fixture's branch under a work root."""
+        return work_root / WORK_FOLDER / BRANCH
 
-        The logs and results that a run with it writes under log/ go when the test ends. The
-        scripts look at the fake's log every 0.02 s instead of every second, since the fake
-        exits at once and each run would otherwise wait out a whole second, and the spinners
-        that --load-spinners starts wait instead of spinning a core each.
+    def own_work_root(self) -> Path:
+        """This test's own work root, made the first time the test asks for it; it goes when the test ends."""
+        # unittest runs each test on an instance of its own.
+        if "work_root" not in self.__dict__:
+            work_root = tempfile.TemporaryDirectory()
+            self.addCleanup(work_root.cleanup)
+            self.work_root = Path(work_root.name)
+            # Cleanups run last first: the projects lose their links before the folder goes.
+            self.addCleanup(self.remove_projects)
+        return self.work_root
+
+    def project_folder(self, config: str) -> Path:
+        """The folder of a config's project under this test's work root."""
+        return self.unit_folder(self.own_work_root()) / config
+
+    def unity_environment(self, **variables: str) -> dict[str, str]:
+        """The fixture environment with the fake Unity and this test's own work root.
+
+        The logs and results that a run with it writes under log/, and the projects it generates,
+        go when the test ends. The scripts look at the fake's log every 0.02 s instead of every
+        second, since the fake exits at once and each run would otherwise wait out a whole second,
+        and the spinners that --load-spinners starts wait instead of spinning a core each.
         """
         self.addCleanup(shutil.rmtree, self.root / "log", ignore_errors=True)
-        mirror_directory = tempfile.TemporaryDirectory()
-        self.addCleanup(mirror_directory.cleanup)
-        self.mirror_directory = Path(mirror_directory.name)
         return {
             **self._environment(),
             "UNITY_EDITOR": str(self.fake_unity),
-            "TMPDIR": str(self.mirror_directory),
+            "MU3_WORK_ROOT": str(self.own_work_root()),
             "UNITY_LOG_POLL_SECONDS": "0.02",
             "UNITY_LOAD_SPINNERS_IDLE": "1",
             **variables,
         }
+
+    def remove_projects(self) -> None:
+        """Delete the projects generated under this test's work root, each link first, without following it."""
+        unit = self.unit_folder(self.work_root)
+        if unit.is_dir():
+            for project in unit.iterdir():
+                if (project / PROJECT_MARKER).is_file():
+                    remove_generated_project(project)
 
     def run_entry_point(
         self,
@@ -316,6 +339,3 @@ class FixtureRepositoryTestCase(unittest.TestCase):
             cwd=cwd or self.root,
             arguments=arguments,
         )
-
-    def mirrors_left(self) -> list[Path]:
-        return sorted(self.mirror_directory.glob("mu3library-unity-compile.*"))

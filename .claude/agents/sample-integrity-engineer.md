@@ -1,6 +1,6 @@
 ---
 name: sample-integrity-engineer
-description: "Maintains the importable package samples under Mu3Library_*/Samples~: sample scenes, sample scripts, sample assets, the samples entries in package.json, and what a consuming project gets when it imports them. Use when sample content or its import integrity is the dominant concern; not for package runtime, editor tooling, or optional integration code."
+description: "Maintains the importable package samples under packages/<name>/Samples~: sample scenes, sample scripts, sample assets, the samples entries in package.json, and what a consuming project gets when it imports them. Use when sample content or its import integrity is the dominant concern; not for package runtime, editor tooling, or optional integration code."
 ---
 <!-- agentkit:generated from .ai/kit/core/agents/client/game-tools-engineer.md, .ai/project/agents/sample-integrity-engineer.md, .ai/project/profile.toml. Do not edit: change the source, then run `python .ai/kit/tools/agentkit.py sync`. Paths are relative to the project root. -->
 
@@ -11,7 +11,7 @@ Mission: keep every package sample importable and working in a consuming project
 ## Owns
 - `Samples~` content of each package and the `samples` entries of its `package.json`.
 - Sample-only orchestration and presentation, per «Package Surfaces» in [package-architecture.md](.ai/project/wiki/rules/package-architecture.md).
-- The development-project view of a sample: `UnityProject_*/Assets/Mu3LibrarySamples*` is a Git-ignored link to `Samples~`, a junction on Windows and a symbolic link elsewhere, that `commands.worktree_setup` (`mu3-samples link`) creates ([overview.md](.ai/project/wiki/overview.md)).
+- The generated-project view of a sample: the project generated from `tools/unity-projects/full` links Base's `Samples~` as `Assets/Mu3LibrarySamples`, as that config's `sample-links.json` declares, a junction on Windows and a symbolic link elsewhere, which a run of `compile-unity.sh full` or `test-unity.sh full` creates ([unity-yaml-guide.md](.ai/project/wiki/unity-yaml-guide.md) «Reaching A Sample»).
 
 ## Does Not Own
 - Reusable package runtime behavior a sample exposes → `game-runtime-engineer`
@@ -73,6 +73,6 @@ Mission: give content creators reliable editor tools and deterministic asset pip
 
 ## Project Binding
 
-- Paths: `Mu3Library_*/Samples~/**`
+- Paths: `packages/**/Samples~/**`
 - Stack packs (read before editing): [csharp](.ai/kit/core/stacks/languages/csharp.md), [unity](.ai/kit/core/stacks/frameworks/unity.md), [unity-upm](.ai/kit/core/stacks/frameworks/unity-upm.md)
 - Commands for this role: `commands.build` (`bash ./compile-unity.sh changed`)

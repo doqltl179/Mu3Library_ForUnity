@@ -1,8 +1,8 @@
 ---
 owns: "Mu3Library package rules: surfaces per package, assembly dependency direction, the optional-integration symbols and split files, Unity package and built-in module declarations in package.json, DI and CoreBase, project C# conventions, and the review focus for package changes"
-applies_to: ["Mu3Library_*/**"]
+applies_to: ["packages/**"]
 volatility: evolving
-reviewed: 2026-10-31
+reviewed: 2026-11-16
 ---
 
 # Package Architecture
@@ -17,49 +17,50 @@ What this repository decided for its package code. Generic Unity and UPM rules l
 
 - which package or folder: [overview.md](../overview.md),
 - compile targets and EditMode tests: [unity-verification.md](../unity-verification.md),
-- manager initialization, disposal, and async operations, or the Watermelon board commands and sample: [runtime-design.md](../runtime-design.md),
-- sample scenes and prefabs: [unity-yaml-guide.md](../unity-yaml-guide.md).
+- manager initialization, disposal, and async operations, or the Watermelon board commands: [runtime-design.md](../runtime-design.md),
+- sample scenes and prefabs: [unity-yaml-guide.md](../unity-yaml-guide.md),
+- splitting a feature out of Base into a package of its own: [package-split.md](../package-split.md).
 
 ## Package Surfaces
 
 | Package | Surface | Rules |
 |---|---|---|
-| Base | Runtime `Runtime/Scripts`: `Mu3Library.asmdef`, with four folders in assemblies of their own, `Foundation/` (`Mu3Library.Foundation.asmdef`, no engine references), `DI/` (`Mu3Library.DI.asmdef`), `Multiplayer/` (`Mu3Library.Multiplayer.asmdef`, player-hosted sessions over a backend interface, with `Multiplayer/Steam/` in `Mu3Library.Multiplayer.Steam.asmdef`, the Steam backend, standalone players and the editor only), and `Notifications/` (`Mu3Library.Notifications.asmdef`, Android, iOS, and Editor only) | Interface-first DI; preserve the `CoreBase` initialization and injection order |
-| Base | Editor `Editor/Scripts` (`Mu3Library.Editor.asmdef`) | Match nearby drawer, window, and utility patterns. Generated-script helpers live in `Editor/Scripts/FileUtil`: identifier rules in `ScriptIdentifier`, output in `FileCreator`, asset path checks in `FileFinder` |
-| URP | Runtime `Runtime/Scripts` (`Mu3Library.URP.asmdef`) | URP-specific only; follow the renderer-feature and screen-effect patterns |
-| URP | Shaders `Runtime/Shaders` | Minimal edits matching nearby property names, pass layout, and includes; state likely variant growth |
-| Watermelon Game | Runtime `Runtime/Scripts` (`Mu3Library.Game.WatermelonGame.asmdef`) | Board behavior stays in the package; reuse Base services instead of parallel audio, DI, or UI infrastructure |
-| All | `Samples~` | Sample-only orchestration and presentation; a defect in reusable behavior is fixed in the runtime surface |
+| Base | Runtime `Runtime`: `Mu3Library.asmdef`, with two folders in assemblies of their own, `Foundation/` (`Mu3Library.Foundation.asmdef`, no engine references, with the DI contracts in `Foundation/DI/`) and `Multiplayer/` (`Mu3Library.Multiplayer.asmdef`, player-hosted sessions over a backend interface, with the local backend) | Managers implement the DI contracts and need no container |
+| DI | Runtime `Runtime` (`Mu3Library.DI.asmdef`, the container, `CoreBase`, and `CoreRoot`) and Editor `Editor` (`Mu3Library.DI.Editor.asmdef`: `DILinkerProcessor` and the DI Validator and Runtime Diagnostics drawers) | Interface-first DI; preserve the `CoreBase` initialization and injection order |
+| Base | Editor `Editor` (`Mu3Library.Editor.asmdef`) | Match nearby drawer, window, and utility patterns. Generated-script helpers live in `Editor/FileUtil`: identifier rules in `ScriptIdentifier`, output in `FileCreator`, asset path checks in `FileFinder` |
+| URP | Runtime `Runtime` (`Mu3Library.URP.asmdef`) | URP-specific only; follow the renderer-feature and screen-effect patterns |
+| URP | Shaders `Runtime/ScreenEffect/Shaders` | Minimal edits matching nearby property names, pass layout, and includes; state likely variant growth |
+| Watermelon Game | Runtime `Runtime` (`Mu3Library.Game.WatermelonGame.asmdef`) | Board behavior stays in the package; reuse Base services instead of parallel audio, DI, or UI infrastructure |
+| Notifications, Steam | Runtime `Runtime` (`Mu3Library.Notifications.asmdef`, Android, iOS, and Editor only) and Runtime `Runtime/Multiplayer` (`Mu3Library.Steam.Multiplayer.asmdef`, standalone players and the editor only) | `NotificationManager` wraps the unified `NotificationCenter` of the Mobile Notifications package and uses no Mu3Library assembly; `SteamBackend`, the Steam backend of Base's sessions, builds on the public backend API of `Mu3Library.Multiplayer` only (ADR 0001 D22) |
+| Input System, Localization, Addressables | Runtime `Runtime` (`Mu3Library.InputSystem.asmdef`, `Mu3Library.Localization.asmdef`, `Mu3Library.Addressables.asmdef`) and Editor `Editor` (the runtime assembly's name with `.Editor`) | Each manager wraps its package: `InputSystemManager` the Input System package's action assets, `LocalizationManager` the Localization package's settings, tables, and locales, and `AddressablesManager` the Addressables package's initialization, loads, downloads, and catalog calls; each editor holds the package's drawers, the InputSystem Data Exporter, the Localization Data Exporter and Character Collector, and the Addressable Group Data Exporter, on Base's `Mu3WindowDrawer` and `Editor/FileUtil` helpers |
+| Base | `Samples~` | Sample-only orchestration and presentation; a defect in reusable behavior is fixed in the runtime surface |
 
 ## Assemblies And Optional Integrations
 
-- Dependency direction: URP → Base, Watermelon Game → Base and URP; inside Base, `Mu3Library` → `Mu3Library.DI` → `Mu3Library.Foundation`, `Mu3Library.Multiplayer` → `Mu3Library.DI` (for `IUpdatable` and the `CoreRoot` lookup the Multiplayer Debugger window uses) and nothing else in Base, `Mu3Library.Multiplayer.Steam` → `Mu3Library.Multiplayer` and nothing else in Base, `Mu3Library.Notifications` references none of them, and the editor assembly `Mu3Library.Editor` → `Mu3Library`, `Mu3Library.DI`, and `Mu3Library.Multiplayer` (for the Multiplayer Debugger window). Never reverse it, and add no other hard dependency between assemblies. Diagnose assembly problems with the `asmdef-triage` skill before editing an `.asmdef`.
+- Dependency direction: URP → Base, Watermelon Game → Base and URP, Notifications references no Mu3Library assembly, Input System's `Mu3Library.InputSystem` references none and its `Mu3Library.InputSystem.Editor` only `Mu3Library.Editor`, Localization's `Mu3Library.Localization` references only `Mu3Library.Foundation` (for `IUpdatable` and `SubscribeHandler`) and its `Mu3Library.Localization.Editor` only `Mu3Library.Editor`, Addressables' `Mu3Library.Addressables` and `Mu3Library.Addressables.Editor` likewise, Steam's `Mu3Library.Steam.Multiplayer` only `Mu3Library.Multiplayer`, and DI's `Mu3Library.DI` only `Mu3Library.Foundation` and its `Mu3Library.DI.Editor` `Mu3Library.DI`, `Mu3Library.Foundation` (for `[Inject]` and `IObjectInjector`), `Mu3Library` (for the `MVPManager` of the runtime diagnostics drawer), `Mu3Library.Editor`, and, gated on `MU3LIBRARY_ADDRESSABLES_PACKAGE`, `Mu3Library.Addressables` (for the Addressables cache of that drawer); inside Base, `Mu3Library` → `Mu3Library.Foundation`, `Mu3Library.Multiplayer` → `Mu3Library.Foundation` (for `IUpdatable`) and nothing else in Base, and the editor assembly `Mu3Library.Editor` → `Mu3Library` and `Mu3Library.Multiplayer` (for the Multiplayer Debugger window). No Base or URP assembly references `Mu3Library.DI`. Never reverse it, and add no other hard dependency between assemblies. A tool that reads the code of another package split out of Base, such as the runtime diagnostics drawer reading `AddressablesManager`, references that package's assembly by name and compiles that code only behind a `versionDefines` symbol for the package, never for the SDK: Unity skips a reference by name that resolves to no assembly, so the tool's assembly compiles without the package, and the split package's runtime assembly, which the tool references, never references an editor assembly back. An assembly that uses a DI contract, or converts a Base manager such as `AudioManager` to one of its interfaces, references `Mu3Library.Foundation` itself: Unity hands the compiler only an assembly's direct references, so the compile otherwise fails with CS0012, and only an assembly that uses the container, such as a core, references `Mu3Library.DI`, which the DI package holds. Diagnose assembly problems with the `asmdef-triage` skill before editing an `.asmdef`.
 - Optional packages are gated by these `versionDefines` symbols, declared in the `.asmdef` of each assembly that uses the package:
 
 | Package | Define symbol |
 |---|---|
 | `com.cysharp.unitask` | `MU3LIBRARY_UNITASK_SUPPORT` |
 | `com.unity.addressables` | `MU3LIBRARY_ADDRESSABLES_SUPPORT` |
-| `com.unity.localization` | `MU3LIBRARY_LOCALIZATION_SUPPORT` |
+| `com.github.doqltl179.mu3library.addressables` | `MU3LIBRARY_ADDRESSABLES_PACKAGE` |
 | `com.unity.inputsystem` | `MU3LIBRARY_INPUTSYSTEM_SUPPORT` |
-| `com.unity.mobile.notifications` | `MU3LIBRARY_NOTIFICATIONS_SUPPORT` |
 | `com.rlabrecque.steamworks.net` | `MU3LIBRARY_STEAMWORKS_SUPPORT` |
 
-- Gated code lives in a split file named after the integration (`*.UniTask.cs`, `*.Addressables.cs`, `*.Addressables.UniTask.cs`, `*.InputSystem.cs`) or in that integration's folder (`Addressable/`, `Localization/`, `IS/`, `Notifications/`, `Multiplayer/Steam/`).
-- `Notifications/` is its own assembly, `Mu3Library.Notifications`, which lists `MU3LIBRARY_NOTIFICATIONS_SUPPORT` in `defineConstraints`: without the package Unity skips the whole assembly, so its files need no `#if` for that symbol. `Mu3Library.Multiplayer.Steam` does the same with `MU3LIBRARY_STEAMWORKS_SUPPORT` and `UNITY_STANDALONE`, since Steamworks.NET hides its types on other build targets; `UnityProject_BuiltIn` installs Steamworks.NET so the assembly compiles there, and the other projects prove Base compiles without it.
-- `package.json` `dependencies` declares every Unity package and built-in module that a package's runtime or editor code uses outside a define gate. A built-in module (`com.unity.modules.*`) is declared at `1.0.0`. A Unity package such as `com.unity.ugui` or `com.unity.render-pipelines.universal` is declared at the version the `unity` floor bundles (`2.0.0` and `17.3.0` for `6000.3`); a higher version raises the floor in effect. The development projects enable every built-in module and uGUI, so `commands.build` passes on an undeclared use, and only a consuming project that turned the module off fails, inside a package it cannot edit.
-- A module that only a sample under `Samples~` uses is not declared, such as the 3D physics of Base's Template sample, and an optional integration from the table above never is: it stays behind its define gate.
+- Gated code lives in a split file named after the integration (`*.UniTask.cs`, `*.Addressables.cs`, `*.Addressables.UniTask.cs`, `*.InputSystem.cs`) or in an assembly of its own. The Steam package's `Mu3Library.Steam.Multiplayer` lists `MU3LIBRARY_STEAMWORKS_SUPPORT` and `UNITY_STANDALONE` in `defineConstraints`: without Steamworks.NET, or on a build target where Steamworks.NET hides its types, Unity skips the whole assembly, so its files need no `#if` for those symbols. The `full` project config installs Steamworks.NET and the Steam package so the assembly compiles there.
+- `package.json` `dependencies` declares every Unity package and built-in module that a package's runtime or editor code uses outside a define gate. A built-in module (`com.unity.modules.*`) is declared at `1.0.0`. A Unity package such as `com.unity.ugui`, `com.unity.render-pipelines.universal`, `com.unity.mobile.notifications`, `com.unity.inputsystem`, `com.unity.localization`, or `com.unity.addressables` is declared at the version the `unity` floor bundles (`2.0.0`, `17.3.0`, `2.4.3`, `1.18.0`, `1.5.8`, and `2.9.0` for `6000.3`, read on 6000.3.10f1 for the last four); a higher version raises the floor in effect. The project configs enable every built-in module and uGUI, so `commands.build` passes on an undeclared use, and only a consuming project that turned the module off fails, inside a package it cannot edit. A module that only a sample under `Samples~` uses is not declared, and an optional integration from the table above never is: it stays behind its define gate. A package split out of Base instead declares the Unity-registry SDK it wraps, and any other its code uses, such as the Addressables whose operation handles `Mu3Library.Localization` waits on, and keeps no gate for them, since only a project that wants the SDK installs that package (ADR 0001 D21): `Mu3Library.Notifications` compiles wherever the Notifications package is installed, within its `includePlatforms`, `Mu3Library.InputSystem` wherever the Input System package is, `Mu3Library.Localization` wherever the Localization package is, and `Mu3Library.Addressables` wherever the Addressables package is. UniTask and Steamworks.NET, distributed by Git, cannot be declared and keep their gates.
 
 ## DI, CoreBase, And MVP
 
-- Keep the DI and MVP modules decoupled; use the existing DI rather than ad-hoc globals or new singletons. `ContainerScope.InjectInto` stays internal across that boundary: a container-owned service that uses `[Inject]` resolves the narrow `IObjectInjector`, which every scope provides.
+- The DI contracts `IInitializable`, `IUpdatable`, `ILateUpdatable`, `IObjectInjector`, and `InjectAttribute` live in `Mu3Library.Foundation`, so Base's managers implement them without the container, which the DI package's `Mu3Library.DI` holds (ADR 0001 D7, D8). Keep the DI and MVP modules decoupled; use the existing DI rather than ad-hoc globals or new singletons. `ContainerScope.InjectInto` stays internal across that boundary: a container-owned service that uses `[Inject]` resolves the narrow `IObjectInjector`, which every scope provides.
 - Use `MonoBehaviour` only for scene components; keep service and domain logic in plain C# classes.
-- `Singleton<T>` and `GenericSingleton<T>` stay public for consuming projects even though the packages drive their services through `CoreBase`; do not remove them as unused.
+- `Singleton<T>` and `GenericSingleton<T>` stay public for consuming projects even though the packages do not use them; do not remove them as unused.
 
 ## C# Conventions
 
-- A namespace follows its folder under the `Mu3Library` root: `Foundation/Coroutine` is `Mu3Library.Foundation.Coroutine`, `Runtime/Scripts/Utility` is `Mu3Library.Utility`. The existing exceptions stay, since renaming a public namespace breaks consumers, and no new one is added:
-  - a leaf named like a Unity type its own code uses: `URP/Runtime/Scripts/Camera` is `Mu3Library.URP.Cam`;
+- A namespace follows its folder under the `Mu3Library` root: `Foundation/Coroutine` is `Mu3Library.Foundation.Coroutine`, `Runtime/Utility` is `Mu3Library.Utility`. The existing exceptions stay, since renaming a public namespace breaks consumers, and no new one is added beyond the DI contracts in `Foundation/DI/`, which keep the namespace `Mu3Library.DI` they had in the DI assembly (ADR 0001 D8), and the code a package split out of Base takes along, which keeps its namespace from Base (D5, D7), such as Input System's `Mu3Library.IS` and its drawer's `Mu3Library.Editor.Window.Drawer`:
+  - a leaf named like a Unity type its own code uses: `URP/Runtime/Camera` is `Mu3Library.URP.Cam`;
   - a folder that only groups the parts of one feature keeps its parent's namespace: Base's `UI/Area/Boundary` is `Mu3Library.UI.Area` in the runtime and `Mu3Library.Editor.UI.Area` in the editor;
   - a file of a partial class takes the namespace of the class it extends, since every part shares one: Watermelon Game's `Board/Area/BoardArea.*.cs` and `Board/Controller/BoardController.*.cs` are `Mu3Library.Game.WatermelonGame.Board`, while the other types in `Board/Area` follow the folder rule as `Mu3Library.Game.WatermelonGame.Board.Area`.
 - An oversized `MonoBehaviour` keeps its serialized façade at its existing path and GUID and moves responsibilities into partial files grouped under named subfolders, such as `Controller`, `Area`, and `Item`.
@@ -71,7 +72,6 @@ What this repository decided for its package code. Generic Unity and UPM rules l
 ## Review Focus
 
 In order of severity:
-
 1. Behavioral regressions.
 2. Public API compatibility: interfaces, classes, methods, and properties.
 3. Assembly boundary safety: minimal and correct `.asmdef` references, dependency direction.
