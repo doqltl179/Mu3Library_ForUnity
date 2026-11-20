@@ -15,7 +15,7 @@ reviewed: 2026-10-09
 
 ## Do Not Use When
 - No task branch exists yet → `git-branch-start`.
-- The head branch is the integration branch or a protected branch → stop; it receives changes only through pull requests.
+- The head branch is the integration branch or a protected branch → stop; it receives changes only through pull requests, or with `hosting.platform = "none"` through the approved merge of «Scaling The Order» in [request-lifecycle.md](../../wiki/operating-model/request-lifecycle.md).
 - Resolving needs a decision about product behavior → pause per «Stop, Pause, or Proceed» in [integrity.md](../../wiki/principles/integrity.md).
 
 ## Inputs

@@ -33,6 +33,6 @@ Dispatch costs tokens and coordination. Use it when the unit is independent, lar
 1. Read the card, the «Project Binding» in the rendered file (paths, stack packs, notes), and the bound stack packs before editing.
 2. Stay inside `Owns` and the bound paths. When work falls under `Does Not Own`, stop that part and hand it off with a packet; do not do it "just this once".
 3. Run the role's `Domain Checks` and the verification the change needs before reporting.
-4. Never approve your own work; quality gates belong to the quality plane.
+4. Leave quality gates to the quality plane; «Never Fake Success» in [integrity.md](../principles/integrity.md) owns the ban on approving your own work.
 5. Report in the shape of [handoff-contract.md](handoff-contract.md), including anything you could not do.
 6. Do not create further units or dispatch other owners unless you are `orchestrator`; report newly found scope instead.

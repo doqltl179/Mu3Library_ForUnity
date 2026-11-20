@@ -56,10 +56,14 @@ Why: a duplicated fact drifts, because only one copy gets fixed, and an agent th
 | Rank | Layer | May |
 |---|---|---|
 | 1 | The current user request | Override anything for that request only |
-| 2 | Project overlay `.ai/project/` | Set parameters the core exposes, add project facts, narrow roles with local agents |
+| 2 | Project overlay `.ai/project/` | Set parameters the core exposes, add project facts, narrow roles with local agents, replace policy rules of a core wiki section |
 | 3 | Core kit | Define invariants and defaults |
 
-- The overlay never contradicts a core invariant. When a project needs a core rule changed, propose it upstream with the `kit-upstream-propose` skill instead of forking the rule locally.
+- The overlay never contradicts a core invariant. The invariants are exactly the rules on pages under the kit's `core/wiki/principles/` (`.ai/kit/core/wiki/principles/` in an installed project).
+- The overlay may replace policy rules («Rule Types») of one section of a core wiki page, for its own project. A replacement is a `project.guardrails` entry, rendered in `AGENTS.md` «Project Rules», that starts with the fixed prefix `Replaces «<Section>» in <page>.md:` and then states only the project's rule, for example "Replaces «When To Plan» in planning.md: a plan file starts at five steps instead of three." It may link a page in `.ai/project/wiki/` for detail. An entry without that prefix replaces nothing.
+- The target is always a section of a core wiki page: an agent card's `Owns` and `Does Not Own` change only through a local card added with `kit-agent-add`, and a skill's steps only through a local skill per «Local Skills» in [project-overlay.md](../integration/project-overlay.md).
+- A replacement removes only the rules of that section that the entry contradicts. The section's other rules still apply, every invariant that binds the new behavior still applies (for example, a replacement that rebases still needs confirmation before each force push), and a skill that links the section follows the entry.
+- Propose a core rule change upstream with `kit-upstream-propose` only when it changes an invariant or should reach every project, and only when «Promotion» in [memory-policy.md](../operating-model/memory-policy.md) allows it.
 - Kit files inside an installed project (`.ai/kit/`) are read-only; `agentkit.py check` reports local edits.
 
 ## Rule Types
@@ -67,7 +71,7 @@ Why: a duplicated fact drifts, because only one copy gets fixed, and an agent th
 | Type | Meaning | Changed by |
 |---|---|---|
 | invariant | Holds regardless of project, tool, or model (for example: never fake success) | Structural review by `role-governor` only |
-| policy | A chosen default, often parameterized by the profile | Team decision, recorded on its owning page |
+| policy | A chosen default, often parameterized by the profile | Team decision, recorded on its owning page, or replaced for one project per «Layers and Precedence» |
 | fact | External and time-sensitive: versions, tool formats, vendor behavior | Freshness review; the page is `volatility: volatile` and lists `sources` |
 | scaffold | Compensates for a current model limitation | Model upgrades; see [model-calibration.md](../evolution/model-calibration.md) |
 

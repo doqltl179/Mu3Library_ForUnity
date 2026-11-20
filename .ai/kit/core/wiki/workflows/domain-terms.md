@@ -27,7 +27,7 @@ A project concept carries one name everywhere: code, docs, issues, and conversat
 - Define only concepts specific to the project or its domain. A general term (cache, timeout, retry) gets no definition or synonyms; it has a row only to fix its rendering per «Terminology» in translation.md.
 - When several words compete for one concept, pick one and list the others as synonyms to avoid.
 - The owner of the unit that settles a term writes its entry, in the same unit as the first code or doc that uses it. Renderings in other languages follow «Terminology» in translation.md.
-- With `docs.glossary` empty, keep terms consistent within the change and report that the project has no glossary.
+- With `docs.glossary` empty, keep terms consistent within the change.
 
 ## Using Terms
 

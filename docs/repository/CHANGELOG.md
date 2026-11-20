@@ -7,6 +7,24 @@ Package release notes remain in:
 - `docs/changelog/CHANGELOG.ko.md`
 - `docs/changelog/CHANGELOG.ja.md`
 
+## 2026-11-20 (agentkit 1.0.1)
+
+### Changed
+- Updated agentkit from 0.10.1 to 1.0.1 (#560). Version 1.0.0 changed the profile template's defaults to a trunk-based flow on `main` with no issue requirement, no commit convention, no hosting platform, and no changelog, spec, decision-record, or glossary path. By the user's decision `.ai/project/profile.toml` now writes this repository's values explicitly, so they no longer depend on a default: `develop` as the integration branch, `main` as the release branch, both protected, issue first, Conventional Commits, GitHub, `CHANGELOG.md`, `docs/specs`, `docs/adr`, and `.ai/project/wiki/glossary.md`. Without them the update's first `sync` had dropped the `github-*` skills. The profile also writes `review_gate = "non-trivial"`, the new default the user kept, under which a typo, comment-only, or regenerated-only change skips the agent review gates; `evolution.propose_upstream` stays at its default `false`, so agents propose kit changes upstream only when asked.
+- The kit no longer has `docs.locales` or `[docs.locale_paths]` and leaves translated copies to the project (ai-agents#139). By the user's decision a unit now changes only the English `README.md` and `CHANGELOG.md`, and each release unit brings `docs/readme/README.{ko,ja}.md` and `docs/changelog/CHANGELOG.{ko,ja}.md` up to them as a whole: a new line in `project.guardrails` says so, and «Localized Copies» in `.ai/project/wiki/package-release.md` holds the steps. Before, every unit that changed either file translated both copies, and review fixes and the release's rewording repeated that work.
+- `project.guardrails` gains two `Replaces «<Section>» in git-workflow.md:` entries, the form 1.0.0 adds for a project rule that departs from a core section: «Worktrees» for the short worktree folder name, such as `.worktrees/n430`, and «Cleanup» for keeping a Claude app worktree that holds a unit's branch. Both rules were already in `.ai/project/wiki/overview.md`, which keeps the detail. `kit-stack-add` and `kit-trend-scan` are now kit-repository skills, so `kit-stack-add` is no longer generated and `kit-trend-scan` leaves `skills.disabled`.
+
+### What an existing checkout needs
+- Nothing.
+
+## 2026-11-20 (multiplayer sample removal)
+
+### Changed
+- The `full` project config no longer holds `sample-links.json` and `Assets/Mu3LibrarySamples.meta`, since Base's last sample, the Multiplayer sample, is gone (#556, ADR 0001 D14, D17), so `full` compiles no sample any more. The generator no longer reads a config's `sample-links.json` or links a package's `Samples~` into a project; it still removes, without following it, a link that a project's marker lists from an earlier run. The `--scene` example of `mu3-verify-build`, in its help and in [tools/README.md](../../tools/README.md#verification-build), names a scene saved into the project, `Assets/Scenes/Check.unity`, where it named the sample's. The multiplayer harness, which took over the sample's unattended run (#547), is unchanged.
+
+### What an existing checkout needs
+- Nothing: the next run refreshes each generated `full` project and removes its `Assets/Mu3LibrarySamples` link, without following it, and that link's `.meta` file. A work folder whose `full` project no run has refreshed since keeps the junction into the checkout's `Samples~`; delete it by hand as [Unity Project Configs](../../tools/README.md#unity-project-configs) says.
+
 ## 2026-11-17 (multiplayer harness)
 
 ### Added

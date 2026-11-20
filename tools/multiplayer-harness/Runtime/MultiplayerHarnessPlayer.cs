@@ -23,7 +23,7 @@ namespace MultiplayerHarness
         private const string TimeoutOption = "-mpharness-timeout";
 
         // The machine-wide network and the game ID of the harness alone, so that no other game on
-        // this computer, the Multiplayer sample among them, sees its lobbies.
+        // this computer sees its lobbies.
         private const string NetworkName = "mu3library-multiplayer-harness";
         private const int ProtocolVersion = 1;
 
@@ -447,7 +447,7 @@ namespace MultiplayerHarness
                 return map == LobbyDataValue && !_foundLobby.IsInGame ? Verdict.Pass(detail) : Verdict.Fail(detail);
             }
 
-            // As the sample's guest does: search every second until the lobby shows.
+            // Search every second until the lobby shows.
             if (!_isSearching && Time.realtimeSinceStartup >= _nextSearchTime)
             {
                 _isSearching = true;
@@ -800,7 +800,7 @@ namespace MultiplayerHarness
             return null;
         }
 
-        /// <summary>The argument after the option, unless it is missing or another option, as the sample reads its own.</summary>
+        /// <summary>The argument after the option, unless it is missing or another option.</summary>
         private static string ValueAfter(string[] arguments, string option)
         {
             for (int i = 0; i + 1 < arguments.Length; i++)

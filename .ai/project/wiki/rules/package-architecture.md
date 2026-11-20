@@ -2,7 +2,7 @@
 owns: "Mu3Library package rules: surfaces per package, assembly dependency direction, the optional-integration symbols and split files, Unity package and built-in module declarations in package.json, DI and CoreBase, project C# conventions, and the review focus for package changes"
 applies_to: ["packages/**"]
 volatility: evolving
-reviewed: 2026-11-16
+reviewed: 2026-11-20
 ---
 
 # Package Architecture
@@ -11,14 +11,13 @@ What this repository decided for its package code. Generic Unity and UPM rules l
 
 ## When
 
-- changing or reviewing package code, an `.asmdef`, a define symbol, a sample, or `package.json`.
+- changing or reviewing package code, an `.asmdef`, a define symbol, or `package.json`.
 
 ## Route Away When
 
 - which package or folder: [overview.md](../overview.md),
 - compile targets and EditMode tests: [unity-verification.md](../unity-verification.md),
 - manager initialization, disposal, and async operations, or the Watermelon board commands: [runtime-design.md](../runtime-design.md),
-- sample scenes and prefabs: [unity-yaml-guide.md](../unity-yaml-guide.md),
 - splitting a feature out of Base into a package of its own: [package-split.md](../package-split.md).
 
 ## Package Surfaces
@@ -33,7 +32,6 @@ What this repository decided for its package code. Generic Unity and UPM rules l
 | Watermelon Game | Runtime `Runtime` (`Mu3Library.Game.WatermelonGame.asmdef`) | Board behavior stays in the package; reuse Base services instead of parallel audio, DI, or UI infrastructure |
 | Notifications, Steam | Runtime `Runtime` (`Mu3Library.Notifications.asmdef`, Android, iOS, and Editor only) and Runtime `Runtime/Multiplayer` (`Mu3Library.Steam.Multiplayer.asmdef`, standalone players and the editor only) | `NotificationManager` wraps the unified `NotificationCenter` of the Mobile Notifications package and uses no Mu3Library assembly; `SteamBackend`, the Steam backend of Base's sessions, builds on the public backend API of `Mu3Library.Multiplayer` only (ADR 0001 D22) |
 | Input System, Localization, Addressables | Runtime `Runtime` (`Mu3Library.InputSystem.asmdef`, `Mu3Library.Localization.asmdef`, `Mu3Library.Addressables.asmdef`) and Editor `Editor` (the runtime assembly's name with `.Editor`) | Each manager wraps its package: `InputSystemManager` the Input System package's action assets, `LocalizationManager` the Localization package's settings, tables, and locales, and `AddressablesManager` the Addressables package's initialization, loads, downloads, and catalog calls; each editor holds the package's drawers, the InputSystem Data Exporter, the Localization Data Exporter and Character Collector, and the Addressable Group Data Exporter, on Base's `Mu3WindowDrawer` and `Editor/FileUtil` helpers |
-| Base | `Samples~` | Sample-only orchestration and presentation; a defect in reusable behavior is fixed in the runtime surface |
 
 ## Assemblies And Optional Integrations
 
@@ -49,7 +47,7 @@ What this repository decided for its package code. Generic Unity and UPM rules l
 | `com.rlabrecque.steamworks.net` | `MU3LIBRARY_STEAMWORKS_SUPPORT` |
 
 - Gated code lives in a split file named after the integration (`*.UniTask.cs`, `*.Addressables.cs`, `*.Addressables.UniTask.cs`, `*.InputSystem.cs`) or in an assembly of its own. The Steam package's `Mu3Library.Steam.Multiplayer` lists `MU3LIBRARY_STEAMWORKS_SUPPORT` and `UNITY_STANDALONE` in `defineConstraints`: without Steamworks.NET, or on a build target where Steamworks.NET hides its types, Unity skips the whole assembly, so its files need no `#if` for those symbols. The `full` project config installs Steamworks.NET and the Steam package so the assembly compiles there.
-- `package.json` `dependencies` declares every Unity package and built-in module that a package's runtime or editor code uses outside a define gate. A built-in module (`com.unity.modules.*`) is declared at `1.0.0`. A Unity package such as `com.unity.ugui`, `com.unity.render-pipelines.universal`, `com.unity.mobile.notifications`, `com.unity.inputsystem`, `com.unity.localization`, or `com.unity.addressables` is declared at the version the `unity` floor bundles (`2.0.0`, `17.3.0`, `2.4.3`, `1.18.0`, `1.5.8`, and `2.9.0` for `6000.3`, read on 6000.3.10f1 for the last four); a higher version raises the floor in effect. The project configs enable every built-in module and uGUI, so `commands.build` passes on an undeclared use, and only a consuming project that turned the module off fails, inside a package it cannot edit. A module that only a sample under `Samples~` uses is not declared, and an optional integration from the table above never is: it stays behind its define gate. A package split out of Base instead declares the Unity-registry SDK it wraps, and any other its code uses, such as the Addressables whose operation handles `Mu3Library.Localization` waits on, and keeps no gate for them, since only a project that wants the SDK installs that package (ADR 0001 D21): `Mu3Library.Notifications` compiles wherever the Notifications package is installed, within its `includePlatforms`, `Mu3Library.InputSystem` wherever the Input System package is, `Mu3Library.Localization` wherever the Localization package is, and `Mu3Library.Addressables` wherever the Addressables package is. UniTask and Steamworks.NET, distributed by Git, cannot be declared and keep their gates.
+- `package.json` `dependencies` declares every Unity package and built-in module that a package's runtime or editor code uses outside a define gate. A built-in module (`com.unity.modules.*`) is declared at `1.0.0`. A Unity package such as `com.unity.ugui`, `com.unity.render-pipelines.universal`, `com.unity.mobile.notifications`, `com.unity.inputsystem`, `com.unity.localization`, or `com.unity.addressables` is declared at the version the `unity` floor bundles (`2.0.0`, `17.3.0`, `2.4.3`, `1.18.0`, `1.5.8`, and `2.9.0` for `6000.3`, read on 6000.3.10f1 for the last four); a higher version raises the floor in effect. The project configs enable every built-in module and uGUI, so `commands.build` passes on an undeclared use, and only a consuming project that turned the module off fails, inside a package it cannot edit. An optional integration from the table above is never declared: it stays behind its define gate. A package split out of Base instead declares the Unity-registry SDK it wraps, and any other its code uses, such as the Addressables whose operation handles `Mu3Library.Localization` waits on, and keeps no gate for them, since only a project that wants the SDK installs that package (ADR 0001 D21): `Mu3Library.Notifications` compiles wherever the Notifications package is installed, within its `includePlatforms`, `Mu3Library.InputSystem` wherever the Input System package is, `Mu3Library.Localization` wherever the Localization package is, and `Mu3Library.Addressables` wherever the Addressables package is. UniTask and Steamworks.NET, distributed by Git, cannot be declared and keep their gates.
 
 ## DI, CoreBase, And MVP
 
@@ -76,4 +74,4 @@ In order of severity:
 2. Public API compatibility: interfaces, classes, methods, and properties.
 3. Assembly boundary safety: minimal and correct `.asmdef` references, dependency direction.
 4. Optional gate and dependency correctness: every optional-package use inside its define symbol, and every Unity package or built-in module newly used outside a gate declared in `package.json` `dependencies`.
-5. Alignment: `.meta`-safe asset operations, README and CHANGELOG with their localized copies, and verification evidence.
+5. Alignment: `.meta`-safe asset operations, README and CHANGELOG (their localized copies follow at release, per «Localized Copies» in [package-release.md](../package-release.md)), and verification evidence.

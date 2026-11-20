@@ -16,7 +16,6 @@ Mission: keep every optional package integration compiling and behaving the same
 ## Does Not Own
 - Non-gated runtime behavior → `game-runtime-engineer`, including the code inside an assembly that `defineConstraints` gate as a whole, which needs no `#if`, and the code that uses the SDK a package split out of Base declares in `package.json` instead of gating it (ADR 0001 D21); those packages' `*.UniTask.cs` split files stay here
 - Non-gated editor tooling → `game-tools-engineer`
-- Sample scenes and imported sample copies → `sample-integrity-engineer`
 
 ## Domain Checks
 - Every reference to an optional package type sits inside its define symbol, and the package assembly compiles with the symbol both defined and undefined.

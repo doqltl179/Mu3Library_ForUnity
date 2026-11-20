@@ -22,12 +22,12 @@ Branch names and switches come from the profile: `policy.integration_branch`, `p
 
 | Branch | Role |
 |---|---|
-| `policy.integration_branch` (default `develop`) | Development. Every unit starts from it and its pull request targets it |
-| `policy.release_branch` (default `main`) | Release. Changes arrive only through a promotion pull request from the integration branch ([release.md](release.md)) |
-| Task branch | One per unit, named by `policy.branch_pattern`, living in its own worktree |
+| `policy.integration_branch` | Development. Every unit starts from it and its pull request targets it |
+| `policy.release_branch` | Release. When it differs from the integration branch, changes arrive only through a promotion from it («Promotion» in [release.md](release.md)) |
+| Task branch | One per unit, named by `policy.branch_pattern`, in the unit's own worktree when «Worktrees» gives it one |
 
-- Never commit directly to a branch in `policy.protected_branches`; changes arrive through merged pull requests.
-- With Conventional Commits, the branch `<type>` is one of `feat`, `fix`, `docs`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, and the scope matches the commit scope.
+- Never commit directly to a branch in `policy.protected_branches`; changes arrive through merged pull requests or, with `hosting.platform = "none"`, through the approved merge commit of «Scaling The Order» in [request-lifecycle.md](../operating-model/request-lifecycle.md) or of «Promotion» in [release.md](release.md).
+- With `policy.commit_convention = "conventional"`, the branch `<type>` is one of `feat`, `fix`, `docs`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, and the scope matches the commit scope. Otherwise `<type>` is a short lowercase word for the kind of change, such as `fix` or `feat`.
 - One task branch carries one bounded unit and, when `policy.issue_first` is on, one issue.
 
 ## Preflight
@@ -43,14 +43,14 @@ Stop if the checkout is not the one expected for this step, holds changes you ca
 
 ## Worktrees
 
-Every unit runs in its own worktree when `policy.worktrees` is on (the default), and also when it runs at the same time as another unit, whatever the policy says:
+Every unit runs in its own worktree when `policy.worktrees` is on, and also when it runs at the same time as another unit, whatever the policy says:
 
 ```bash
 git fetch origin
 git worktree add --no-track -b <branch> <worktree_root>/<branch-with-slashes-as-dashes> origin/<integration_branch>
 ```
 
-- The main checkout stays on the integration branch, clean. Use it only to coordinate: read, create issues and worktrees, keep a multi-unit plan and idea records in its ignored `.ai/tasks/`. Never edit project files there. Why: `git-worktree-cleanup` switches the main checkout to the integration branch after each merge, which would move a unit working there.
+- The main checkout stays on the integration branch, clean. Use it only to coordinate: read, create issues and worktrees, merge a unit or a promotion when `hosting.platform = "none"` («Scaling The Order» in [request-lifecycle.md](../operating-model/request-lifecycle.md), «Promotion» in [release.md](release.md)), keep a multi-unit plan and idea records in its ignored `.ai/tasks/`. Never edit project files there. Why: `git-worktree-cleanup` switches the main checkout to the integration branch after each merge, which would move a unit working there.
 - Run every command of the unit inside its worktree. Dependencies and build outputs are per worktree; install them there with `commands.install`.
 - Never share a worktree between units or reuse one for a different branch.
 - `--no-track` keeps the task branch from tracking the integration branch; the first `git push -u origin <branch>` sets its own upstream.
@@ -70,7 +70,7 @@ A work folder holds what a unit makes for its own run and throws away afterward:
 - Never make a work folder directly in a shared location, such as a drive root, the home folder, or the system temp folder.
 - Each unit uses its own `<unit>` folder; units never share one. Every form of `<unit>`, a short form and the task name of work with no task branch included, must not end in `.` or a space, and must differ, ignoring letter case, from the `<unit>` of every other local or remote task branch. Check both before making the folder, listing the branches with `git for-each-ref --format='%(refname:lstrip=2)' refs/heads` and `git for-each-ref --format='%(refname:lstrip=3)' refs/remotes/origin`, skipping `HEAD` and this unit's own branch; when either fails, or when the path already exists and this unit did not make it, stop and ask the user. Why: on Windows, PowerShell and cmd drop a trailing `.` or space when they make a folder while Git Bash keeps it, so one path names different folders in different shells; Windows and macOS file systems usually ignore letter case; and units with the same `<unit>` would share a folder.
 - Why: the path shows which unit owns the folder. Without that, neither cleanup nor the user can tell what may be deleted, and the folders pile up.
-- The unit's pull request body names every work folder it made outside its checkout, by absolute path («Pull Request Body» in issues-and-prs.md). A folder made after the pull request opened is added to the body. Cleanup deletes only the folders the body names. That way it finds them even when `policy.work_root` was empty or has changed since, and never deletes a folder at the same path that another unit made.
+- The unit's pull request body names every work folder it made outside its checkout, by absolute path («Pull Request Body» in issues-and-prs.md). A folder made after the pull request opened is added to the body. With `hosting.platform = "none"` the unit has no pull request («Scaling The Order» in [request-lifecycle.md](../operating-model/request-lifecycle.md)), so the body of its merge commit, the unit's record there, names them instead, one line `Work-Folder: <absolute path>` per folder; a later merge of the same task branch repeats every line. Cleanup deletes only the folders the pull request body or that merge commit body names. That way it finds them even when `policy.work_root` was empty or has changed since, and never deletes a folder at the same path that another unit made.
 - Delete a work folder by its exact path, never `<work_root>` or `<work_root>/<project.name>`, after making sure nothing is using it, including programs opened on it such as an engine editor. In the check and the delete below, write `<folder>` so that it ends with the folder's own name, with nothing after it: no trailing `/` or `\`, and no trailing `.` segment. With anything after the name, `test -L` reads the folder a link points to and reports no link; with a trailing `/` or `\`, `rm -rf` then deletes the contents of that folder. When the folder itself is a link or junction (`test -L "<folder>"` succeeds; in PowerShell, `(Get-Item -LiteralPath "<folder>" -Force).Attributes` includes `ReparsePoint`), stop and ask the user. Otherwise, in a POSIX shell, `rm -rf -- "<folder>"` removes it with the links and junctions inside it, without touching what they point to. Without a POSIX shell, list those first with `Get-ChildItem -LiteralPath "<folder>" -Recurse -Force -Attributes ReparsePoint`: when it lists none, run `Remove-Item -LiteralPath "<folder>" -Recurse -Force`; otherwise stop and ask the user.
 
 ## Task Branch
@@ -80,7 +80,7 @@ Always cut from the freshly fetched remote integration branch, never from whatev
 ## Commit Convention
 
 - With `policy.commit_convention = "conventional"`: `<type>(<scope>): <subject>`, type and scope in English and lowercase, subject and body in `policy.commit_language` (or `project.language` when empty).
-- One concern per commit. The body explains why, not what. Reference the unit's issue (`Refs #<n>`).
+- One concern per commit. The body explains why, not what. When the unit has an issue (step 4 of «Required Order» in [request-lifecycle.md](../operating-model/request-lifecycle.md)), reference it (`Refs #<n>`).
 - Never rewrite commits that are already pushed.
 
 ## Staging
@@ -112,7 +112,7 @@ With head-branch deletion on («Repository Settings» in [issues-and-prs.md](iss
 
 Stop and report instead of improvising when:
 
-- a commit is about to land on a protected branch, or project files are about to be edited in the main checkout while `policy.worktrees` is on or another unit runs at the same time,
+- a commit is about to land on a protected branch, other than the approved merge of «Scaling The Order» in request-lifecycle.md or of «Promotion» in release.md with `hosting.platform = "none"`, or project files are about to be edited in the main checkout while `policy.worktrees` is on or another unit runs at the same time,
 - the branch or worktree does not match the unit or the naming pattern,
 - local and remote state diverged, or a push would overwrite remote work,
 - files cannot be attributed to the current concern,

@@ -1,6 +1,6 @@
 ---
 name: project-docs-sync
-description: "Update the human-facing docs that own a changed behavior or API in the same change: README sections, guides, API reference, the changelog Unreleased entry, and localized variants listed in docs.locales, documenting only verified behavior. Use when a unit changes user-visible behavior, a public interface, configuration, or setup steps."
+description: "Update the human-facing docs that own a changed behavior or API in the same change: README sections, guides, API reference, and the changelog Unreleased entry, documenting only verified behavior. Use when a unit changes user-visible behavior, a public interface, configuration, or setup steps."
 category: docs
 volatility: evolving
 reviewed: 2026-10-09
@@ -20,7 +20,7 @@ reviewed: 2026-10-09
 
 ## Inputs
 - The commit range or diff of the behavior change, and its verification evidence.
-- `docs.readme`, `docs.changelog`, `docs.locales`, `docs.locale_pattern`, and `project.language` from the profile.
+- `docs.readme`, `docs.changelog`, and `project.language` from the profile.
 
 ## Steps
 1. List what changed for a reader of the docs: `git diff --stat <base>...<head>`, then read the changed public surfaces (exports, routes, CLI flags, config keys, environment variables, schemas, error messages).
@@ -28,9 +28,8 @@ reviewed: 2026-10-09
 3. Check each fact you will write against this change's evidence (a test or a quoted command result). Write only verified behavior; list anything unverified as a gap in the report instead.
 4. Update the owning sections: prose, examples, option tables, and migration notes for breaking changes. Generated reference docs change per «Generated Code» in [code-changes.md](../../wiki/workflows/code-changes.md); when no command regenerates them, report the gap.
 5. Run each changed example or command snippet that can run locally, or mark it unverified in the report.
-6. Add the Unreleased entry to `docs.changelog` per «Changelog» in documentation.md. Skip this step when `docs.changelog` is empty.
-7. Update the copy at `docs.locale_pattern` for each locale in `docs.locales` per «Localized Variants» in documentation.md.
-8. Stage the doc edits with the code change per «Staging» in [git-workflow.md](../../wiki/workflows/git-workflow.md) and commit with `git-commit`.
+6. When the project keeps a changelog per «Changelog» in documentation.md, add the Unreleased entry to it; otherwise skip this step.
+7. Stage the doc edits with the code change per «Staging» in [git-workflow.md](../../wiki/workflows/git-workflow.md) and commit with `git-commit`.
 
 ## Output
-- Doc files changed, the changelog entry, localized variants updated or marked stale, and behavior left undocumented because it was unverified.
+- Doc files changed, the changelog entry, and behavior left undocumented because it was unverified.

@@ -2,6 +2,7 @@
 name: kit-stack-add
 description: "Add a stack pack to the kit repository: confirm a pack is the right asset and none exists, gather official sources first, scaffold it, write Detect, Conventions, Verify, Pitfalls, and dated Version Notes with the sources that keep it current, then render and validate. Use when an owned surface uses a language, framework, or infrastructure tool the kit has no pack for."
 category: kit
+scope: kit-repo
 volatility: evolving
 reviewed: 2026-10-09
 ---

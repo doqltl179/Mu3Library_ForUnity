@@ -1,14 +1,13 @@
 """The multiplayer harness: two Windows players of one generated project play one session on this computer.
 
 A host and a guest go through a player-hosted session of Base's Multiplayer on the machine-wide
-local network, as the Multiplayer sample's unattended run does, without the sample: the host
-creates a public lobby with lobby data, the guest finds it, joins it by its lobby ID, and sets
-participant data, both get ready, the host starts the game, they exchange a message, the host
-deletes the lobby data, the guest deletes its participant data, and the host kicks the guest. The
-template under tools/multiplayer-harness/ holds the player's script, which drives the manager
-without a DI core, and the build script. This module generates a project from the minimal config
-in its work folder, adds the template, builds a Windows player, runs it twice at once, and reads
-the MPHARNESS lines each player logs.
+local network: the host creates a public lobby with lobby data, the guest finds it, joins it by
+its lobby ID, and sets participant data, both get ready, the host starts the game, they exchange a
+message, the host deletes the lobby data, the guest deletes its participant data, and the host
+kicks the guest. The template under tools/multiplayer-harness/ holds the player's script, which
+drives the manager without a DI core, and the build script. This module generates a project from
+the minimal config in its work folder, adds the template, builds a Windows player, runs it twice
+at once, and reads the MPHARNESS lines each player logs.
 """
 
 from __future__ import annotations

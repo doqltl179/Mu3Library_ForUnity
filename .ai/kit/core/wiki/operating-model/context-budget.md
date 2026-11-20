@@ -35,7 +35,7 @@ Context is the scarcest resource an agent has: everything loaded competes with t
 
 ## Line Budgets
 
-`agentkit.py check` enforces these limits; the first matching row applies.
+`agentkit.py check` enforces these limits; the first matching row applies. An overrun is an error in a kit file and a warning in `.ai/project/` and in `AGENTS.md`, whose length depends on the project's profile.
 
 <!-- agentkit:table budgets -->
 | Files | Max lines | Why |

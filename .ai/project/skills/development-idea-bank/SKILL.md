@@ -3,7 +3,7 @@ name: development-idea-bank
 description: "Generate a bank of six ranked, distinct Mu3Library package directions for the user to choose from, before any idea is judged or adopted: map capability and whitespace from repository evidence, then rank the ideas without collapsing into refinements of existing features. Use when the user wants several directions to choose between because the next package direction is unclear or past ideas feel repetitive; not for judging one idea, or scoping or executing an adopted one."
 category: product
 volatility: evolving
-reviewed: 2026-10-24
+reviewed: 2026-11-20
 ---
 
 # Development Idea Bank
@@ -23,8 +23,8 @@ reviewed: 2026-10-24
 - Whether the user explicitly asked for refinement mode.
 
 ## Steps
-1. From repository evidence only, gather the package intent (README, `package.json`) and the hard constraints: package fit, public API stability, assembly boundaries, define gates, docs and sample impact, and verification cost ([package-architecture.md](../../wiki/rules/package-architecture.md)).
-2. Build a capability map across runtime, editor, optional integrations, samples, docs, and tooling.
+1. From repository evidence only, gather the package intent (README, `package.json`) and the hard constraints: package fit, public API stability, assembly boundaries, define gates, docs impact, and verification cost ([package-architecture.md](../../wiki/rules/package-architecture.md)).
+2. Build a capability map across runtime, editor, optional integrations, docs, and tooling.
 3. Build a whitespace map: missing workflows, adoption wedges, ecosystem bridges, repetitive manual work, and absent package surfaces. Treat a named feature or pain point as evidence, not as the destination.
 4. Only after the whitespace map exists, use limited web research to widen adjacent patterns; repository constraints win.
 5. Rank six distinct ideas, each with its bucket, novelty class (`net-new`, `adjacent-new`, or `incremental`), why-new evidence, likely package surfaces, and primary risk.

@@ -34,6 +34,9 @@ NAME_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 LINK_RE = re.compile(r"(!?\[[^\]\n]*\]\()([^)\s]+)((?:\s+\"[^\"]*\")?\))")
 REGION_RE = re.compile(r"(<!-- agentkit:begin (?P<name>[\w-]+) -->\n)(?P<body>.*?)(<!-- agentkit:end (?P=name) -->)", re.S)
+CONDITION_RE = re.compile(r"\{\{([a-z][a-z-]*)\|([^|{}\n]*)(?:\|([^|{}\n]*))?\}\}")
+SKILL_SCOPES = ["kit-repo"]  # Values of the optional skill field `scope`; skill-spec.md «Frontmatter» owns their meaning.
+PLATFORMS = ["github", "none"]  # Values of hosting.platform; the profile template's comment on the key owns their meaning.
 
 # Adapter table: the single owner of which files each AI tool reads. Rendered into tool-adapters.md.
 ADAPTERS: dict[str, dict[str, str | None]] = {
@@ -89,6 +92,10 @@ EDITORCONFIG_SECTION = (
 GITATTRIBUTES_COMMENT = ("agentkit: kit, overlay, and generated agent files check out with LF, the line endings "
                          "agentkit.py writes, so a converting checkout does not list them as modified")
 GITATTRIBUTES_LINES = [f"{glob} text=auto eol=lf" for glob in AGENT_FILE_GLOBS]
+# Profile sections that hold the project's own policy: values there stay explicit even when they equal a kit default,
+# so a changed default never changes a project's branches, hosting, or doc paths («Profile» in project-overlay.md).
+EXPLICIT_SECTIONS = ("policy", "hosting", "docs")
+GLOSSARY_TEMPLATE = "wiki/glossary.md"   # Under core/templates/project/; install never copies it (see overlay_templates).
 READ_ONLY_TOOLS = {
     "claude": "Edit, Write, NotebookEdit",
     "copilot": '["read", "search", "execute", "web"]',
@@ -359,7 +366,20 @@ class Kit:
         return self._select(self.agents, "agents", "department", report)
 
     def active_skills(self, report: Report | None = None) -> list[str]:
-        return self._select(self.skills, "skills", "category", report)
+        return [n for n in self._select(self.skills, "skills", "category", report) if self.skill_applies(n)]
+
+    def skill_applies(self, name: str) -> bool:
+        """Whether the profile allows the skill at all, whatever [skills] selects."""
+        return self.skill_exclusion(name) is None
+
+    def skill_exclusion(self, name: str) -> str | None:
+        """Why the profile rules the skill out whatever [skills] selects, or None when it does not."""
+        meta = self.skills[name].meta
+        if meta.get("scope") == "kit-repo" and not self.kit_repo:
+            return "its scope is kit-repo, so it is active only in the kit repository"
+        if meta.get("category") == "github" and not profile_conditions(self.profile)["platform"]:
+            return 'its category is github and hosting.platform is "none"'
+        return None
 
     def bindings(self) -> dict[str, dict]:
         return self.profile.get("bindings", {})
@@ -435,6 +455,24 @@ def demote_headings(body: str) -> str:
     return "\n".join(out)
 
 
+def without_skills(body: str, names: set[str]) -> str:
+    """Drop `names` from the «Skills» bullets of an agent card body; a bullet or section left empty goes too."""
+    match = re.search(r"^## Skills\n(.*?)(?=^## |\Z)", body, re.S | re.M)
+    if not match or not names:
+        return body
+    lines = []
+    for line in match.group(1).split("\n"):
+        if line.startswith("- "):
+            items = [item for item in line[2:].split(", ") if item.strip().strip("`") not in names]
+            if not items:
+                continue
+            line = "- " + ", ".join(items)
+        lines.append(line)
+    if not "".join(lines).strip():
+        return body[:match.start()] + body[match.end():]
+    return body[:match.start(1)] + "\n".join(lines) + body[match.end(1):]
+
+
 def param_text(value: object) -> str:
     """Show a profile value in one table cell."""
     if isinstance(value, bool):
@@ -448,6 +486,29 @@ def param_text(value: object) -> str:
 
 def table_cell(text: str) -> str:
     return " ".join(str(text).split()).replace("|", "\\|")
+
+
+def profile_conditions(profile: dict) -> dict[str, bool]:
+    """The profile switches that `{{condition|text|other text}}` segments in START.md test."""
+    policy, hosting = profile.get("policy", {}), profile.get("hosting", {})
+    platform = str(hosting.get("platform", "")) != "none"
+    return {
+        "platform": platform,
+        "issue-first": bool(policy.get("issue_first")) and platform,
+        "worktrees": bool(policy.get("worktrees")),
+    }
+
+
+def apply_conditions(text: str, conditions: dict[str, bool]) -> str:
+    return CONDITION_RE.sub(lambda m: m.group(2) if conditions[m.group(1)] else (m.group(3) or ""), text)
+
+
+def condition_problems(text: str, conditions: dict[str, bool]) -> list[str]:
+    problems = [f"unknown condition '{name}' (known: {', '.join(conditions)})"
+                for name in sorted({m.group(1) for m in CONDITION_RE.finditer(text)} - set(conditions))]
+    if "{{" in CONDITION_RE.sub("", text):
+        problems.append("malformed segment; write {{condition|text|other text}}")
+    return problems
 
 
 # --------------------------------------------------------------------------- rendering
@@ -515,8 +576,8 @@ class Renderer:
         kit = self.kit
         start = CORE / "START.md"
         _, body = parse_frontmatter(read_text(start))
-        body = rewrite_links(body.strip("\n"), start.parent, self.p)
         prof = kit.profile
+        body = rewrite_links(apply_conditions(body.strip("\n"), profile_conditions(prof)), start.parent, self.p)
         project = prof.get("project", {})
         lines = [md_marker(kit, [self.src(start), ".ai/project/profile.toml"]), "", body, "", "## This Project", ""]
         title = project.get("name") or self.p.name
@@ -533,7 +594,10 @@ class Renderer:
         ]
         guardrails = [g for g in project.get("guardrails", []) if str(g).strip()]
         if guardrails:
-            lines += ["### Project Rules", "", *[f"- {g}" for g in guardrails], ""]
+            ssot = rel(CORE / "wiki" / "principles" / "ssot.md", self.p)
+            lines += ["### Project Rules", "", "An entry that starts with `Replaces «<Section>» in <page>.md:` replaces, in this "
+                      "project, the rules of that core section it contradicts, including their summary lines in «Stop First», "
+                      f"per «Layers and Precedence» in [ssot.md]({ssot}).", "", *[f"- {g}" for g in guardrails], ""]
         lines += ["### Commands", ""]
         commands = prof.get("commands", {})
         present = {k: v for k, v in commands.items() if v}
@@ -544,7 +608,7 @@ class Renderer:
         if missing:
             lines += ["", f"Not available (report the gap, do not guess): {', '.join(f'`{k}`' for k in missing)}"]
         lines += ["", "### Parameters", "", "| Key | Value |", "|---|---|"]
-        for section in ("policy", "hosting", "docs", "release"):
+        for section in ("policy", "hosting", "docs", "release", "evolution"):
             for key, value in prof.get(section, {}).items():
                 lines.append(f"| `{section}.{key}` | {table_cell(param_text(value)) or '—'} |")
         return "\n".join(lines).rstrip() + "\n"
@@ -554,19 +618,21 @@ class Renderer:
         kit = self.kit
         doc = kit.agents[name]
         parts = []
+        # A card must not point to a skill this project never renders (platform, scope).
+        excluded = {n for n in kit.skills if not kit.skill_applies(n)}
         base_name = doc.meta.get("extends")
         if base_name and base_name in kit.agents:
             base = kit.agents[base_name]
-            title, local = strip_h1(doc.body)
+            title, local = strip_h1(without_skills(doc.body, excluded))
             parts.append(f"# {title or name}\n\n" + rewrite_links(local.strip("\n"), doc.path.parent, self.p))
             parts.append("## Scope\n\n"
                          f"This role narrows `{base_name}`. It owns only what «Owns» above lists; the base role below "
                          "still supplies the boundaries («Does Not Own»), «Domain Checks», and «Skills».")
-            base_title, base_body = strip_h1(base.body)
+            base_title, base_body = strip_h1(without_skills(base.body, excluded))
             parts.append(f"## Base Role: {base_title or base_name}\n\n"
                          + demote_headings(rewrite_links(base_body.strip("\n"), base.path.parent, self.p)))
         else:
-            parts.append(rewrite_links(doc.body.strip("\n"), doc.path.parent, self.p))
+            parts.append(rewrite_links(without_skills(doc.body, excluded).strip("\n"), doc.path.parent, self.p))
         wiki = CORE / "wiki" / "operating-model"
         parts.append("## Protocol\n\n"
                      f"- Act under the role protocol in [delegation.md]({rel(wiki / 'delegation.md', self.p)}) "
@@ -808,7 +874,7 @@ def validate(kit: Kit, report: Report) -> None:
     for doc in kit.agents.values():
         m = doc.meta
         where = rel(doc.path, kit.project)
-        for key in ("name", "description", "department", "tier", "access", "volatility", "reviewed"):
+        for key in ("name", "description", "department", "tier", "access", *freshness_keys(doc)):
             if not m.get(key) and not (doc.meta.get("extends") and key in ("tier", "access")):
                 report.error(f"{where}: missing frontmatter '{key}'")
         if m.get("name") != doc.path.stem:
@@ -835,8 +901,11 @@ def validate(kit: Kit, report: Report) -> None:
                 report.error(f"{where}: 'Skills' names unknown skill '{skill}'")
         _check_name(doc, names_seen, report, kit)
     active_skills = set(kit.active_skills())
+    disabled = set(kit.profile.get("skills", {}).get("disabled", []))
     for name in kit.active_agents():
-        missing = [s for s in section_names(kit.agents[name].body, "Skills") if s in kit.skills and s not in active_skills]
+        # A skill the profile disables by name or rules out (platform, scope) is a choice, not an oversight.
+        missing = [s for s in section_names(kit.agents[name].body, "Skills")
+                   if s in kit.skills and s not in active_skills and s not in disabled and kit.skill_applies(s)]
         if missing:
             report.warn(f"active agent '{name}' lists inactive skill(s) {', '.join(missing)}; enable them in "
                         "[skills] or accept that the role runs without them")
@@ -844,13 +913,15 @@ def validate(kit: Kit, report: Report) -> None:
     for doc in kit.skills.values():
         m = doc.meta
         where = rel(doc.path, kit.project)
-        for key in ("name", "description", "category", "volatility", "reviewed"):
+        for key in ("name", "description", "category", *freshness_keys(doc)):
             if not m.get(key):
                 report.error(f"{where}: missing frontmatter '{key}'")
         if m.get("name") != doc.path.parent.name:
             report.error(f"{where}: name must equal the folder name")
         if m.get("category") and m["category"] not in kit.categories:
             report.error(f"{where}: unknown category '{m['category']}'")
+        if "scope" in m and m["scope"] not in SKILL_SCOPES:
+            report.error(f"{where}: unknown scope '{m['scope']}' (allowed: {', '.join(SKILL_SCOPES)})")
         if len(m.get("description", "")) > 600:
             report.error(f"{where}: description longer than 600 characters")
         _check_name(doc, names_seen, report, kit)
@@ -876,7 +947,7 @@ def validate(kit: Kit, report: Report) -> None:
         if not doc.meta:
             report.error(f"{where}: missing frontmatter")
             continue
-        for key in ("owns", "volatility", "reviewed"):
+        for key in ("owns", *freshness_keys(doc)):
             if not doc.meta.get(key):
                 report.error(f"{where}: missing frontmatter '{key}'")
         if doc.meta.get("volatility") == "volatile" and not doc.meta.get("sources"):
@@ -885,6 +956,9 @@ def validate(kit: Kit, report: Report) -> None:
             report.error(f"{where}: only project wiki pages take 'applies_to'; core path knowledge belongs in stack packs")
         if doc.meta.get("applies_to") and doc.origin == "project" and doc.path.parent != kit.overlay / "wiki" / "rules":
             report.error(f"{where}: pages with 'applies_to' load automatically and live in .ai/project/wiki/rules/")
+    start = CORE / "START.md"
+    for problem in condition_problems(parse_frontmatter(read_text(start))[1], profile_conditions(kit.profile)):
+        report.error(f"{rel(start, kit.project)}: {problem}")
     for doc in [*kit.agents.values(), *kit.skills.values(), *kit.stacks.values(), *kit.pages]:
         where = rel(doc.path, kit.project)
         vol, rev = doc.meta.get("volatility"), doc.meta.get("reviewed", "")
@@ -892,7 +966,15 @@ def validate(kit: Kit, report: Report) -> None:
             report.error(f"{where}: unknown volatility '{vol}'")
         if rev and not DATE_RE.match(str(rev)):
             report.error(f"{where}: reviewed must be YYYY-MM-DD")
+        if doc.origin == "project" and bool(vol) != bool(rev):
+            report.warn(f"{where}: freshness tracks an overlay file only with both 'volatility' and 'reviewed'; add the "
+                        f"missing one or remove '{'volatility' if vol else 'reviewed'}'")
     validate_profile(kit, report)
+
+
+def freshness_keys(doc: Doc) -> tuple[str, ...]:
+    """Freshness fields a file must have: required in the kit, optional in the overlay (freshness-policy.md «Metadata»)."""
+    return ("volatility", "reviewed") if doc.origin == "core" else ()
 
 
 def _check_name(doc: Doc, seen: dict[str, Path], report: Report, kit: Kit) -> None:
@@ -919,21 +1001,8 @@ def section_names(body: str, heading: str, arrow: bool = False) -> list[str]:
     return names
 
 
-LOCALE_PLACEHOLDERS = {"locale", "name", "stem", "ext"}
-
-
 def validate_profile(kit: Kit, report: Report) -> None:
     prof = kit.profile
-    docs = prof.get("docs", {})
-    patterns = {"docs.locale_pattern": docs.get("locale_pattern", "")}
-    patterns.update({f"docs.locale_paths.{k}": v for k, v in docs.get("locale_paths", {}).items()})
-    for key, pattern in patterns.items():
-        unknown = set(re.findall(r"\{(\w+)\}", str(pattern))) - LOCALE_PLACEHOLDERS
-        if unknown:
-            report.error(f"profile {key}: unknown placeholder(s) {', '.join(sorted(unknown))} "
-                         f"(supported: {', '.join(sorted(LOCALE_PLACEHOLDERS))})")
-        elif pattern and "{locale}" not in str(pattern):
-            report.error(f"profile {key}: the pattern must contain {{locale}}")
     release = prof.get("release", {})
     if "{version}" not in str(release.get("tag_pattern", "{version}")):
         report.error("profile release.tag_pattern: must contain {version}")
@@ -951,8 +1020,20 @@ def validate_profile(kit: Kit, report: Report) -> None:
     for tool in prof.get("tools", {}).get("targets", []):
         if tool not in ADAPTERS:
             report.error(f"profile [tools].targets: unknown tool '{tool}' (supported: {', '.join(ADAPTERS)})")
+    platform = prof.get("hosting", {}).get("platform")
+    if platform not in PLATFORMS:
+        report.error(f"profile hosting.platform: {json.dumps(platform)} is not one of "
+                     f"{', '.join(json.dumps(p) for p in PLATFORMS)}")
     active = kit.active_agents(report)
     kit.active_skills(report)
+    # A skill the project asks for by name, or writes itself, is not dropped silently.
+    for name in sorted({t for t in prof.get("skills", {}).get("enabled", []) if t in kit.skills}
+                       | {n for n, d in kit.skills.items() if d.origin == "project"}):
+        reason = kit.skill_exclusion(name)
+        if reason and kit.skills[name].origin == "project":
+            report.warn(f"{rel(kit.skills[name].path, kit.project)}: not rendered, since {reason}")
+        elif reason:
+            report.warn(f"profile [skills].enabled: '{name}' is not rendered, since {reason}; remove it from the list")
     for agent, binding in kit.bindings().items():
         if agent not in kit.agents:
             report.error(f"profile [bindings.{agent}]: unknown agent")
@@ -1004,19 +1085,21 @@ def check_links(kit: Kit, report: Report) -> None:
 
 
 def check_budgets(kit: Kit, report: Report, rendered: dict[str, str | bytes]) -> None:
-    candidates: list[tuple[str, int]] = []
+    # Overruns are errors in kit files and warnings in the overlay and AGENTS.md («Line Budgets» in context-budget.md).
+    candidates: list[tuple[str, int, bool]] = []
     if kit.kit_repo:
-        candidates += [(rel(p, KIT_ROOT), len(read_text(p).split("\n"))) for p in CORE.rglob("*.md") if p.name != "CATALOG.md"]
+        candidates += [(rel(p, KIT_ROOT), len(read_text(p).split("\n")), True)
+                       for p in CORE.rglob("*.md") if p.name != "CATALOG.md"]
     if kit.overlay.exists():
-        candidates += [(rel(p, kit.project), len(read_text(p).split("\n"))) for p in kit.overlay.rglob("*.md")]
+        candidates += [(rel(p, kit.project), len(read_text(p).split("\n")), False) for p in kit.overlay.rglob("*.md")]
     agents_md = rendered.get("AGENTS.md")
     if isinstance(agents_md, str):
-        candidates.append(("AGENTS.md", len(agents_md.split("\n"))))
-    for path, count in candidates:
+        candidates.append(("AGENTS.md", len(agents_md.split("\n")), False))
+    for path, count, strict in candidates:
         for regex, pattern, limit in kit.budgets:
             if regex.match(path):
                 if count > limit:
-                    report.error(f"{path}: {count} lines exceeds budget {limit} ({pattern})")
+                    (report.error if strict else report.warn)(f"{path}: {count} lines exceeds budget {limit} ({pattern})")
                 break
 
 
@@ -1100,7 +1183,7 @@ def check_profile_defaults(kit: Kit, report: Report) -> None:
     redundant = []
     for section, values in kit.user_profile.items():
         defaults = kit.default_profile.get(section)
-        if section == "project" or not isinstance(values, dict) or not isinstance(defaults, dict):
+        if section in ("project", *EXPLICIT_SECTIONS) or not isinstance(values, dict) or not isinstance(defaults, dict):
             continue
         redundant += [f"{section}.{key}" for key, value in values.items() if key in defaults and defaults[key] == value]
     if redundant:
@@ -1340,10 +1423,14 @@ def cmd_new(kit: Kit, args: argparse.Namespace) -> int:
         dest = base / f"{name}.md"
         text = fill(read_text(templates / "page.md"), values)
         if not args.core and name.startswith("rules/"):
-            text = text.replace("\nreviewed: ", "\napplies_to: []\nreviewed: ", 1)
+            text = text.replace("\n---\n", "\napplies_to: []\n---\n", 1)
     else:
         print(f"error: unknown kind '{kind}'")
         return 1
+    if kind in ("agent", "skill", "page") and not args.core:
+        # Overlay files stay untracked by freshness until their author adds both fields («Metadata» in freshness-policy.md).
+        head, sep, body = text.partition("\n---\n")
+        text = "\n".join(line for line in head.split("\n") if not line.startswith(("volatility:", "reviewed:"))) + sep + body
     if dest.exists():
         print(f"error: {rel(dest, kit.project)} already exists")
         return 1
@@ -1371,10 +1458,16 @@ def copy_payload(src_root: Path, dest: Path) -> dict[str, str]:
     return digests
 
 
+def missing_lines(path: Path, entries: list[str]) -> list[str]:
+    """Return the entries the file lacks as whole lines."""
+    present = {line.strip() for line in read_text(path).split("\n")} if path.exists() else set()
+    return [entry for entry in entries if entry not in present]
+
+
 def append_missing_lines(path: Path, comment: str, entries: list[str]) -> list[str]:
     """Append the entries the file lacks under one comment line; return the appended entries."""
     lines = read_text(path).split("\n") if path.exists() else []
-    missing = [entry for entry in entries if entry not in [line.strip() for line in lines]]
+    missing = missing_lines(path, entries)
     if missing:
         prefix = "" if not lines or lines[-1] == "" else "\n"
         with open(path, "a", encoding="utf-8", newline="\n") as fh:
@@ -1393,6 +1486,29 @@ def ensure_gitattributes(project: Path) -> None:
         print("added an agentkit section to .gitattributes: agent files check out with LF line endings")
 
 
+def report_gitattributes(project: Path) -> None:
+    """On update: name the agentkit .gitattributes lines the project lacks, without writing the file."""
+    try:
+        missing = missing_lines(project / ".gitattributes", GITATTRIBUTES_LINES)
+    except UnicodeDecodeError:
+        missing = GITATTRIBUTES_LINES
+    if missing:
+        print(f"warning: .gitattributes lacks {len(missing)} agentkit line(s); update does not write that file. Without them, "
+              "a checkout that converts line endings (for example core.autocrlf=true on Windows) lists every file the "
+              "update rewrote as modified while git diff stays empty. To add them, append these lines at the end of "
+              ".gitattributes («Line Endings» in installation.md):\n" + "\n".join(missing))
+
+
+def overlay_templates() -> list[Path]:
+    """Templates install copies into a new overlay: all but the profile and the glossary.
+
+    A new profile leaves docs.glossary empty; a project that sets it copies the glossary template itself.
+    """
+    root = CORE / "templates" / "project"
+    return [path for path in sorted(root.rglob("*"))
+            if path.is_file() and path.name != "profile.toml" and rel(path, root) != GLOSSARY_TEMPLATE]
+
+
 def cmd_install(target_arg: str, tools: str | None) -> int:
     target = Path(target_arg).resolve()
     if not target.is_dir():
@@ -1407,12 +1523,9 @@ def cmd_install(target_arg: str, tools: str | None) -> int:
         return 1
     copy_payload(KIT_ROOT, kit_dest)
     overlay = target / ".ai" / "project"
-    if not overlay.exists():
-        for path in sorted((CORE / "templates" / "project").rglob("*")):
-            if path.is_file() and path.name != "profile.toml":
-                dest = overlay / rel(path, CORE / "templates" / "project")
-                write_text(dest, fill(read_text(path), {"date": today().isoformat()}))
-        # The profile starts minimal: keys that only repeat a kit default would pin today's default forever.
+    fresh = not overlay.exists()
+    if fresh:
+        # The profile starts minimal; kit-install then writes the policy, hosting, and docs values the user confirms.
         tools_block = ""
         if tools:
             listed = ", ".join(json.dumps(t.strip()) for t in tools.split(",") if t.strip())
@@ -1420,6 +1533,11 @@ def cmd_install(target_arg: str, tools: str | None) -> int:
         write_text(overlay / "profile.toml", fill(read_text(CORE / "templates" / "profile.starter.toml"),
                                                   {"name": json.dumps(target.name), "tools": tools_block}))
     profile = Kit(target).profile
+    if fresh:
+        for path in overlay_templates():
+            dest = overlay / rel(path, CORE / "templates" / "project")
+            write_text(dest, read_text(path))
+    # The worktree root is ignored even with policy.worktrees off: units running at the same time still use it.
     worktree_root = str(profile.get("policy", {}).get("worktree_root", "")).strip("/")
     wanted = [".ai/tasks/"] + ([f"{worktree_root}/"] if worktree_root else [])
     append_missing_lines(target / ".gitignore", "agentkit working records and per-unit worktrees", wanted)
@@ -1544,6 +1662,52 @@ def latest_release_tag(ls_remote_output: str) -> str | None:
     return max(tags, key=parse_version) if tags else None
 
 
+def toml_value(value: object) -> str:
+    """Write a profile value as a TOML literal, for messages that tell the user what to set."""
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, (int, float)):
+        return str(value)
+    if isinstance(value, list):
+        return "[" + ", ".join(toml_value(v) for v in value) + "]"
+    if isinstance(value, dict):
+        return "{ " + ", ".join(f"{json.dumps(k, ensure_ascii=False)} = {toml_value(v)}" for k, v in value.items()) + " }"
+    return json.dumps(str(value), ensure_ascii=False)
+
+
+def profile_update_notices(user: dict, old_defaults: dict, new_defaults: dict) -> list[str]:
+    """Messages about profile keys a kit update affects, in template order.
+
+    A key the profile leaves unset whose default changes; a key the profile sets that the new kit no longer reads;
+    a key the profile sets that still holds the old default while the default changes.
+    """
+    messages = []
+    for section, old_section in old_defaults.items():
+        if not isinstance(old_section, dict):
+            continue
+        set_here = user.get(section) if isinstance(user.get(section), dict) else {}
+        new_section = new_defaults.get(section) if isinstance(new_defaults.get(section), dict) else {}
+        for key, old in old_section.items():
+            name = f"{section}.{key}"
+            if key not in new_section:
+                if key in set_here:
+                    messages.append(f"profile: .ai/project/profile.toml sets {name}, which the kit no longer reads; "
+                                    "follow the Migration notes in the changelog.")
+            elif new_section[key] == old:
+                continue
+            elif key not in set_here:
+                messages.append(f"profile: the default of {name} changes from {toml_value(old)} to "
+                                f"{toml_value(new_section[key])}; setting {key} = {toml_value(old)} under [{section}] in "
+                                ".ai/project/profile.toml keeps the previous behavior.")
+            elif set_here[key] == old:
+                # Policy, hosting, and docs values stay explicit («Profile» in project-overlay.md), so adopting means setting.
+                adopt = (f"Set {key} = {toml_value(new_section[key])} under [{section}] to adopt it"
+                         if section in EXPLICIT_SECTIONS else "Remove the key to adopt it")
+                messages.append(f"profile: {name} still holds the old default {toml_value(old)}; the new default is "
+                                f"{toml_value(new_section[key])}. {adopt}, or keep it on purpose.")
+    return messages
+
+
 def cmd_update(kit: Kit, source: str | None, ref: str | None) -> int:
     if kit.kit_repo:
         print("error: update runs in an installed project, not in the kit repository")
@@ -1595,16 +1759,9 @@ def cmd_update(kit: Kit, source: str | None, ref: str | None) -> int:
         copy_payload(src, KIT_ROOT)
         notes = changelog_between(src / "CHANGELOG.md", old_version, new_version)
     print(f"kit updated {old_version} -> {new_version}")
-    ensure_gitattributes(kit.project)
-    for section, values in kit.user_profile.items():
-        if not isinstance(values, dict):
-            continue
-        for key, value in values.items():
-            old = old_defaults.get(section, {}).get(key, None) if isinstance(old_defaults.get(section), dict) else None
-            new = new_defaults.get(section, {}).get(key, None) if isinstance(new_defaults.get(section), dict) else None
-            if old is not None and value == old and new != old:
-                print(f"profile: {section}.{key} still holds the old default {old!r}; the new default is {new!r}. "
-                      "Remove the key to adopt it, or keep it on purpose.")
+    report_gitattributes(kit.project)
+    for message in profile_update_notices(kit.user_profile, old_defaults, new_defaults):
+        print(message)
     if notes:
         print("\nChangelog since your version (apply every Migration note):\n")
         print(notes)

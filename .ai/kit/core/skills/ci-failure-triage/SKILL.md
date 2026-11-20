@@ -19,7 +19,7 @@ reviewed: 2026-10-09
 
 ## Inputs
 - The run ID or pull request number, the branch, and the failing commit SHA.
-- `commands.*` from the profile.
+- `commands.*` and `hosting.platform` from the profile. The `gh` commands below apply only with `hosting.platform = "github"`; otherwise find the same runs, logs, and reruns in the project's CI.
 
 ## Steps
 1. Locate the failure: `gh pr checks <number>` or `gh run list --branch <branch> --limit 10`. Record the run ID, workflow, job, step, and commit SHA.

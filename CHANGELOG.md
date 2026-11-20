@@ -15,6 +15,16 @@ This changelog tracks package release changes only. Repository development workf
 
 ## [Unreleased]
 
+## [base/0.30.0] - 2026-11-20
+
+### Removed
+- The **Multiplayer** sample, with its entry under `samples` in `package.json` (#556), so Base ships no sample any more. Package Manager copies an imported sample into the project, so a copy a project imported earlier stays in its `Assets/Samples` folder.
+
+## [steam/0.1.1] - 2026-11-20
+
+### Changed
+- The package README and the documentation comment of `SteamBackend` no longer point to Base's **Multiplayer** sample, which Base 0.30.0 removes (#556). The code is unchanged.
+
 ## [base/0.29.0] - 2026-11-20
 
 ### Changed

@@ -1,6 +1,6 @@
 ---
 name: codebase-onboard
-description: "Map an unfamiliar codebase quickly while reading narrowly: entry points, build and test commands, directory map, architecture, and conventions; propose values for .ai/project/profile.toml (commands, bindings, stacks) and draft .ai/project/wiki/overview.md. Use when the kit is newly installed in a project, or work starts in a codebase or area that no project doc describes."
+description: "Map an unfamiliar codebase quickly while reading narrowly: entry points, build and test commands, directory map, architecture, and conventions; propose values for .ai/project/profile.toml (commands, policy, hosting, docs, bindings, stacks) and draft .ai/project/wiki/overview.md. Use when the kit is newly installed in a project, or work starts in a codebase or area that no project doc describes."
 category: planning
 volatility: evolving
 reviewed: 2026-10-09
@@ -9,14 +9,14 @@ reviewed: 2026-10-09
 # Onboard To A Codebase
 
 ## Use When
-- The kit was just installed and `.ai/project/profile.toml` still has empty `commands.*`, no bindings, or no active stacks.
+- The kit was just installed and `.ai/project/profile.toml` still has empty `commands.*`, no `[policy]` values, no bindings, or no active stacks.
 - `.ai/project/wiki/overview.md` is missing or contradicts the code.
 - Work starts in a repository area no project doc describes.
 
 ## Do Not Use When
 - Installing or updating the kit files → `kit-install` or `kit-update`.
 - Diagnosing one specific failure → `bug-diagnose`.
-- A detected language or framework has no stack pack → `kit-stack-add`.
+- A detected language or framework has no stack pack → `kit-stack-add` in the kit repository; in an installed project, step 4 of «Promotion» in [memory-policy.md](../../wiki/operating-model/memory-policy.md).
 
 ## Inputs
 - Repository access and the request that triggered onboarding.
@@ -30,11 +30,17 @@ reviewed: 2026-10-09
 5. Find the entry points: main functions, server bootstraps, app manifests, route registrations, CLI definitions, and package export roots.
 6. Sketch the architecture: top-level components, how they communicate (calls, HTTP, queues, shared database), where data persists, and which external services they use. Back each edge with a file reference.
 7. Record observed conventions: layering, naming, error handling, test layout, and branch and commit style from `git log --oneline -30`.
-8. Map each major path to an owner per «Selection Procedure» in [routing.md](../../wiki/operating-model/routing.md), and derive `bindings.<agent>` paths and stacks, `stacks.active`, and `agents.enabled`.
-9. Write the draft `.ai/project/wiki/overview.md`: purpose, the responsibility of each major directory, architecture, entry points, conventions, and unknowns, citing a file path for each claim. Link the manifests and the profile for commands and file lists instead of copying them, per rule 7 of «Rules» in [ssot.md](../../wiki/principles/ssot.md).
-10. Present the proposed profile values with their evidence and wait for the user's confirmation before writing them. After they are applied, run `agentkit.py sync`, then `agentkit.py check`, and fix every error in `.ai/project/`.
+8. Derive `[policy]`, `[hosting]`, and `[docs]` candidates, each with its evidence:
+   - `policy.integration_branch`, `policy.release_branch`, `policy.protected_branches`: from the remote's default branch (the `HEAD branch` line of `git remote show origin`) and the long-lived branches in `git branch -r`. When one long-lived branch is regularly merged into another (`git log --merges --oneline -20 origin/<branch>`), propose the merged branch as the integration branch and the receiving branch as the release branch; otherwise both are the default branch. Protect each of them.
+   - `policy.commit_convention`: `conventional` when the subjects in step 7 follow `<type>(<scope>): <subject>`, otherwise `none`.
+   - `hosting.platform`: `github` when the remote URL is on GitHub, otherwise `none`. `hosting.ci`: `true` when CI configuration exists, such as `.github/workflows/`.
+   - `docs.changelog`, `docs.specs_dir`, `docs.adr_dir`, `docs.glossary`: only files and directories that already exist; leave a key empty otherwise.
+   - `policy.issue_first` and `policy.worktrees` are the user's decision: ask, with the evidence that bears on it (an issue tracker in use, the setup cost per worktree per «Worktrees» in [git-workflow.md](../../wiki/workflows/git-workflow.md)), and never infer them.
+9. Map each major path to an owner per «Selection Procedure» in [routing.md](../../wiki/operating-model/routing.md), and derive `bindings.<agent>` paths and stacks, `stacks.active`, and `agents.enabled`.
+10. Write the draft `.ai/project/wiki/overview.md`: purpose, the responsibility of each major directory, architecture, entry points, conventions, and unknowns, citing a file path for each claim. Link the manifests and the profile for commands and file lists instead of copying them, per rule 7 of «Rules» in [ssot.md](../../wiki/principles/ssot.md).
+11. Present the proposed profile values with their evidence and the questions from step 8, and wait for the user's confirmation before writing them. After they are applied, run `agentkit.py sync`, then `agentkit.py check`, and fix every error in `.ai/project/`.
 
 ## Output
-- Proposed profile values (`project.*`, `commands.*`, `bindings.*`, `stacks.active`, `agents.enabled`), each with its evidence.
+- Proposed profile values (`project.*`, `commands.*`, `policy.*`, `hosting.*`, `docs.*`, `bindings.*`, `stacks.active`, `agents.enabled`), each with its evidence, and the user's answers on `policy.issue_first` and `policy.worktrees`.
 - The draft `.ai/project/wiki/overview.md`.
 - Unknowns, and commands left empty or unverified.

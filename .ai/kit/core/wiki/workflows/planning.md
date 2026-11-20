@@ -41,5 +41,5 @@ Keep the plan proportional: a plan that costs more to maintain than the work it 
 ## Closeout
 
 1. Move every durable outcome to its owner (code, wiki page, profile, lessons) per [memory-policy.md](../operating-model/memory-policy.md).
-2. Register leftover work per «Leftovers Become Issues» in [issues-and-prs.md](issues-and-prs.md).
+2. Register leftover work per «Leftovers Become Issues» in [issues-and-prs.md](issues-and-prs.md), or, with `hosting.platform = "none"`, per «Scaling The Order» in [request-lifecycle.md](../operating-model/request-lifecycle.md).
 3. Delete the plan file. A completed plan left behind is later mistaken for active work. Deleting a plan you created for the finished task needs no further confirmation; any other plan does.

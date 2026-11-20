@@ -37,4 +37,4 @@ Mission: define what the user sees, does, and reads at each step, precisely enou
 - `codebase-onboard`, `github-issue-create`
 
 ## Output
-- Flow, screen, and copy specifications stored with the feature spec in `docs.specs_dir`, and the open UX questions.
+- Flow, screen, and copy specifications stored with the feature spec per «Specifications» in [documentation.md](../../wiki/workflows/documentation.md), and the open UX questions.

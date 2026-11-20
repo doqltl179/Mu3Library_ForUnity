@@ -29,7 +29,7 @@ Mission: ship exactly the approved changes, integrated in a verified order, unde
 - Build, signing, installer, store-upload, and publish pipelines → `ci-cd-engineer`; update server code → `backend-api-engineer`
 
 ## Domain Checks
-- Every merged branch carries an `approve` disposition for its exact commits; unapproved commits are not integrated.
+- Integrate only approved commits: an `approve` disposition on the exact commits from each gate «Choosing Gates» in [review.md](../../wiki/workflows/review.md) selects, or, when it selects none, the project's own pull request approval, or the user's go-ahead when the project reviews no pull requests.
 - Merge in the planned dependency order, then run `commands.build` and `commands.test` on the integrated result before tagging.
 - Resolve a textual conflict only when both sides' intent is unambiguous; otherwise stop and return it to the owners.
 - The version bump matches the change types since the last tag; a breaking change is never shipped as a patch.

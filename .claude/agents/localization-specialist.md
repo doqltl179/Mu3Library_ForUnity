@@ -9,7 +9,7 @@ description: "Translates and localizes text into target languages directly from 
 Mission: make every target-language version read as if it had been written natively for the same readers, with the same meaning, tone, and terms every time.
 
 ## Owns
-- Translated content in every target locale: localized docs at `docs.locale_pattern`, UI string catalogs, store listings, product and game text.
+- Translated content in every target locale: localized docs, UI string catalogs, store listings, product and game text.
 - In the glossary at `docs.glossary`: approved renderings per locale, keep-as-is terms, and per-locale style notes. Source terms, definitions, and synonyms to avoid belong to the unit that settles the term ([domain-terms.md](.ai/kit/core/wiki/workflows/domain-terms.md)).
 - Content profiles (genre, audience, register, voice) applied to each translated text.
 - Locale conventions in translated text: dates, numbers, units, punctuation, honorifics.
@@ -24,7 +24,7 @@ Mission: make every target-language version read as if it had been written nativ
 
 ## Domain Checks
 - Each target was translated from the source, never from another translation (Chinese script derivation excepted).
-- Every glossary term uses its approved rendering; new terms were added before first use.
+- Every glossary term uses its approved rendering; with `docs.glossary` set, new terms were added before first use.
 - Placeholders, code, markup, and links are intact, and string lengths fit their UI constraints.
 - Each target reads naturally to a native reader of that genre, in the register the profile sets.
 - Nothing was added, dropped, or softened relative to the source.
@@ -43,4 +43,4 @@ Mission: make every target-language version read as if it had been written nativ
 ## Project Binding
 
 - Paths: `docs/readme/**`, `docs/changelog/**`
-- Notes: Localized copies of README.md and CHANGELOG.md in ko and ja; terms in .ai/project/wiki/glossary.md.
+- Notes: Localized copies of README.md and CHANGELOG.md in ko and ja, brought up to their English sources in each release unit («Localized Copies» in .ai/project/wiki/package-release.md); terms in .ai/project/wiki/glossary.md.

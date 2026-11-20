@@ -1,5 +1,6 @@
-# agentkit project profile. Keep only the keys this project sets differently from the kit defaults:
-# a key that merely repeats a default would pin today's default when a kit update changes it.
+# agentkit project profile. Write the [policy], [hosting], and [docs] values this project confirmed explicitly,
+# so a kit update that changes a default leaves them as they are. In the other sections keep only the keys this
+# project sets differently from the kit defaults: a key that merely repeats a default there pins it.
 # Every key, its default, and its meaning: .ai/kit/core/templates/project/profile.toml
 
 [project]

@@ -28,9 +28,9 @@ The primary reader of every kit file is an AI agent: it starts each session with
 5. Use tables for selection (situation → choice), numbered lists for order, bullets for unordered sets.
 6. Name things exactly. Paths, commands, agent names, skill names, and profile keys go in backticks and match the real identifier.
 7. Give the reason in one line when a rule looks arbitrary. Agents generalize correctly from reasons and badly from bare commands.
-8. Keep history out of rule pages. No "previously", "we used to", or change narratives; history belongs in `CHANGELOG.md` and Git.
+8. Keep history out of rule pages. No "previously", "we used to", or change narratives; history belongs in Git and in the changelog when the project keeps one.
 9. Use at most one minimal example per concept and label it as an example. A rule must be stated outside its example.
-10. Write agent-facing kit files in English: it is the most token-efficient language for current models and the common language of AI tooling. Human-facing output (reports to the user, commit messages, pull requests, issues) follows `project.language` in the profile.
+10. Write kit files (`core/`) in English: it is the most token-efficient language for current models and the common language of AI tooling. Files in the project overlay `.ai/project/` use the language the project chooses, the one its existing overlay files use; English is recommended there for the same reason. Human-facing output (reports to the user, commit messages, pull requests, issues) follows `project.language` in the profile.
 11. Keep identifiers stable. Renaming a file, agent, or skill means updating every link in the same change; `agentkit.py check` finds broken links.
 12. Prefer a positive instruction with a stated boundary over a long list of prohibitions. Keep a prohibition only for a hard limit and pair it with what to do instead, because naming a forbidden behavior makes current models more likely to produce it [scaffold].
 13. Write every route (a `When` or `Route Away When` line, the "Use when" part of a skill description, a table row that links) as the situations that should send a reader there, one per distinct case. A synonym for a case already listed costs context on every load and adds no reach.

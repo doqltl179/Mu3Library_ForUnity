@@ -2,6 +2,7 @@
 name: kit-trend-scan
 description: "Scan the tech radar watchlist for trend-scout: for each item due, read official release notes and changelogs, identify changes that affect kit files (tool formats, model capabilities, deprecations, new major versions, new practices), file an intake record per change with source and date, and update the radar's last-checked date and status. Edits nothing outside the radar. Use when watchlist items are due for a check, or a major release lands in a watched tool, standard, or model."
 category: kit
+scope: kit-repo
 volatility: evolving
 reviewed: 2026-10-09
 ---
@@ -16,7 +17,7 @@ reviewed: 2026-10-09
 - Overdue `reviewed` dates on kit files → `kit-freshness-review`.
 - Adapting one known article, prompt, or policy → `kit-external-adapt`.
 - Applying a change already in an intake record → the owning `kit-*` skill.
-- You are in an installed project, where the radar under `.ai/kit/` is read-only → hand findings to `kit-librarian` for `kit-upstream-propose`.
+- You are in an installed project, where the radar under `.ai/kit/` is read-only → handle findings per step 4 of «Promotion» in [memory-policy.md](../../wiki/operating-model/memory-policy.md).
 
 ## Inputs
 - Today's date and the radar's «Watchlist».

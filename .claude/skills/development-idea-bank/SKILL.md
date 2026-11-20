@@ -21,8 +21,8 @@ description: "Generate a bank of six ranked, distinct Mu3Library package directi
 - Whether the user explicitly asked for refinement mode.
 
 ## Steps
-1. From repository evidence only, gather the package intent (README, `package.json`) and the hard constraints: package fit, public API stability, assembly boundaries, define gates, docs and sample impact, and verification cost ([package-architecture.md](.ai/project/wiki/rules/package-architecture.md)).
-2. Build a capability map across runtime, editor, optional integrations, samples, docs, and tooling.
+1. From repository evidence only, gather the package intent (README, `package.json`) and the hard constraints: package fit, public API stability, assembly boundaries, define gates, docs impact, and verification cost ([package-architecture.md](.ai/project/wiki/rules/package-architecture.md)).
+2. Build a capability map across runtime, editor, optional integrations, docs, and tooling.
 3. Build a whitespace map: missing workflows, adoption wedges, ecosystem bridges, repetitive manual work, and absent package surfaces. Treat a named feature or pain point as evidence, not as the destination.
 4. Only after the whitespace map exists, use limited web research to widen adjacent patterns; repository constraints win.
 5. Rank six distinct ideas, each with its bucket, novelty class (`net-new`, `adjacent-new`, or `incremental`), why-new evidence, likely package surfaces, and primary risk.

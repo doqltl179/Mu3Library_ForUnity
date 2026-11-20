@@ -20,14 +20,34 @@ Lens-specific checklists live in the review skills (`code-review-perform`, `secu
 
 ## Choosing Gates
 
+`policy.review_gate` decides which review-ready changes go through the gates:
+
+| Value | Changes that go through the gates |
+|---|---|
+| `all` | Every review-ready change |
+| `non-trivial` (default) | Every review-ready change except a trivial one |
+| `none` | None: no agent gate runs, the security and accessibility gates included. The only review is the project's own review of the pull request, if it has one; with `hosting.platform = "none"`, the user's approval of the merge («Scaling The Order» in [request-lifecycle.md](../operating-model/request-lifecycle.md)) |
+
+Under every value, `none` included, a change in the kit repository that the `role-governor` row below matches still gets that gate: no other review checks the kit's structure.
+
+For this gate, a trivial change is only one of:
+
+- a typo or formatting fix that changes no meaning;
+- a comment-only edit, unless a comment it touches is read by a tool, for example a lint or type suppression (`# noqa`, `eslint-disable`, `@ts-ignore`), a build tag (`//go:build`), a pragma, or a doctest;
+- regenerated output reproduced from unchanged sources by an unchanged generator, never a lockfile or other output of dependency resolution.
+
+Any other change is non-trivial, whatever its size.
+
+A change that goes through the gates gets each gate whose row matches:
+
 | The change… | Gate |
 |---|---|
 | Is review-ready code, configuration, or docs | `code-reviewer` |
 | Touches a trust boundary: authentication, authorization, input parsing, secrets, cryptography, dependencies, data exposure | `security-reviewer` in addition |
 | Changes user-facing UI | `accessibility-reviewer` in addition |
-| Changes roles, routing, or kit structure | `role-governor` in addition |
+| Changes roles, routing, structure, or invariants of the kit's core, in the kit repository | `role-governor` in addition |
 
-Trivial changes (typo fixes, comment-only edits) may skip review when the project allows it; say so in the report.
+When a matching gate is skipped, the report names the gate and why: the `policy.review_gate` value, and for a trivial change which kind it is.
 
 ## Review Protocol
 

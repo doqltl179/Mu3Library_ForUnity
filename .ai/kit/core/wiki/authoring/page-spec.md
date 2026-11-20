@@ -29,8 +29,8 @@ A wiki page owns one question. Section indexes are generated from page frontmatt
 | Field | Required | Rule |
 |---|---|---|
 | `owns` | yes | One sentence naming the question this page answers. Section indexes show it verbatim |
-| `volatility` | yes | See [freshness-policy.md](../evolution/freshness-policy.md) |
-| `reviewed` | yes | `YYYY-MM-DD` of the last verification against reality and sources |
+| `volatility` | core pages | See «Metadata» in [freshness-policy.md](../evolution/freshness-policy.md), which makes it optional on project pages |
+| `reviewed` | core pages | `YYYY-MM-DD` of the last verification against reality and sources |
 | `sources` | when `volatile` | URLs of the primary sources the page depends on |
 | `applies_to` | project rules only | Path globs; the page is rendered as a path-scoped rule that tools load whenever matching files are touched. Only pages in `.ai/project/wiki/rules/` take it |
 
@@ -64,6 +64,6 @@ A wiki page owns one question. Section indexes are generated from page frontmatt
 
 ## Project Wiki
 
-- Project knowledge (architecture overview, domain glossary, decision records, local conventions) lives in `.ai/project/wiki/` with the same spec.
-- A project page never restates a core rule; it records project facts and the parameters core leaves open.
+- Project knowledge (architecture overview, domain glossary, local conventions) lives in `.ai/project/wiki/` with the same spec. Decision records go where «Decision Records» in [documentation.md](../workflows/documentation.md) puts them.
+- A project page never restates a core rule; it records project facts, the parameters core leaves open, and the detail of a replacement whose `project.guardrails` entry links it, per «Layers and Precedence» in [ssot.md](../principles/ssot.md).
 - Project rules tied to paths (for example rules for one package or engine folder) go in `.ai/project/wiki/rules/` with `applies_to`, so tools load them exactly when those files are touched. `agentkit.py new page rules/<name>` adds an empty `applies_to`, and `check` warns until it lists the paths. Rules for every task go in `project.guardrails` instead.

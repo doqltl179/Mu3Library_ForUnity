@@ -1,5 +1,6 @@
-# agentkit project profile. Keep only the keys this project sets differently from the kit defaults:
-# a key that merely repeats a default would pin today's default when a kit update changes it.
+# agentkit project profile. [policy], [hosting], and [docs] write every value the project confirmed, even one that equals
+# the kit default, so a kit update that changes a default leaves them as they are; the other sections keep only the keys
+# this project sets differently («Profile» in .ai/kit/core/wiki/integration/project-overlay.md).
 # Every key, its default, and its meaning: .ai/kit/core/templates/project/profile.toml
 
 [project]
@@ -11,16 +12,29 @@ guardrails = [
     "No breaking change to a package's public API unless the request asks for it.",
     "Verify package code with commands.build, which runs the Unity Editor CLI; never substitute dotnet build on the generated .csproj files.",
     "Test each feature's intent, role, and common usages; do not hunt situations no real use has shown, nor file a reviewer's hypothetical as a follow-up (.ai/project/lessons.md).",
+    "README.md and CHANGELOG.md have ko and ja copies at docs/readme/README.{ko,ja}.md and docs/changelog/CHANGELOG.{ko,ja}.md; a unit changes only the English source, and each release unit brings all four copies up to their sources as a whole («Localized Copies» in .ai/project/wiki/package-release.md).",
+    "Replaces «Worktrees» in git-workflow.md: a unit's worktree folder is <worktree_root>/<short-name> of the session's checkout, such as .worktrees/n430 for issue #430, not the branch name, to keep paths short (.ai/project/wiki/overview.md).",
+    "Replaces «Cleanup» in git-workflow.md: a Claude app worktree (.claude/worktrees/<name>) that holds a unit's branch belongs to the app, so cleanup keeps it and moves it to the session's own branch instead of removing it (.ai/project/wiki/overview.md).",
 ]
 
 [policy]
-# Set while each committed development project's Library/ (1.3-2.3 GB) made a fresh worktree re-import it; the generated
-# projects now keep Library/ in the unit's work folder instead (.ai/project/wiki/overview.md).
+integration_branch = "develop"
+release_branch = "main"
+protected_branches = ["develop", "main"]
+issue_first = true
+# Kept after review on 2026-11-20 (#563): each unit's Library/ lies in its own work folder, so a worktree no longer costs
+# an extra import, and a Claude app session already runs in a worktree of its own, where a unit that runs alone cuts its
+# branch in place; a worktree per unit would only nest a second checkout to set up and remove (.ai/project/wiki/overview.md).
 worktrees = false
 # The root differs per machine, so each machine sets the user environment variable MU3_WORK_ROOT (.ai/project/wiki/overview.md).
 work_root = "env:MU3_WORK_ROOT"
+worktree_root = ".worktrees"
+branch_pattern = "<type>/<scope>-<summary>"
+commit_convention = "conventional"
+review_gate = "non-trivial"
 
 [hosting]
+platform = "github"
 ci = false
 area_labels = ["base", "urp", "watermelon", "notifications", "inputsystem", "localization", "addressables", "di", "steam", "agents", "tooling"]
 
@@ -32,12 +46,12 @@ test_playmode = "bash ./test-unity.sh changed --platform playmode"
 test_tools = "PYTHONPATH=tools/cli/src python -m unittest discover -s tools/cli/tests"
 
 [docs]
+readme = "README.md"
+changelog = "CHANGELOG.md"
 source_locale = "en"
-locales = ["ko", "ja"]
-
-[docs.locale_paths]
-"README.md" = "docs/readme/README.{locale}.md"
-"CHANGELOG.md" = "docs/changelog/CHANGELOG.{locale}.md"
+specs_dir = "docs/specs"
+adr_dir = "docs/adr"
+glossary = ".ai/project/wiki/glossary.md"
 
 [[release.packages]]
 name = "base"
@@ -97,12 +111,13 @@ tag_pattern = "steam/v{version}"
 enabled = ["@governance", "@documentation", "@release", "code-reviewer", "game-runtime-engineer", "game-tools-engineer", "graphics-engineer", "devtools-engineer"]
 
 [skills]
-disabled = ["schema-migration", "accessibility-review-perform", "security-review-perform", "kit-trend-scan"]
+disabled = ["schema-migration", "accessibility-review-perform", "security-review-perform"]
 
 [stack_paths]
 # The packages live in packages/ at the repository root, not under Assets/ or Packages/, so neither pack's default globs reach them.
-# "**/*.asmref" and "packages/**/Documentation~/**" match no tracked file today. They are intentional: they keep the
-# file kinds the packs cover by default routed to the pack, so the first assembly reference or package manual is too.
+# "**/*.asmref", "**/*.unity", "**/*.prefab", "packages/**/Samples~/**", and "packages/**/Documentation~/**" match no
+# tracked file today. They are intentional: they keep the file kinds the packs cover by default routed to the pack, so
+# the first assembly reference, scene, prefab, sample, or package manual is too.
 unity = ["packages/**/*.cs", "**/*.asmdef", "**/*.asmref", "**/*.unity", "**/*.prefab", "**/*.asset"]
 unity-upm = ["packages/**/package.json", "packages/**/CHANGELOG.md", "packages/**/*.asmdef", "packages/**/Samples~/**", "packages/**/Documentation~/**"]
 
@@ -129,11 +144,6 @@ paths = ["**/*.UniTask.cs", "**/*.Addressables.cs", "**/*.InputSystem.cs"]
 stacks = ["csharp", "unity", "unity-upm"]
 commands = ["build", "test", "test_playmode"]
 
-[bindings.sample-integrity-engineer]
-paths = ["packages/**/Samples~/**"]
-stacks = ["csharp", "unity", "unity-upm"]
-commands = ["build"]
-
 [bindings.devtools-engineer]
 paths = ["tools/**", "compile-unity.sh", "test-unity.sh", ".editorconfig", ".gitattributes"]
 stacks = ["python", "shell"]
@@ -146,7 +156,7 @@ notes = "Doc layout and the repository workflow changelog: .ai/project/wiki/over
 
 [bindings.localization-specialist]
 paths = ["docs/readme/**", "docs/changelog/**"]
-notes = "Localized copies of README.md and CHANGELOG.md in ko and ja; terms in .ai/project/wiki/glossary.md."
+notes = "Localized copies of README.md and CHANGELOG.md in ko and ja, brought up to their English sources in each release unit («Localized Copies» in .ai/project/wiki/package-release.md); terms in .ai/project/wiki/glossary.md."
 
 [bindings.release-manager]
 paths = ["packages/*/package.json", "packages/game/*/package.json"]

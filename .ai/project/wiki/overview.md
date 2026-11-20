@@ -1,7 +1,7 @@
 ---
 owns: "What this repository is: the package model, the package-first rule, the project configs and where their Unity projects are generated, which checkout a Claude app session's unit uses, where units running at the same time put their worktrees, where each machine sets the work-folder root and how short `<unit>` is, removing a worktree, directory map, commit scopes, human-facing doc layout, file encoding, and local-only verification"
 volatility: evolving
-reviewed: 2026-11-17
+reviewed: 2026-11-20
 ---
 
 # Overview
@@ -40,7 +40,7 @@ Mu3Library is a set of reusable Unity UPM packages that external projects instal
 
 | Config | Exercises | Compile target |
 |---|---|---|
-| `tools/unity-projects/full` | Addressables, Base, DI, Input System, Localization, Notifications, and Steam on the Built-In pipeline with every optional SDK, and Base's samples; the default development context | `full` |
+| `tools/unity-projects/full` | Addressables, Base, DI, Input System, Localization, Notifications, and Steam on the Built-In pipeline with every optional SDK; the default development context | `full` |
 | `tools/unity-projects/minimal` | Base and DI without any optional SDK | `minimal` |
 | `tools/unity-projects/urp` | URP layered on Base | `urp` |
 | `tools/unity-projects/watermelon` | Watermelon Game | `watermelon` |
@@ -58,9 +58,8 @@ Mu3Library is a set of reusable Unity UPM packages that external projects instal
 |---|---|
 | `packages/<name>/Runtime/` | Package runtime, one folder per feature with the assets it needs, such as URP's `ScreenEffect/`, which holds the screen-effect shaders and the `Resources/` asset that keeps them in player builds |
 | `packages/<name>/Editor/` | Editor tooling (Addressables, Base, DI, Input System, Localization) |
-| `packages/<name>/Samples~/` | Importable samples, registered under `samples` in each `package.json` |
 | `packages/<name>/Tests/` | EditMode tests in `Tests/Editor/` (each package that has tests) and PlayMode tests in `Tests/Runtime/` (Base and DI) |
-| `tools/unity-projects/` | Project configs, from which the tools generate the Unity projects in the work folder; the `full` project links Base's `Samples~` (a junction on Windows, a symbolic link elsewhere), so each sample has one source. The URP and Watermelon Game packages ship no samples |
+| `tools/unity-projects/` | Project configs, from which the tools generate the Unity projects in the work folder |
 | `tools/`, `compile-unity.sh`, `test-unity.sh` | Repository support tooling, cataloged in [tools/README.md](../../../tools/README.md) |
 | `docs/readme/`, `docs/changelog/` | Localized README and CHANGELOG |
 | `docs/repository/CHANGELOG.md` | Repository workflow and tooling changes, kept out of package release notes |
@@ -73,7 +72,7 @@ Mu3Library is a set of reusable Unity UPM packages that external projects instal
 
 ## Human-Facing Docs
 
-- `README.md` and `CHANGELOG.md` are English; their localized copies are listed in `[docs.locale_paths]`.
+- `README.md` and `CHANGELOG.md` are English; their ko and ja copies are `docs/readme/README.{ko,ja}.md` and `docs/changelog/CHANGELOG.{ko,ja}.md`. A unit changes only the English source, and the release unit brings the copies up to it («Localized Copies» in [package-release.md](package-release.md)).
 - When `CHANGELOG.md` changes, check whether `README.md` needs the same change: new features, changed signatures, new define symbols, usage examples.
 - `CHANGELOG.md` tracks package releases only, under per-package headers ([package-release.md](package-release.md)). Repository workflow and tooling changes go to `docs/repository/CHANGELOG.md`.
 - `README.md` keeps its links to both localized READMEs and to `CHANGELOG.md`; `mu3-repo check` verifies them.

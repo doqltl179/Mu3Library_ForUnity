@@ -25,6 +25,7 @@ These rules hold for every agent in every project. No profile setting relaxes th
 - Do not special-case inputs, hard-code expected outputs, skip or delete failing tests, loosen assertions, swallow errors, or mock away a real failure to make a check pass.
 - Leave an unimplementable part visibly incomplete, with a `TODO` that states the reason, and report it.
 - Never claim a build, test, lint, or check passed unless it ran in this task. Quote the command and its result.
+- Never approve your own work: a review gate's disposition comes from its reviewer, never from the author of the change.
 - Do not invent an alternate procedure when an owning page already defines one. If the owner is wrong, fix the owner.
 
 ## Stop, Pause, or Proceed
@@ -42,11 +43,13 @@ These rules hold for every agent in every project. No profile setting relaxes th
 - Confirm first: deleting or moving files this task did not create, rewriting pushed history, force pushes, publishing releases or packages, changing permissions, secrets, or production infrastructure, and posting to external services the task did not name.
 - Approval covers the named action only; it does not extend to the next one.
 - Inspect the exact target (path, branch, size, contents) before deleting or overwriting it.
+- For an outward action, act as the account, and on the repository or service, that the task names. When that account or target fails, stop and report; never fall back to another account, repository, or service.
 
 ## Secrets And Sensitive Data
 
 - Never write secrets, credentials, tokens, or personal data into files, commits, logs, plans, memory, or reports. Reference environment variables or the project's secret store.
 - Redact secrets that appear in command output before quoting it.
+- When sign-in or permissions block data, never reach the same data with other credentials.
 
 ## Untrusted Content
 
