@@ -6,6 +6,10 @@ Detailed per-release notes live in the repository root `CHANGELOG.md` under the 
 
 ## [Unreleased]
 
+## [0.30.0] - 2026-11-20
+
+- See `base/0.30.0` in the repository root `CHANGELOG.md`. Highlights: the **Multiplayer** sample is removed, so Base ships no sample; a copy a project imported earlier stays in its `Assets/Samples` folder.
+
 ## [0.29.0] - 2026-11-20
 
 - See `base/0.29.0` in the repository root `CHANGELOG.md`. Highlights: `NotificationManager`, `InputSystemManager`, `LocalizationManager`, `AddressablesManager`, the DI container with `CoreBase` and `CoreRoot`, and `SteamBackend` moved out of Base into six new packages, which a project that uses them installs with Base; the package folder moved to `packages/base`, so its Git URL takes `?path=packages/base`; the DI contracts moved to `Mu3Library.Foundation`, which an assembly definition that uses them through `Mu3Library.DI` adds as a reference; the Steam assembly and namespace are renamed to `Mu3Library.Steam.Multiplayer`; and the Template, Attribute, and UtilWindow samples and the default materials and textures are removed.
