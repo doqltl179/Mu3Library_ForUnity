@@ -111,9 +111,6 @@ exit "${FAKE_UNITY_STATUS:-0}"
 class FixtureRepositoryTestCase(unittest.TestCase):
     """Builds the fixture once per class; tests remove whatever they add to it."""
 
-    # Configs whose project links a folder below Assets/ to a package's Samples~ folder, as
-    # sample-links.json declares it: config -> (link, package folder).
-    SAMPLE_LINKS: dict[str, tuple[str, str]] = {}
     # Configs whose manifest lists their packages under "testables", as a config must for Unity
     # to run a package's tests.
     TESTABLE_CONFIGS: frozenset[str] = frozenset()
@@ -163,7 +160,6 @@ class FixtureRepositoryTestCase(unittest.TestCase):
         shutil.copy2(repo_root() / LOAD_HELPER, cls.root / LOAD_HELPER)
         shutil.copytree(repo_root() / COMMON_PACKAGE, cls.root / COMMON_PACKAGE, ignore=shutil.ignore_patterns("__pycache__"))
 
-        linked_packages = {package for _, package in cls.SAMPLE_LINKS.values()}
         for package in PACKAGES:
             runtime = cls.root / package / "Runtime"
             runtime.mkdir(parents=True)
@@ -171,10 +167,6 @@ class FixtureRepositoryTestCase(unittest.TestCase):
             (cls.root / package / "package.json").write_text(
                 json.dumps({"name": package_name(package), "version": "1.0.0"}, indent=2) + "\n", encoding="utf-8"
             )
-            if package in linked_packages:
-                samples = cls.root / package / "Samples~"
-                samples.mkdir(parents=True)
-                (samples / "Sample.cs").write_text("// sample\n", encoding="utf-8")
 
         for config, packages in CONFIG_PACKAGES.items():
             folder = cls.root / CONFIGS_FOLDER / config
@@ -185,9 +177,6 @@ class FixtureRepositoryTestCase(unittest.TestCase):
             (folder / "Packages" / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
             (folder / "ProjectSettings").mkdir()
             (folder / "ProjectSettings" / "ProjectVersion.txt").write_text("m_EditorVersion: 6000.6.7f1\n", encoding="utf-8")
-            if config in cls.SAMPLE_LINKS:
-                link, package = cls.SAMPLE_LINKS[config]
-                (folder / "sample-links.json").write_text(json.dumps({link: package_name(package)}) + "\n", encoding="utf-8")
 
         if cls.GITIGNORE_LINES:
             (cls.root / ".gitignore").write_text("".join(f"{line}\n" for line in cls.GITIGNORE_LINES), encoding="utf-8")

@@ -18,15 +18,12 @@ from fixture_repository import CONFIGS, FAKE_UNITY, LOAD_HELPER, FixtureReposito
 from shell_harness import bash_or_skip
 from test_compile_selection import run_plan
 from common.bash import bash_script_command
-from common.unity_projects import is_directory_link
 from fixed_load import fixed_load
 
 
 class GeneratedProjectRunTests(FixtureRepositoryTestCase):
     """Each run generates its target's project under the unit's work folder, or refreshes it, and
     Unity opens it there."""
-
-    SAMPLE_LINKS = {"leaf": ("Assets/Samples", "PkgLeaf")}
 
     def test_a_run_generates_the_project_and_the_next_one_refreshes_it_keeping_library(self) -> None:
         environment = self.unity_environment()
@@ -39,8 +36,6 @@ class GeneratedProjectRunTests(FixtureRepositoryTestCase):
         self.assertIn(f"fake unity ran {project.as_posix()}", completed.stdout.splitlines())
         manifest = json.loads((project / "Packages" / "manifest.json").read_text(encoding="utf-8"))
         self.assertEqual("file:" + (self.root / "PkgLeaf").as_posix(), manifest["dependencies"]["fixture.pkgleaf"])
-        # The samples compile through the link, which a refresh keeps without walking through it.
-        self.assertTrue(is_directory_link(project / "Assets" / "Samples"))
         (project / "Library").mkdir()
         (project / "Library" / "imported").write_text("", encoding="utf-8")
 
@@ -49,7 +44,6 @@ class GeneratedProjectRunTests(FixtureRepositoryTestCase):
         self.assertEqual(0, completed.returncode, completed.stderr)
         self.assertIn(f"Refreshed {project.as_posix()} from tools/unity-projects/leaf: already up to date", completed.stdout)
         self.assertTrue((project / "Library" / "imported").is_file())
-        self.assertTrue((self.root / "PkgLeaf" / "Samples~" / "Sample.cs").is_file())
 
     def test_a_folder_the_tools_did_not_make_stops_the_run_before_unity(self) -> None:
         environment = self.unity_environment()

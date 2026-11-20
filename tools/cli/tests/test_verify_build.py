@@ -12,7 +12,6 @@ from unittest import mock
 from typer.testing import CliRunner
 
 from common.checkout import repo_root
-from common.unity_projects import is_directory_link
 from verify_build.cli import (
     BUILD_SCRIPT,
     EXIT_BUILD_FAILED,
@@ -115,7 +114,7 @@ class ProjectNameTests(unittest.TestCase):
 
 class SceneCheckTests(unittest.TestCase):
     def test_a_scene_is_an_asset_path_of_a_unity_scene(self) -> None:
-        self.assertIsNone(scene_problem("Assets/Mu3LibrarySamples/Multiplayer/Sample_Multiplayer.unity"))
+        self.assertIsNone(scene_problem("Assets/Scenes/Check.unity"))
         self.assertIsNone(scene_problem("Packages/com.example/Scenes/A.unity"))
         for scene in ("C:/x/A.unity", "/Assets/A.unity", "Assets\\A.unity", "Assets/../A.unity", "Library/A.unity", "Assets/A.prefab"):
             with self.subTest(scene=scene):
@@ -180,10 +179,7 @@ def fixture_repository(test: unittest.TestCase) -> Path:
     write(root / FULL / SETTINGS_ASSET, SAMPLE_SETTINGS)
     write(root / FULL / "ProjectSettings" / "ProjectSettings.asset", SAMPLE_PROJECT_SETTINGS)
     write(root / FULL / "ProjectSettings" / "ProjectVersion.txt", "m_EditorVersion: 6000.6.7f1\n")
-    write(root / FULL / "Assets" / "Mu3LibrarySamples.meta", "meta\n")
-    write(root / FULL / "sample-links.json", '{"Assets/Mu3LibrarySamples": "com.github.doqltl179.mu3library.base"}\n')
     write(root / "packages" / "base" / "package.json", '{"name": "com.github.doqltl179.mu3library.base"}\n')
-    write(root / "packages" / "base" / "Samples~" / "Demo" / "Demo.cs", "class Demo {}\n")
     write(root / BUILD_SCRIPT, "// build script\n")
     isolate_git(test, root.parent)
     git(root.parent, "init", "-q", str(root))
@@ -250,7 +246,6 @@ class RunTests(unittest.TestCase):
         self.assertIn("  m_BuildAddressablesWithPlayerBuild: 1\n", settings)
         self.assertIn("  productName: VerifyBuild\n", (self.project / "ProjectSettings" / "ProjectSettings.asset").read_text(encoding="utf-8"))
         self.assertTrue((self.project / PROJECT_BUILD_SCRIPT).is_file())
-        self.assertTrue(is_directory_link(self.project / "Assets" / "Mu3LibrarySamples"))
         self.assertTrue((self.work / WORK_DIR_MARKER).is_file())
         self.assertEqual("", git(self.root, "status", "--porcelain"))
         self.assertIn("  m_BuildAddressablesWithPlayerBuild: 0\n", (self.root / FULL / SETTINGS_ASSET).read_text(encoding="utf-8"))
@@ -294,8 +289,6 @@ class RunTests(unittest.TestCase):
         with self.assertRaisesRegex(VerifySetupError, "holds the content of an earlier build"):
             self.run_tool("none", FakeUnity())
         self.assertEqual(0, self.run_tool("none", FakeUnity(), fresh=True))
-        # --fresh deleted the project through its link without touching the samples.
-        self.assertTrue((self.root / "packages" / "base" / "Samples~" / "Demo" / "Demo.cs").is_file())
 
     def test_none_mode_fails_when_content_was_built_anyway(self) -> None:
         self.assertEqual(EXIT_BUILD_FAILED, self.run_tool("none", FakeUnity(builds_content=True)))

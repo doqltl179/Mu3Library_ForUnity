@@ -403,12 +403,9 @@ The fallback Inspector is registered with `isFallback` for every `MonoBehaviour`
 - **Utility**: Singleton, EasingFunctions, Settings, `Mu3Library.Utility.WorldSpaceBackground` for fitting a `SpriteRenderer` background to a camera viewport, and `Mu3Library.Utility.ScreenChangeNotifier` for following a screen that changed its size or its safe area while the game runs, without a per frame check of your own
 - **WebRequest**: HTTP request management
 
-## 🎓 Samples
+## 🧱 URP and Watermelon Game Packages
 
-Base ships one sample, which you can import from the **Samples** tab in Package Manager. The URP and Watermelon Game packages ship no sample; their main features are listed under their packages below:
-
-Base package (**Mu3 Library**):
-- **Multiplayer**: A player-hosted session driven by buttons: create a public lobby, search for lobbies, join one by its lobby ID, invite friends through the Steam overlay, get ready, start the game with start data, exchange a message written with `MessageWriter` and read with `MessageReader`, set and delete lobby data as the host and your own participant data as any player, and kick a player. The player list shows each player's ping as the host measures it, and, on Steam, the lists show the players' avatars. It plays on Steam when the Steam package and Steamworks.NET are installed and the Steam client runs, and otherwise on the local backend over `LocalNetwork.CreateMachineWide`, where an editor and player builds on one computer meet; the local backend has no invites, so the host shares its lobby ID there. Without a player build, Multiplayer Play Mode runs it in the Editor alone, as checked on Unity 6000.6.7f1 with Multiplayer Play Mode 3.0.0, the version that Editor bundles: a virtual player inherits the main Editor's environment, so it finds the main Editor's lobbies in the same temporary folder. Turn on **Use Local Backend** for it, since the main Editor and a virtual player are one Steam account, and the host refuses an account that already joined with `DuplicateAccount`. Command-line options (`-mu3mp-host`, `-mu3mp-join`, and others) run the whole flow unattended and log `AUTO PASS` or `AUTO FAIL`; the sample's `README.md` lists them. It needs the DI package, whose `CoreBase` its core derives from, so install that package before you import the sample
+The main features of the URP and Watermelon Game packages are listed under their packages below:
 
 URP package (**Mu3 Library URP**):
 - **Camera Stack Helper**: `Mu3Library.URP.Cam.CameraStackSetter` adds `SetCameraStackToMain(...)` and `SetCameraStack(...)` helpers so any URP overlay camera can be inserted into `Camera.main` or an explicit root camera stack with optional insertion index control
@@ -424,10 +421,6 @@ Watermelon Game package (**Mu3 Library Game - Watermelon**):
 - **Scoring extension point**: Override `BoardItemScoreRule.GetScore(int)` to customize the default triangular score progression
 - **Board commands**: `BoardController.EnqueueCommand(...)` takes commands into the board's public command queue. `IUpdatableBoardCommand` and `ICancelableBoardCommand` let a command run frame by frame and be canceled, and `BoardCommand` builds both on lifecycle hooks. `BoardController.CommandContext` is the narrow surface through which an external command reaches items, the score, and sounds, and the package carries Flow, Item, and Score commands, `MergingCommand` among them
 - **Board sound volumes**: `BoardController.SfxVolume` and `BoardController.BgmVolume` control board playback independently from `BoardConfig.SoundConfig`; both clamp to 0–1
-
-**Sample input and text:** The Multiplayer sample of Base draws its buttons with IMGUI, which needs no `EventSystem`, input module, or TextMesh Pro resources, so it responds to input with or without the Input System package and shows its text in a player and in the Editor alike.
-
-In this repository, the Multiplayer sample source lives under `packages/base/Samples~/Multiplayer`.
 
 To stack an MVP render camera with the new helper, pass the render camera explicitly:
 
