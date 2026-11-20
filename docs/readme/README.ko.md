@@ -403,12 +403,9 @@ fallback Inspector는 모든 `MonoBehaviour`와 `ScriptableObject`에 `isFallbac
 - **Utility**: Singleton, EasingFunctions, Settings, 카메라 뷰포트에 `SpriteRenderer` 배경을 맞추는 `Mu3Library.Utility.WorldSpaceBackground`, 게임이 도는 동안 매 프레임 직접 확인하지 않고 크기나 safe area가 바뀐 화면을 따라가는 `Mu3Library.Utility.ScreenChangeNotifier`
 - **WebRequest**: HTTP 요청 관리
 
-## 🎓 샘플
+## 🧱 URP와 Watermelon Game 패키지
 
-Base에는 샘플이 하나 있으며, 패키지 매니저의 **Samples** 탭에서 가져올 수 있습니다. URP와 Watermelon Game 패키지에는 샘플이 없으며, 아래에 각 패키지의 주요 기능을 정리했습니다:
-
-Base 패키지 (**Mu3 Library**):
-- **Multiplayer**: 버튼으로 조작하는 플레이어 호스트 세션: 공개 로비 만들기, 로비 검색, 로비 ID로 참가, Steam 오버레이로 친구 초대, 준비, 시작 데이터와 함께 게임 시작, `MessageWriter`로 쓰고 `MessageReader`로 읽는 메시지 주고받기, 호스트가 하는 로비 데이터 설정과 삭제, 모든 플레이어가 하는 자기 참가자 데이터 설정과 삭제, 플레이어 강퇴. 참가자 목록에는 호스트가 잰 각 플레이어의 핑이 표시되고, Steam에서는 각 목록에 플레이어의 아바타가 표시됩니다. Steam 패키지와 Steamworks.NET이 설치되고 Steam 클라이언트가 실행 중이면 Steam에서, 아니면 `LocalNetwork.CreateMachineWide` 위의 로컬 백엔드에서 플레이하며, 한 PC의 에디터와 플레이어 빌드가 서로 만납니다. 로컬 백엔드에는 초대가 없어 호스트가 로비 ID를 공유합니다. 플레이어 빌드가 없어도 Multiplayer Play Mode를 쓰면 에디터만으로 실행할 수 있으며, Unity 6000.6.7f1과 이 에디터에 포함된 Multiplayer Play Mode 3.0.0에서 확인했습니다. 가상 플레이어는 메인 에디터의 환경을 물려받으므로 같은 임시 폴더에서 메인 에디터의 로비를 찾습니다. 메인 에디터와 가상 플레이어는 같은 Steam 계정이고 호스트는 이미 참가한 계정을 `DuplicateAccount`로 거절하므로, 이때는 **Use Local Backend**를 켜야 합니다. 명령줄 옵션(`-mu3mp-host`, `-mu3mp-join` 등)은 전체 흐름을 무인으로 실행하고 `AUTO PASS` 또는 `AUTO FAIL`을 기록하며, 옵션 목록은 샘플의 `README.md`에 있습니다. 샘플의 코어가 DI 패키지의 `CoreBase`를 상속하므로 DI 패키지가 필요하며, 샘플을 가져오기 전에 그 패키지를 설치해야 합니다
+URP와 Watermelon Game 패키지의 주요 기능을 아래에 패키지별로 정리했습니다:
 
 URP 패키지 (**Mu3 Library URP**):
 - **Camera Stack Helper**: `Mu3Library.URP.Cam.CameraStackSetter`가 `SetCameraStackToMain(...)` 및 `SetCameraStack(...)` 헬퍼를 제공하여 임의의 URP overlay camera를 `Camera.main` 또는 명시적인 root camera stack에 넣고, 필요하면 삽입 인덱스를 제어할 수 있습니다.
@@ -424,10 +421,6 @@ Watermelon Game 패키지 (**Mu3 Library Game - Watermelon**):
 - **Scoring extension point**: `BoardItemScoreRule.GetScore(int)`를 override하여 기본 삼각수 점수 progression을 커스터마이즈할 수 있습니다.
 - **Board commands**: `BoardController.EnqueueCommand(...)`는 보드의 공개 커맨드 큐에 커맨드를 넣습니다. `IUpdatableBoardCommand`와 `ICancelableBoardCommand`로 커맨드를 프레임 단위로 실행하고 취소할 수 있으며, `BoardCommand`는 그 둘을 lifecycle hook 위에 구성합니다. `BoardController.CommandContext`는 외부 커맨드가 아이템·점수·사운드에 접근하는 좁은 표면이고, 패키지는 `MergingCommand`를 포함한 Flow/Item/Score 커맨드를 제공합니다.
 - **Board sound volumes**: `BoardController.SfxVolume`과 `BoardController.BgmVolume`으로 `BoardConfig.SoundConfig`와 별도로 보드 재생 볼륨을 설정할 수 있으며, 두 값 모두 0–1 범위로 제한됩니다.
-
-**샘플의 입력과 텍스트:** Base의 Multiplayer 샘플은 버튼을 IMGUI로 그리므로 `EventSystem`, 입력 모듈, TextMesh Pro 리소스가 필요 없고, Input System 패키지가 있든 없든 입력에 반응하며 플레이어와 에디터 모두에서 텍스트를 표시합니다.
-
-이 저장소에서는 Multiplayer 샘플 소스를 `packages/base/Samples~/Multiplayer`에서 확인할 수 있습니다.
 
 새 helper로 MVP render camera를 스택에 넣으려면 render camera를 직접 전달하세요:
 

@@ -13,6 +13,9 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 
 ## [Unreleased]
 
+### 제거됨
+- Base: **Multiplayer** 샘플과 `package.json`의 `samples`에 있던 항목을 제거했습니다(#556). 이제 Base에는 샘플이 없습니다. 패키지 매니저는 가져온 샘플을 프로젝트 안으로 복사하므로, 이미 가져온 사본은 프로젝트의 `Assets/Samples` 폴더에 그대로 남습니다.
+
 ## [base/0.29.0] - 2026-11-20
 
 ### 변경됨

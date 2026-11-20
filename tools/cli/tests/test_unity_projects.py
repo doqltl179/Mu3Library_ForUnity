@@ -80,9 +80,6 @@ class RepositoryConfigTests(unittest.TestCase):
         # Without the Input System package, only the old Input Manager can handle input.
         self.assertIn("\n  activeInputHandler: 0\n", settings.replace("\r\n", "\n"))
 
-    def test_full_links_the_base_samples(self) -> None:
-        self.assertEqual({"Assets/Mu3LibrarySamples": BASE}, self.configs["full"].sample_links)
-
 
 class GeneratedProjectTests(unittest.TestCase):
     """Generates projects from a config in a throwaway checkout."""

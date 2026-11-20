@@ -405,6 +405,8 @@ Base의 `Samples~`에 로비 생성, 검색, 초대, 준비, 시작, 메시지 �
 
 - Given Steamworks.NET이 없는 새 프로젝트, When 샘플을 가져와 실행, Then 컴파일 오류 없이 로컬 백엔드로 로비부터 메시지 교환까지 동작한다.
 
+이 샘플은 [ADR 0001](../adr/0001-package-split-and-repository-restructure.md) D14에 따라 [#556](https://github.com/doqltl179/Mu3Library_ForUnity/issues/556)에서 지웠다. 같은 PC의 두 프로세스가 로컬 백엔드로 세션을 진행하는지는 `tools/`의 멀티플레이 하네스가 점검한다 (D17).
+
 **FR-42 [C] 에디터 디버그 창**
 에디터 창에서 현재 세션 상태, 참가자, 연결 품질, 최근 메시지 종류별 송수신 수를 볼 수 있어야 한다.
 

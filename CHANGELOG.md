@@ -15,6 +15,9 @@ This changelog tracks package release changes only. Repository development workf
 
 ## [Unreleased]
 
+### Removed
+- Base: the **Multiplayer** sample, with its entry under `samples` in `package.json` (#556), so Base ships no sample any more. Package Manager copies an imported sample into the project, so a copy a project imported earlier stays in its `Assets/Samples` folder.
+
 ## [base/0.29.0] - 2026-11-20
 
 ### Changed
