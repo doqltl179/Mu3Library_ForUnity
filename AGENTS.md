@@ -67,6 +67,7 @@ An entry that starts with `Replaces «<Section>» in <page>.md:` replaces, in th
 - No breaking change to a package's public API unless the request asks for it.
 - Verify package code with commands.build, which runs the Unity Editor CLI; never substitute dotnet build on the generated .csproj files.
 - Test each feature's intent, role, and common usages; do not hunt situations no real use has shown, nor file a reviewer's hypothetical as a follow-up (.ai/project/lessons.md).
+- README.md and CHANGELOG.md have ko and ja copies at docs/readme/README.{ko,ja}.md and docs/changelog/CHANGELOG.{ko,ja}.md; a unit changes only the English source, and each release unit brings all four copies up to their sources as a whole («Localized Copies» in .ai/project/wiki/package-release.md).
 
 ### Commands
 
@@ -104,8 +105,6 @@ Not available (report the gap, do not guess): `install`, `lint`, `format`, `type
 | `docs.specs_dir` | docs/specs |
 | `docs.adr_dir` | docs/adr |
 | `docs.glossary` | .ai/project/wiki/glossary.md |
-| `docs.locales` | ko, ja |
-| `docs.locale_paths` | README.md → docs/readme/README.{locale}.md; CHANGELOG.md → docs/changelog/CHANGELOG.{locale}.md |
 | `release.tag_pattern` | v{version} |
 | `release.packages` | base, urp, watermelon, notifications, inputsystem, localization, addressables, di, steam |
 | `evolution.upstream` | https://github.com/doqltl179/ai-agents |

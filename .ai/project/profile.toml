@@ -12,6 +12,7 @@ guardrails = [
     "No breaking change to a package's public API unless the request asks for it.",
     "Verify package code with commands.build, which runs the Unity Editor CLI; never substitute dotnet build on the generated .csproj files.",
     "Test each feature's intent, role, and common usages; do not hunt situations no real use has shown, nor file a reviewer's hypothetical as a follow-up (.ai/project/lessons.md).",
+    "README.md and CHANGELOG.md have ko and ja copies at docs/readme/README.{ko,ja}.md and docs/changelog/CHANGELOG.{ko,ja}.md; a unit changes only the English source, and each release unit brings all four copies up to their sources as a whole («Localized Copies» in .ai/project/wiki/package-release.md).",
 ]
 
 [policy]
@@ -48,11 +49,6 @@ source_locale = "en"
 specs_dir = "docs/specs"
 adr_dir = "docs/adr"
 glossary = ".ai/project/wiki/glossary.md"
-locales = ["ko", "ja"]
-
-[docs.locale_paths]
-"README.md" = "docs/readme/README.{locale}.md"
-"CHANGELOG.md" = "docs/changelog/CHANGELOG.{locale}.md"
 
 [[release.packages]]
 name = "base"
@@ -157,7 +153,7 @@ notes = "Doc layout and the repository workflow changelog: .ai/project/wiki/over
 
 [bindings.localization-specialist]
 paths = ["docs/readme/**", "docs/changelog/**"]
-notes = "Localized copies of README.md and CHANGELOG.md in ko and ja; terms in .ai/project/wiki/glossary.md."
+notes = "Localized copies of README.md and CHANGELOG.md in ko and ja, brought up to their English sources in each release unit («Localized Copies» in .ai/project/wiki/package-release.md); terms in .ai/project/wiki/glossary.md."
 
 [bindings.release-manager]
 paths = ["packages/*/package.json", "packages/game/*/package.json"]

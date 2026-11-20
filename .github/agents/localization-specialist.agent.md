@@ -43,4 +43,4 @@ Mission: make every target-language version read as if it had been written nativ
 ## Project Binding
 
 - Paths: `docs/readme/**`, `docs/changelog/**`
-- Notes: Localized copies of README.md and CHANGELOG.md in ko and ja; terms in .ai/project/wiki/glossary.md.
+- Notes: Localized copies of README.md and CHANGELOG.md in ko and ja, brought up to their English sources in each release unit («Localized Copies» in .ai/project/wiki/package-release.md); terms in .ai/project/wiki/glossary.md.
