@@ -22,8 +22,9 @@ integration_branch = "develop"
 release_branch = "main"
 protected_branches = ["develop", "main"]
 issue_first = true
-# Set while each committed development project's Library/ (1.3-2.3 GB) made a fresh worktree re-import it; the generated
-# projects now keep Library/ in the unit's work folder instead (.ai/project/wiki/overview.md).
+# Kept after review on 2026-11-20 (#563): each unit's Library/ lies in its own work folder, so a worktree no longer costs
+# an extra import, and a Claude app session already runs in a worktree of its own, where a unit that runs alone cuts its
+# branch in place; a worktree per unit would only nest a second checkout to set up and remove (.ai/project/wiki/overview.md).
 worktrees = false
 # The root differs per machine, so each machine sets the user environment variable MU3_WORK_ROOT (.ai/project/wiki/overview.md).
 work_root = "env:MU3_WORK_ROOT"
