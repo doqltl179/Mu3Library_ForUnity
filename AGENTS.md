@@ -68,6 +68,8 @@ An entry that starts with `Replaces «<Section>» in <page>.md:` replaces, in th
 - Verify package code with commands.build, which runs the Unity Editor CLI; never substitute dotnet build on the generated .csproj files.
 - Test each feature's intent, role, and common usages; do not hunt situations no real use has shown, nor file a reviewer's hypothetical as a follow-up (.ai/project/lessons.md).
 - README.md and CHANGELOG.md have ko and ja copies at docs/readme/README.{ko,ja}.md and docs/changelog/CHANGELOG.{ko,ja}.md; a unit changes only the English source, and each release unit brings all four copies up to their sources as a whole («Localized Copies» in .ai/project/wiki/package-release.md).
+- Replaces «Worktrees» in git-workflow.md: a unit's worktree folder is <worktree_root>/<short-name> of the session's checkout, such as .worktrees/n430 for issue #430, not the branch name, to keep paths short (.ai/project/wiki/overview.md).
+- Replaces «Cleanup» in git-workflow.md: a Claude app worktree (.claude/worktrees/<name>) that holds a unit's branch belongs to the app, so cleanup keeps it and moves it to the session's own branch instead of removing it (.ai/project/wiki/overview.md).
 
 ### Commands
 
