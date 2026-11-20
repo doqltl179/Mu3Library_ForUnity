@@ -101,8 +101,9 @@ disabled = ["schema-migration", "accessibility-review-perform", "security-review
 
 [stack_paths]
 # The packages live in packages/ at the repository root, not under Assets/ or Packages/, so neither pack's default globs reach them.
-# "**/*.asmref" and "packages/**/Documentation~/**" match no tracked file today. They are intentional: they keep the
-# file kinds the packs cover by default routed to the pack, so the first assembly reference or package manual is too.
+# "**/*.asmref", "**/*.unity", "**/*.prefab", "packages/**/Samples~/**", and "packages/**/Documentation~/**" match no
+# tracked file today. They are intentional: they keep the file kinds the packs cover by default routed to the pack, so
+# the first assembly reference, scene, prefab, sample, or package manual is too.
 unity = ["packages/**/*.cs", "**/*.asmdef", "**/*.asmref", "**/*.unity", "**/*.prefab", "**/*.asset"]
 unity-upm = ["packages/**/package.json", "packages/**/CHANGELOG.md", "packages/**/*.asmdef", "packages/**/Samples~/**", "packages/**/Documentation~/**"]
 
@@ -128,11 +129,6 @@ notes = "The URP package: camera, screen effects, renderer features, and shaders
 paths = ["**/*.UniTask.cs", "**/*.Addressables.cs", "**/*.InputSystem.cs"]
 stacks = ["csharp", "unity", "unity-upm"]
 commands = ["build", "test", "test_playmode"]
-
-[bindings.sample-integrity-engineer]
-paths = ["packages/**/Samples~/**"]
-stacks = ["csharp", "unity", "unity-upm"]
-commands = ["build"]
 
 [bindings.devtools-engineer]
 paths = ["tools/**", "compile-unity.sh", "test-unity.sh", ".editorconfig", ".gitattributes"]
