@@ -309,7 +309,7 @@ PYTHONPATH=tools/cli/src python -m multiplayer_harness --work-dir "${MU3_WORK_RO
 PYTHONPATH=tools/cli/src python -m multiplayer_harness --editor-version 6000.3.17f1 --work-dir "${MU3_WORK_ROOT:?set MU3_WORK_ROOT}/Mu3Library_ForUnity/<unit>/multiplayer-harness"
 ```
 
-It took over the check that the Multiplayer sample's unattended run made (`-mu3mp-host` and `-mu3mp-join`) before Base dropped the sample once #187 was done (#556, ADR 0001 D14, D17). The command runs only on Windows.
+It took over the check that the Multiplayer sample's unattended run made (`-mu3mp-host` and `-mu3mp-join`) before Base dropped the sample after #187 was closed without its two-account check (#556, ADR 0001 D14, D17). The command runs only on Windows.
 
 [multiplayer-harness/](multiplayer-harness/) holds what the command copies into the project's `Assets/MultiplayerHarness/`:
 
