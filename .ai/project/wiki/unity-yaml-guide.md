@@ -20,9 +20,7 @@ The `unity` stack pack owns how serialized assets change: the route order (live 
 
 ## Reaching A Sample
 
-- Samples live in `packages/<name>/Samples~/`, which Unity does not import. A config whose `sample-links.json` names a package exposes that package's samples through a link, a junction on Windows and a symbolic link elsewhere, below `Assets/` of the project the tools generate from it, in the unit's work folder outside the checkout ([tools/README.md](../../../tools/README.md#unity-project-configs)). No config holds one now.
-- The Editor and batch routes therefore edit a sample in place through that path. There is no copy to bring back, and the `.meta` files Unity writes land in `Samples~`, where they are tracked.
-- The link exists once a run of `compile-unity.sh` or `test-unity.sh` for that config has generated the project; run one before taking the Editor or batch route, and close the Editor before the next run, which refuses a project an Editor has open.
+- No package ships a sample since Base dropped its last (ADR 0001 D14, #556), and the tools link no `Samples~` folder into the projects they generate ([tools/README.md](../../../tools/README.md#unity-project-configs)), so no edit route reaches a sample in this repository now.
 
 ## Declared Direct-YAML Edit
 

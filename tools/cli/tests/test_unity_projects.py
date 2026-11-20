@@ -15,9 +15,9 @@ from common.unity_projects import (
     ConfigError,
     GenerateError,
     WorkDirError,
+    create_directory_link,
     default_work_dir,
     generate_project,
-    is_directory_link,
     load_configs,
     project_path_problem,
     remove_generated_project,
@@ -97,7 +97,6 @@ class GeneratedProjectTests(unittest.TestCase):
         self.addCleanup(environment.stop)
 
         self.write("Packages/Thing/package.json", json.dumps({"name": "fixture.thing", "version": "1.0.0"}))
-        self.write("Packages/Thing/Samples~/Sample.cs", "// sample\n")
         self.config = self.root / "tools" / "unity-projects" / "sample"
         self.write_manifest({"fixture.thing": "checkout", "com.unity.ugui": "2.6.0"})
         self.write("tools/unity-projects/sample/ProjectSettings/ProjectVersion.txt", "m_EditorVersion: 6000.6.7f1\n")
@@ -183,26 +182,28 @@ class GeneratedProjectTests(unittest.TestCase):
         with self.assertRaisesRegex(GenerateError, "is open in Unity"):
             generate_project(self.root, load_configs(self.root)["sample"], self.project, probe=lambda path: True)
 
-    def test_samples_link_goes_without_its_samples(self) -> None:
-        self.write("tools/unity-projects/sample/sample-links.json", json.dumps({"Assets/Samples": "fixture.thing"}))
+    def test_a_link_the_marker_lists_goes_without_following_it(self) -> None:
+        # Before Base dropped its last sample (#556), a run linked a package's Samples~ into the
+        # project and listed the link in the marker.
+        target = self.write("Packages/Thing/Samples~/Sample.cs", "// sample\n").parent
         link = self.project / "Assets" / "Samples"
+        marker = self.project / PROJECT_MARKER
+
+        def add_listed_link() -> None:
+            create_directory_link(link, target)
+            marker.write_text(marker.read_text(encoding="utf-8") + "link Assets/Samples\n", encoding="utf-8")
 
         self.generate()
-        self.assertTrue(is_directory_link(link))
-        self.assertEqual("// sample\n", (link / "Sample.cs").read_text(encoding="utf-8"))
-        self.generate()
-        self.assertTrue(is_directory_link(link))
-
-        (self.config / "sample-links.json").unlink()
+        add_listed_link()
         self.generate()
         self.assertFalse(link.exists() or link.is_symlink())
-        self.assertTrue((self.root / "Packages" / "Thing" / "Samples~" / "Sample.cs").is_file())
+        self.assertNotIn("\nlink Assets/Samples\n", marker.read_text(encoding="utf-8"))
+        self.assertTrue((target / "Sample.cs").is_file())
 
-        self.write("tools/unity-projects/sample/sample-links.json", json.dumps({"Assets/Samples": "fixture.thing"}))
-        self.generate()
+        add_listed_link()
         remove_generated_project(self.project)
         self.assertFalse(self.project.exists())
-        self.assertTrue((self.root / "Packages" / "Thing" / "Samples~" / "Sample.cs").is_file())
+        self.assertTrue((target / "Sample.cs").is_file())
 
     def test_a_checkout_package_that_no_package_json_names_is_an_error(self) -> None:
         self.write_manifest({"fixture.missing": "checkout"})

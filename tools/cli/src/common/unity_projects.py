@@ -3,17 +3,17 @@
 A config is a folder that holds Packages/manifest.json, ProjectSettings/, and the template files its
 project needs. In the manifest, a dependency whose value is "checkout" is the package of that name in
 this checkout, found by the name in its package.json, so a package can move without a config edit;
-the generated project references it by the absolute path of its folder. A config may also hold
-sample-links.json, which maps a folder of the project to the checkout package whose Samples~ folder
-it links to. That file and the manifest are not copied as they are.
+the generated project references it by the absolute path of its folder. The manifest is not
+copied as it is.
 
 A project is generated in a work folder outside the checkout, by default
 ${MU3_WORK_ROOT}/Mu3Library_ForUnity/<unit>/<config>, and refreshed on every run: each file the
 config holds is written when it differs, each file that an earlier run wrote and the config no longer
 holds is removed, and everything else, Library/ and Unity's other folders among them, stays for the
-next run. A project folder is the tool's only once its marker file says so, and it belongs to the
-checkout the marker names, so that two checkouts whose branches share a unit's folder name never
-refresh each other's projects.
+next run. A directory link that the marker lists, which runs made into a package's Samples~ before
+Base dropped its last sample, is removed without following it. A project folder is the tool's only
+once its marker file says so, and it belongs to the checkout the marker names, so that two checkouts
+whose branches share a unit's folder name never refresh each other's projects.
 
 compile-unity.sh and test-unity.sh run this file by its path, as `python -I <path> describe|generate`,
 so it uses the standard library and the common modules that need nothing else.
@@ -47,7 +47,6 @@ from common.work_dir import FolderNotClaimedError, claim_folder
 CONFIGS_FOLDER = Path("tools", "unity-projects")
 # The manifest value that names a package of this checkout.
 CHECKOUT_PACKAGE = "checkout"
-SAMPLE_LINKS_FILE = "sample-links.json"
 MANIFEST = "Packages/manifest.json"
 LOCK_FILE = "Packages/packages-lock.json"
 PROJECT_VERSION = "ProjectSettings/ProjectVersion.txt"
@@ -92,8 +91,6 @@ class ProjectConfig:
     packages: dict[str, PurePosixPath]
     editor_version: str
     has_testables: bool
-    # Each link's folder in the project, mapped to the checkout package whose Samples~ it links to.
-    sample_links: dict[str, str] = field(default_factory=dict)
 
 
 def _git(root: Path, *arguments: str) -> subprocess.CompletedProcess[bytes]:
@@ -136,7 +133,7 @@ def _read_json_file(path: Path, label: str) -> object:
         raise ConfigError(f"{label} is not valid JSON: {error}") from error
 
 
-def read_config(root: Path, folder: Path, packages: Mapping[str, PurePosixPath]) -> ProjectConfig:
+def read_config(folder: Path, packages: Mapping[str, PurePosixPath]) -> ProjectConfig:
     """Read and check one config folder; a config the tools cannot generate from raises ConfigError."""
     name = folder.name
     label = (CONFIGS_FOLDER / name).as_posix()
@@ -159,24 +156,6 @@ def read_config(root: Path, folder: Path, packages: Mapping[str, PurePosixPath])
     if not editor_version:
         raise ConfigError(f"{label}/{PROJECT_VERSION} is missing or names no m_EditorVersion")
 
-    sample_links: dict[str, str] = {}
-    links_file = folder / SAMPLE_LINKS_FILE
-    if links_file.exists():
-        links = _read_json_file(links_file, f"{label}/{SAMPLE_LINKS_FILE}")
-        if not isinstance(links, dict) or not all(isinstance(value, str) for value in links.values()):
-            raise ConfigError(f"{label}/{SAMPLE_LINKS_FILE} must map project folders to package names")
-        for link, package in links.items():
-            path = PurePosixPath(link)
-            if path.is_absolute() or ".." in path.parts or path.parts[:1] != ("Assets",) or len(path.parts) < 2:
-                raise ConfigError(f"{label}/{SAMPLE_LINKS_FILE}: {link} is not a folder below Assets/")
-            if package not in named:
-                raise ConfigError(f'{label}/{SAMPLE_LINKS_FILE}: {package} is not a "{CHECKOUT_PACKAGE}" package of the manifest')
-            if not (root / named[package] / "Samples~").is_dir():
-                raise ConfigError(f"{label}/{SAMPLE_LINKS_FILE}: {named[package]}/Samples~ does not exist")
-            if (folder / link).exists():
-                raise ConfigError(f"{label}/{SAMPLE_LINKS_FILE}: the config itself holds {link}, where the link goes")
-            sample_links[path.as_posix()] = package
-
     return ProjectConfig(
         name=name,
         folder=folder,
@@ -184,7 +163,6 @@ def read_config(root: Path, folder: Path, packages: Mapping[str, PurePosixPath])
         packages=named,
         editor_version=editor_version,
         has_testables=bool(manifest.get("testables")),
-        sample_links=sample_links,
     )
 
 
@@ -195,7 +173,7 @@ def load_configs(root: Path) -> dict[str, ProjectConfig]:
         raise ConfigError(f"{CONFIGS_FOLDER.as_posix()} is missing")
     packages = checkout_packages(root)
     configs = {
-        entry.name: read_config(root, entry, packages)
+        entry.name: read_config(entry, packages)
         for entry in sorted(folder.iterdir(), key=lambda entry: entry.name)
         if entry.is_dir()
     }
@@ -393,7 +371,6 @@ class GenerateResult:
     created: bool = False
     written: list[str] = field(default_factory=list)
     removed: list[str] = field(default_factory=list)
-    linked: list[str] = field(default_factory=list)
     retargeted: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
 
@@ -413,7 +390,7 @@ def expected_files(
     files: dict[str, bytes] = {}
     for source in sorted(path for path in config.folder.rglob("*") if path.is_file()):
         relative = source.relative_to(config.folder).as_posix()
-        if relative in (MANIFEST, SAMPLE_LINKS_FILE):
+        if relative == MANIFEST:
             continue
         files[relative] = source.read_bytes()
 
@@ -483,20 +460,12 @@ def generate_project(
     try:
         files = expected_files(root, config, project, editor_version, editor_path, result)
 
-        # A link goes first, without following it, when the config no longer wants it or it points elsewhere.
-        for relative in sorted(previous.links | set(config.sample_links)):
+        # A link that an earlier run made, into a package's Samples~ before Base dropped its last
+        # sample (#556), goes first, without following it.
+        for relative in sorted(previous.links):
             link = _inside_project(project, relative)
-            wanted = config.sample_links.get(relative)
-            target = (root / config.packages[wanted] / "Samples~").resolve() if wanted else None
             if is_directory_link(link):
-                if target is not None and link.exists() and os.path.samefile(link, target):
-                    continue
                 remove_directory_link(link)
-            elif link.exists() or link.is_symlink():
-                raise GenerateError(f"{link} is a real folder or file where the samples link goes; move it away")
-            if target is not None:
-                create_directory_link(link, target)
-                result.linked.append(f"{relative} -> {target}")
 
         for relative, data in files.items():
             if write_if_changed(_inside_project(project, relative), data):
@@ -516,7 +485,7 @@ def generate_project(
         # Git keeps no empty folder, so a config without assets, such as minimal, holds no Assets/,
         # which a Unity project needs.
         (project / "Assets").mkdir(exist_ok=True)
-        write_record(project, ProjectRecord(files=set(files), links=set(config.sample_links), checkout=owner))
+        write_record(project, ProjectRecord(files=set(files), checkout=owner))
     except OSError as error:
         raise GenerateError(f"refreshing {project} failed: {error}") from error
     return result
@@ -600,8 +569,6 @@ def main(argv: list[str] | None = None) -> int:
     action = "Generated" if result.created else "Refreshed"
     changes = f"{len(result.written)} file(s) written, {len(result.removed)} removed" if result.written or result.removed else "already up to date"
     print(f"{action} {project.as_posix()} from {(CONFIGS_FOLDER / config.name).as_posix()}: {changes}")
-    for link in result.linked:
-        print(f"Linked {link}")
     for warning in result.warnings:
         print(f"warning: {warning}", file=sys.stderr)
     if arguments.editor_version is not None:

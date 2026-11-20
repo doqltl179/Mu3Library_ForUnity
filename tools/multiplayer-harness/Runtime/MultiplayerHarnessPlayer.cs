@@ -447,7 +447,7 @@ namespace MultiplayerHarness
                 return map == LobbyDataValue && !_foundLobby.IsInGame ? Verdict.Pass(detail) : Verdict.Fail(detail);
             }
 
-            // As the sample's guest does: search every second until the lobby shows.
+            // Search every second until the lobby shows.
             if (!_isSearching && Time.realtimeSinceStartup >= _nextSearchTime)
             {
                 _isSearching = true;
@@ -800,7 +800,7 @@ namespace MultiplayerHarness
             return null;
         }
 
-        /// <summary>The argument after the option, unless it is missing or another option, as the sample reads its own.</summary>
+        /// <summary>The argument after the option, unless it is missing or another option.</summary>
         private static string ValueAfter(string[] arguments, string option)
         {
             for (int i = 0; i + 1 < arguments.Length; i++)
