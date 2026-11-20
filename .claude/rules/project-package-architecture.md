@@ -10,14 +10,14 @@ What this repository decided for its package code. Generic Unity and UPM rules l
 
 ## When
 
-- changing or reviewing package code, an `.asmdef`, a define symbol, a sample, or `package.json`.
+- changing or reviewing package code, an `.asmdef`, a define symbol, or `package.json`.
 
 ## Route Away When
 
 - which package or folder: [overview.md](.ai/project/wiki/overview.md),
 - compile targets and EditMode tests: [unity-verification.md](.ai/project/wiki/unity-verification.md),
 - manager initialization, disposal, and async operations, or the Watermelon board commands: [runtime-design.md](.ai/project/wiki/runtime-design.md),
-- sample scenes and prefabs: [unity-yaml-guide.md](.ai/project/wiki/unity-yaml-guide.md),
+- a scene or prefab edit: [unity-yaml-guide.md](.ai/project/wiki/unity-yaml-guide.md),
 - splitting a feature out of Base into a package of its own: [package-split.md](.ai/project/wiki/package-split.md).
 
 ## Package Surfaces

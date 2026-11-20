@@ -1,7 +1,7 @@
 ---
 owns: "Design rules the package runtime has settled on: Base managers' callbacks, initialization, disposal, object ownership, and shared command guards; superseded async operations; the Watermelon board command contracts and list; and the Watermelon board rules"
 volatility: evolving
-reviewed: 2026-10-31
+reviewed: 2026-11-20
 ---
 
 # Runtime Design
@@ -17,7 +17,7 @@ Rules the package runtime follows because a defect or review proved them. Each n
 
 - package surfaces, assemblies, DI, and C# conventions: [package-architecture.md](rules/package-architecture.md),
 - verifying the change: [unity-verification.md](unity-verification.md),
-- editing a sample scene or prefab: [unity-yaml-guide.md](unity-yaml-guide.md).
+- editing a scene or prefab: [unity-yaml-guide.md](unity-yaml-guide.md).
 
 ## Managers
 

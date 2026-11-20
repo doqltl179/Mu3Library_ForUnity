@@ -1,26 +1,20 @@
 ---
-owns: "Scene and prefab edits in this repository's samples: how the kit's edit routes reach a sample here and the procedure for a declared direct-YAML edit"
+owns: "Scene and prefab edits in this repository: the procedure for a declared direct-YAML edit and the extra checks after it"
 volatility: evolving
 reviewed: 2026-11-20
 ---
 
 # Unity YAML Guide
 
-The `unity` stack pack owns how serialized assets change: the route order (live Editor, then a batch-mode Editor script, then direct YAML only as a declared exception), what direct edits never touch, and the checks after one. This page adds what is specific to this repository's samples. No package ships one since Base dropped its last, the Multiplayer sample (ADR 0001 D14, #556).
+The `unity` stack pack owns how serialized assets change: the route order (live Editor, then a batch-mode Editor script, then direct YAML only as a declared exception), what direct edits never touch, and the checks after one. This page adds this repository's procedure for the declared direct-YAML edit. The repository has tracked no scene or prefab since Base dropped its last sample (ADR 0001 D14, #556), so the procedure waits for the next one.
 
 ## When
 
-- changing a sample scene or prefab.
+- changing a scene or prefab.
 
 ## Route Away When
 
-- the route order and the post-edit checks: «Conventions» in [unity.md](../../kit/core/stacks/frameworks/unity.md),
-- what a sample folder is and how samples import: [unity-upm.md](../../kit/core/stacks/frameworks/unity-upm.md),
-- who owns samples: `sample-integrity-engineer` in `.ai/generated/catalog.md`.
-
-## Reaching A Sample
-
-- No package ships a sample since Base dropped its last (ADR 0001 D14, #556), and the tools link no `Samples~` folder into the projects they generate ([tools/README.md](../../../tools/README.md#unity-project-configs)), so no edit route reaches a sample in this repository now.
+- the route order and the post-edit checks: «Conventions» in [unity.md](../../kit/core/stacks/frameworks/unity.md).
 
 ## Declared Direct-YAML Edit
 
