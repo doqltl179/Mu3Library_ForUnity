@@ -10,6 +10,8 @@ Tools, models, frameworks, and practices change faster than any document. This s
 
 The loop: the **tech radar** says what to watch → `trend-scout` scans it and files **intake** records → accepted changes become update units → **versioning** ships them with migration notes → projects run `kit-update`. In parallel, **freshness** metadata forces every file to be re-verified on a cadence, and **model calibration** retires rules that newer models no longer need.
 
+Most of this machinery runs only in the kit repository. A page whose «When» says it applies when maintaining the kit repository is read-only in an installed project; the other pages, and the exceptions each such page names, apply in every project.
+
 <!-- agentkit:begin index -->
 | Page | Owns |
 |---|---|

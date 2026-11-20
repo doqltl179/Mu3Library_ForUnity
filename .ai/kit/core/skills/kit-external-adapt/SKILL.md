@@ -13,7 +13,7 @@ reviewed: 2026-10-09
 - An intake record points at outside guidance that needs mapping into kit files.
 
 ## Do Not Use When
-- Routine checks of watched tools and stacks → `kit-trend-scan`.
+- Routine checks of watched tools and stacks → `kit-trend-scan` in the kit repository; in an installed project, `kit-update`, since kit releases carry what the kit's scans found.
 - The guidance only concerns this project, not the kit → `kit-page-add` or `kit-page-update` in `.ai/project/wiki/`.
 
 ## Inputs

@@ -27,7 +27,7 @@ reviewed: 2026-10-09
 2. Confirm the working tree is clean and the branch contains only this unit's commits: `git status --short` and `git log --oneline <base>..HEAD`.
 3. Push the branch with upstream tracking if it is not pushed yet: `git push -u origin <branch>`.
 4. Compose the title and body per «Pull Request Body» in [issues-and-prs.md](../../wiki/workflows/issues-and-prs.md), in the language set by `project.language`.
-5. Link issues per «Linking Issues» and choose labels per «Labels» on the same page.
+5. Link issues per «Linking Issues» and choose labels per «Labels» on the same page, from those the repository has.
 6. Create the pull request: `gh pr create --base <base> --head <branch> --title "<title>" --body-file <file>` plus `--label` flags. Write the body to a temporary file to preserve formatting.
 7. Check mergeability per «Mergeability Check»: `gh pr view <number> --json mergeable,mergeStateStatus`. On conflict, run `git-conflict-resolve`, re-verify, and push.
 8. Register leftover work as issues per «Leftovers Become Issues» with `github-issue-create`.

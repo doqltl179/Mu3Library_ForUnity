@@ -10,7 +10,7 @@ The single owner of how project terms are written in each language. Look terms u
 
 ## Terms
 
-One row per concept, one column per locale in `docs.locales`. `=` means "keep exactly as written in the source".
+One row per concept, one column per language of the localized copies («Human-Facing Docs» in [overview.md](overview.md)). `=` means "keep exactly as written in the source".
 
 | Source term | Meaning and context | ko | ja |
 |---|---|---|---|

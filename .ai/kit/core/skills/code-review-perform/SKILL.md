@@ -40,7 +40,7 @@ reviewed: 2026-10-09
 - Scope: the diff meets every rule in [change-scope.md](../../wiki/workflows/change-scope.md).
 - Maintainability: the change fits existing patterns and the project's documented conventions (stack packs, project rules, contributing guide), citing the rule for each finding; names state what things do and use the project's terms per [domain-terms.md](../../wiki/workflows/domain-terms.md); no duplicated logic or unreachable code.
 - Tests: new behavior and fixed bugs have tests that fail without the change; no skipped tests, loosened assertions, or mocked-away failures per «Never Fake Success» in [integrity.md](../../wiki/principles/integrity.md).
-- Doc sync: owning docs, the changelog, and localized variants changed with the behavior per «Doc Sync Rule» in [documentation.md](../../wiki/workflows/documentation.md).
+- Doc sync: owning docs changed with the behavior per «Doc Sync Rule» in [documentation.md](../../wiki/workflows/documentation.md), and so did the changelog when the project keeps one per «Changelog» on the same page.
 - Evidence: every verification claim by the author is backed by a quoted command and result from this change.
 
 ## Output

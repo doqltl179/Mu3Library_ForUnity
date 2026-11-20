@@ -2,6 +2,8 @@
 owns: "Session startup: path conventions, the route map to the smallest owning page, and stop-first guardrails"
 volatility: evolving
 reviewed: 2026-10-09
+# `{{condition|text|other text}}` renders `text` when the condition holds for the merged profile, otherwise
+# `other text` or nothing; agentkit.py `profile_conditions` defines each condition.
 ---
 
 # Agent Start
@@ -50,8 +52,8 @@ Each line's full rule lives on the linked page.
 - Stop when the request is impossible; pause for scope expansion or a decision the user owns — [integrity.md](wiki/principles/integrity.md)
 - Change only what the request needs, and remove what your change left unused — [change-scope.md](wiki/workflows/change-scope.md)
 - Confirm before destructive, irreversible, or outward-facing actions — [integrity.md](wiki/principles/integrity.md)
-- Each unit: issue first, its own worktree from the integration branch, pull request back into it — [request-lifecycle.md](wiki/operating-model/request-lifecycle.md)
-- Never commit directly to a protected branch or edit files in the main checkout — [git-workflow.md](wiki/workflows/git-workflow.md)
+- Each unit: {{issue-first|issue first, }}its own {{worktrees|worktree|task branch (in its own worktree when units run at the same time)}} from the integration branch{{platform|, pull request back into it|, merged back with a recorded merge commit after the user approves («Scaling The Order»)}} — [request-lifecycle.md](wiki/operating-model/request-lifecycle.md)
+- Never commit directly to a protected branch{{worktrees| or edit files in the main checkout}} — [git-workflow.md](wiki/workflows/git-workflow.md)
 - One fact, one owner: link instead of copying; never edit generated or kit files — [ssot.md](wiki/principles/ssot.md)
 - Read narrowly and answer with the smallest complete result — [context-budget.md](wiki/operating-model/context-budget.md)
 - Report to the user in the language set by `project.language` — [handoff-contract.md](wiki/operating-model/handoff-contract.md)

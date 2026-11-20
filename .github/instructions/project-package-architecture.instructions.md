@@ -72,4 +72,4 @@ In order of severity:
 2. Public API compatibility: interfaces, classes, methods, and properties.
 3. Assembly boundary safety: minimal and correct `.asmdef` references, dependency direction.
 4. Optional gate and dependency correctness: every optional-package use inside its define symbol, and every Unity package or built-in module newly used outside a gate declared in `package.json` `dependencies`.
-5. Alignment: `.meta`-safe asset operations, README and CHANGELOG with their localized copies, and verification evidence.
+5. Alignment: `.meta`-safe asset operations, README and CHANGELOG (their localized copies follow at release, per «Localized Copies» in [package-release.md](.ai/project/wiki/package-release.md)), and verification evidence.

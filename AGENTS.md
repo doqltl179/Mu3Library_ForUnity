@@ -46,8 +46,8 @@ Each line's full rule lives on the linked page.
 - Stop when the request is impossible; pause for scope expansion or a decision the user owns — [integrity.md](.ai/kit/core/wiki/principles/integrity.md)
 - Change only what the request needs, and remove what your change left unused — [change-scope.md](.ai/kit/core/wiki/workflows/change-scope.md)
 - Confirm before destructive, irreversible, or outward-facing actions — [integrity.md](.ai/kit/core/wiki/principles/integrity.md)
-- Each unit: issue first, its own worktree from the integration branch, pull request back into it — [request-lifecycle.md](.ai/kit/core/wiki/operating-model/request-lifecycle.md)
-- Never commit directly to a protected branch or edit files in the main checkout — [git-workflow.md](.ai/kit/core/wiki/workflows/git-workflow.md)
+- Each unit: issue first, its own task branch (in its own worktree when units run at the same time) from the integration branch, pull request back into it — [request-lifecycle.md](.ai/kit/core/wiki/operating-model/request-lifecycle.md)
+- Never commit directly to a protected branch — [git-workflow.md](.ai/kit/core/wiki/workflows/git-workflow.md)
 - One fact, one owner: link instead of copying; never edit generated or kit files — [ssot.md](.ai/kit/core/wiki/principles/ssot.md)
 - Read narrowly and answer with the smallest complete result — [context-budget.md](.ai/kit/core/wiki/operating-model/context-budget.md)
 - Report to the user in the language set by `project.language` — [handoff-contract.md](.ai/kit/core/wiki/operating-model/handoff-contract.md)
@@ -55,16 +55,21 @@ Each line's full rule lives on the linked page.
 ## This Project
 
 - Project: **Mu3Library_ForUnity** — Reusable Unity UPM packages (Addressables, Base, DI, Input System, Localization, Notifications, Steam, URP, Watermelon Game) that external Unity projects install through Git URLs; the tools generate the Unity projects that exercise them from the configs in tools/unity-projects.
-- Kit: version 0.10.1, `.ai/kit/` (read-only here). CLI: `python .ai/kit/tools/agentkit.py <sync|check|freshness|new|update>`
+- Kit: version 1.0.1, `.ai/kit/` (read-only here). CLI: `python .ai/kit/tools/agentkit.py <sync|check|freshness|new|update>`
 - Overlay: `.ai/project/` · Owners and skills: `.ai/generated/catalog.md` · Project wiki: `.ai/project/wiki/README.md` · Lessons: `.ai/project/lessons.md`
 - Human-facing language: `ko`
 
 ### Project Rules
 
+An entry that starts with `Replaces «<Section>» in <page>.md:` replaces, in this project, the rules of that core section it contradicts, including their summary lines in «Stop First», per «Layers and Precedence» in [ssot.md](.ai/kit/core/wiki/principles/ssot.md).
+
 - Behavior lands in the packages under packages/; the projects generated from tools/unity-projects only consume and exercise them (.ai/project/wiki/overview.md).
 - No breaking change to a package's public API unless the request asks for it.
 - Verify package code with commands.build, which runs the Unity Editor CLI; never substitute dotnet build on the generated .csproj files.
 - Test each feature's intent, role, and common usages; do not hunt situations no real use has shown, nor file a reviewer's hypothetical as a follow-up (.ai/project/lessons.md).
+- README.md and CHANGELOG.md have ko and ja copies at docs/readme/README.{ko,ja}.md and docs/changelog/CHANGELOG.{ko,ja}.md; a unit changes only the English source, and each release unit brings all four copies up to their sources as a whole («Localized Copies» in .ai/project/wiki/package-release.md).
+- Replaces «Worktrees» in git-workflow.md: a unit's worktree folder is <worktree_root>/<short-name> of the session's checkout, such as .worktrees/n430 for issue #430, not the branch name, to keep paths short (.ai/project/wiki/overview.md).
+- Replaces «Cleanup» in git-workflow.md: a Claude app worktree (.claude/worktrees/<name>) that holds a unit's branch belongs to the app, so cleanup keeps it and moves it to the session's own branch instead of removing it (.ai/project/wiki/overview.md).
 
 ### Commands
 
@@ -92,17 +97,17 @@ Not available (report the gap, do not guess): `install`, `lint`, `format`, `type
 | `policy.branch_pattern` | <type>/<scope>-<summary> |
 | `policy.commit_convention` | conventional |
 | `policy.commit_language` | — |
+| `policy.review_gate` | non-trivial |
 | `hosting.platform` | github |
 | `hosting.ci` | false |
 | `hosting.area_labels` | base, urp, watermelon, notifications, inputsystem, localization, addressables, di, steam, agents, tooling |
 | `docs.readme` | README.md |
 | `docs.changelog` | CHANGELOG.md |
 | `docs.source_locale` | en |
-| `docs.locales` | ko, ja |
-| `docs.locale_pattern` | docs/{locale}/{name} |
 | `docs.specs_dir` | docs/specs |
 | `docs.adr_dir` | docs/adr |
 | `docs.glossary` | .ai/project/wiki/glossary.md |
-| `docs.locale_paths` | README.md → docs/readme/README.{locale}.md; CHANGELOG.md → docs/changelog/CHANGELOG.{locale}.md |
 | `release.tag_pattern` | v{version} |
 | `release.packages` | base, urp, watermelon, notifications, inputsystem, localization, addressables, di, steam |
+| `evolution.upstream` | https://github.com/doqltl179/ai-agents |
+| `evolution.propose_upstream` | false |

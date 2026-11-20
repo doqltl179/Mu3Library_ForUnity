@@ -6,7 +6,7 @@ reviewed: 2026-10-09
 
 # Freshness Policy
 
-Every source file says how fast its content goes stale and when it was last verified. `agentkit.py freshness` turns that into a review queue.
+Every kit file, and each overlay file that opts in, says how fast its content goes stale and when it was last verified. `agentkit.py freshness` turns that into a review queue.
 
 ## When
 
@@ -25,6 +25,8 @@ Every source file says how fast its content goes stale and when it was last veri
 | `volatility` | How fast the content goes stale; one value from «Cadence» |
 | `reviewed` | `YYYY-MM-DD` of the last verification against sources and reality |
 | `sources` | Primary sources a reviewer re-checks; required for `volatile` pages and every stack pack |
+
+`volatility` and `reviewed` are required on every kit file. On overlay files (`.ai/project/`) they are optional: `freshness` and `check` track an overlay file only when it has both, so a project opts in file by file.
 
 ## Cadence
 

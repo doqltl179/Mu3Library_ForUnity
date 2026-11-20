@@ -19,22 +19,22 @@ reviewed: 2026-10-09
 
 ## Inputs
 - The release request and its scope: included work and target channels.
-- `policy.release_branch`, `policy.protected_branches`, `docs.changelog`, `docs.locales`, `commands.build`, and `commands.test` from the profile.
+- `policy.release_branch`, `policy.protected_branches`, `docs.changelog`, `commands.build`, and `commands.test` from the profile.
 - The previous release tag of the repository, or of each package in scope: `git describe --tags --abbrev=0 --match '<glob>' origin/<release_branch>`, where `<glob>` is `release.tag_pattern`, or the package's `tag_pattern`, with `{version}` replaced by `*`. Read it from the release branch, where «Release Unit» in [release.md](../../wiki/workflows/release.md) puts the tag; when the two branches differ, the integration branch may not contain the tagged commit.
 
 ## Steps
 1. Confirm the release was requested and its scope fits «Release Unit» in [release.md](../../wiki/workflows/release.md). If either is unclear, stop and ask.
-2. Run «Preflight» in [git-workflow.md](../../wiki/workflows/git-workflow.md) in the main checkout. Confirm the integration head is verified per «Promotion» in release.md: the latest CI run passed (`gh run list --branch <integration_branch> --limit 1`), or with `hosting.ci = false` the full verification passed on a fresh checkout of it.
-3. Fix the scope per «Release Scope» in release.md. For each package in scope, or the repository as a whole, list what ships (`git log --oneline <previous-tag>..origin/<integration_branch> -- <package path>`) and its Unreleased changelog section; flag commits with no entry.
+2. Run «Preflight» in [git-workflow.md](../../wiki/workflows/git-workflow.md) in the main checkout. Confirm the integration head is verified per «Promotion» in release.md: the latest CI run passed (with `hosting.platform = "github"`, `gh run list --branch <integration_branch> --limit 1`; otherwise the project's CI shows it), or with `hosting.ci = false` the full verification passed on a fresh checkout of it.
+3. Fix the scope per «Release Scope» in release.md. For each package in scope, or the repository as a whole, list what ships (`git log --oneline <previous-tag>..origin/<integration_branch> -- <package path>`). When it keeps a changelog per «Changelog» in [documentation.md](../../wiki/workflows/documentation.md), also list its Unreleased section and flag commits with no entry.
 4. Choose each version in scope per «Version Numbers» in release.md.
-5. Start the version unit per «Release Unit» in release.md: its issue (when `policy.issue_first` is on), then its worktree with `git-branch-start`.
-6. Finalize `docs.changelog` per «Changelog Finalization» in release.md, and its localized variants per «Localized Variants» in [documentation.md](../../wiki/workflows/documentation.md).
+5. Start the version unit per «Release Unit» in release.md: its issue (when `policy.issue_first` is on and `hosting.platform` is not `"none"`), then its task branch with `git-branch-start`.
+6. Finalize each changelog in scope per «Changelog Finalization» in release.md; skip this step when the project keeps none.
 7. Bump every version declaration: find them with `rg -n "<current-version>"`, and change only the project's own version fields, never dependency versions.
 8. Run `commands.build` and `commands.test` and record results per «Evidence Format» in [verification.md](../../wiki/workflows/verification.md). Stop on any failure.
-9. Commit with `git-commit`, open the pull request into the integration branch with `github-pr-create`, and wait until it merges. When `policy.release_branch` differs, open the promotion pull request per «Promotion» in release.md (`gh pr create --base <release_branch> --head <integration_branch>`) and wait until it merges.
+9. Commit with `git-commit`. With `hosting.platform = "github"`, open the pull request into the integration branch with `github-pr-create`, and wait until it merges; when `policy.release_branch` differs, open the promotion pull request per «Promotion» in release.md (`gh pr create --base <release_branch> --head <integration_branch>`) and wait until it merges. With `"none"`, merge the version branch into the integration branch per «Scaling The Order» in [request-lifecycle.md](../../wiki/operating-model/request-lifecycle.md); when `policy.release_branch` differs, promote per «Promotion» in release.md.
 10. Draft the tag and release notes per «Tags And Notes» in release.md for the release commit on `policy.release_branch` (the commit the promotion produced, or the merged version commit when both branches are the same). Create the annotated tag locally: `git tag -a <tag> <commit> --cleanup=verbatim -F <notes-file>`; the default cleanup deletes lines starting with `#`, such as the notes' Markdown headings.
 11. Show the user the version, tag, commit ID, notes, and publish targets, and get explicit confirmation per «Confirm Before Irreversible Or Outward Actions» in [integrity.md](../../wiki/principles/integrity.md). Approval covers only the actions shown.
-12. After confirmation, push the tag (`git push origin <tag>`) and publish per «Publishing» in release.md. Verify the result, for example `gh release view <tag>`.
+12. After confirmation, push the tag (`git push origin <tag>`) and publish per «Publishing» in release.md. Verify the result, for example `gh release view <tag>` with `hosting.platform = "github"`, or `git ls-remote --tags origin <tag>` with `"none"`.
 
 ## Output
 - The version, tag, release commit ID, and finalized changelog section.

@@ -16,7 +16,7 @@ Mission: give human readers accurate, findable documentation that matches the be
 
 ## Does Not Own
 - Agent-facing kit and overlay docs → `kit-librarian`
-- Localized variants and glossary renderings → `localization-specialist`
+- Translations of docs and glossary renderings → `localization-specialist`
 - Deciding or completing undocumented behavior → the unit's execution owner
 - Adding changelog entries → the change's execution owner; finalizing released sections, release notes, publishing → `release-manager`
 - Specifications → `requirements-analyst`; ADRs → `software-architect`; runbooks → `observability-engineer`
@@ -25,7 +25,6 @@ Mission: give human readers accurate, findable documentation that matches the be
 ## Domain Checks
 - Every documented command, option, and example was run or checked against the code in this task.
 - Behavior not found in code, tests, specs, or ADRs is reported as a gap to its owner, never invented.
-- A source-doc change that has localized variants is handed to `localization-specialist` in the same unit.
 - Every changed link and anchor resolves.
 - Wording follows the project's existing terminology and tone.
 

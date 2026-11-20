@@ -15,7 +15,7 @@ reviewed: 2026-10-09
 ## Do Not Use When
 - `hosting.platform` is not `"github"` → list the item in the task report instead.
 - Reviewing, relabeling, or closing existing issues → `github-issue-triage`.
-- The request needs a full requirements specification → `requirements-spec-write`, then link the spec from the issue.
+- The request needs a full requirements specification → `requirements-spec-write`, then link the spec from the issue, or keep it in the issue body when `docs.specs_dir` is empty.
 
 ## Inputs
 - What is wrong or wanted, and the evidence: reproduction steps, command output, paths, links.
@@ -26,11 +26,11 @@ reviewed: 2026-10-09
 2. Search for duplicates with at least two distinct keyword sets: `gh issue list --state all --search "<keywords>" --limit 30`. Read each candidate: `gh issue view <number>`.
 3. If an open issue already covers it, add only the new facts as a comment (`gh issue comment <number> --body-file <file>`), report that number, and stop. If a closed issue covers it, link it in the new body.
 4. Compose the title and body per «Issue Body» in issues-and-prs.md, in `project.language`. Redact secrets from quoted output per «Secrets And Sensitive Data» in [integrity.md](../../wiki/principles/integrity.md). Write the body to a temporary file.
-5. Choose labels per «Labels» from those that exist: `gh label list --limit 100`.
+5. Choose labels per «Labels» from those the repository has: `gh label list --limit 100`. When «Labels» says to propose a label first, create the issue without it and carry the proposal into the output.
 6. If the work cannot start until other work lands, mark it per «Blocked Issues».
 7. Create the issue: `gh issue create --title "<title>" --body-file <file>` plus one `--label <name>` per label.
 8. Confirm it: `gh issue view <number> --json number,url,labels`.
 
 ## Output
-- The issue number and URL, its labels, and its blocked state; or the existing issue that was commented on instead.
+- The issue number and URL, its labels, any label proposal for the user, and its blocked state; or the existing issue that was commented on instead.
 - The duplicates found and how each was handled.

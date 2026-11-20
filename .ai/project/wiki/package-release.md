@@ -1,5 +1,5 @@
 ---
-owns: "How the Mu3Library packages are released beyond the profile's [[release.packages]]: the root changelog headers, install URLs, the dependency versions checked at a package's first release, and GitHub Release titles and notes"
+owns: "How the Mu3Library packages are released beyond the profile's [[release.packages]]: the root changelog headers, when the ko and ja copies of README and CHANGELOG follow their sources, install URLs, the dependency versions checked at a package's first release, and GitHub Release titles and notes"
 volatility: evolving
 reviewed: 2026-11-19
 ---
@@ -14,11 +14,11 @@ The kit's [release.md](../../kit/core/wiki/workflows/release.md) owns the releas
 
 ## Route Away When
 
-- the changelog's localized copies: «Human-Facing Docs» in [overview.md](overview.md).
+- where the localized copies lie and the other doc layout rules: «Human-Facing Docs» in [overview.md](overview.md).
 
 ## Changelogs And Titles
 
-The detailed notes go in the root `CHANGELOG.md` (and its localized copies) under a per-package header. The package-local `CHANGELOG.md` gets a short entry for the same version that points to the root entry, in the same commit. In every package its header is `## [X.Y.Z] - YYYY-MM-DD`, the version without the tag path, and its entry reads ``- See `<package>/X.Y.Z` in the repository root `CHANGELOG.md`.``, optionally followed by highlights, with `<package>` the tag path of the root header (`game/watermelon` for Watermelon Game).
+The detailed notes go in the root `CHANGELOG.md` under a per-package header; its localized copies follow per «Localized Copies» below. The package-local `CHANGELOG.md` gets a short entry for the same version that points to the root entry, in the same commit. In every package its header is `## [X.Y.Z] - YYYY-MM-DD`, the version without the tag path, and its entry reads ``- See `<package>/X.Y.Z` in the repository root `CHANGELOG.md`.``, optionally followed by highlights, with `<package>` the tag path of the root header (`game/watermelon` for Watermelon Game).
 
 | Package | Root `CHANGELOG.md` header | Release title |
 |---|---|---|
@@ -34,6 +34,14 @@ The detailed notes go in the root `CHANGELOG.md` (and its localized copies) unde
 
 - Plain `vX.Y.Z` tags (`v0.0.20` through `v0.6.0`) are historical.
 - The Watermelon Game tag path is `game/watermelon` while its commit scope is `watermelon`; keep each as written.
+
+## Localized Copies
+
+Units change only `README.md` and `CHANGELOG.md`, in English, and leave `docs/readme/README.{ko,ja}.md` and `docs/changelog/CHANGELOG.{ko,ja}.md` as they are (`project.guardrails`). Package users read the docs at release tags, and translating in every unit repeated the work at each review fix and again when the release reworded the Unreleased entries.
+
+- Each release unit brings the four copies up to their English sources in its release commit, after the changelog is finalized: translate every difference per the `translate` skill and the glossary at `docs.glossary`, the sections of packages this release does not ship included, so that each copy matches its source at the tag.
+- Keep the same section structure as the source and the links between the copies; `mu3-repo check` verifies the README links.
+- A request that asks for a translation outside a release, such as a fix to a copy, is done in that unit.
 
 ## Install URLs
 

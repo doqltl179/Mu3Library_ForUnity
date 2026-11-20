@@ -20,7 +20,7 @@ Applies when `hosting.platform` is `github`; the `github-*` skills walk these ru
 
 ## Platform Preflight
 
-Before the first `gh` command of a task, confirm `gh auth status` passes and `gh repo view --json nameWithOwner` names the repository in scope. Stop on either failure; never fall back to another account or repository.
+Before the first `gh` command of a task, confirm `gh auth status` passes and `gh repo view --json nameWithOwner` names the repository in scope. Stop on either failure; «Confirm Before Irreversible Or Outward Actions» in [integrity.md](../principles/integrity.md) rules out falling back to another account or repository.
 
 ## Repository Settings
 
@@ -42,25 +42,23 @@ Every issue states:
 2. **Why** — the problem or value, with evidence.
 3. **Done when** — the observable condition that closes it, and what stays out of scope when adjacent work could be mistaken for part of it.
 
-An item without a "done when" is a pending decision: label it `analysis` and make the decision the task.
+An item without a "done when" is a pending decision: make the decision the task, and apply the project's label for such items (for example `analysis`) when it has one.
 
 An issue may wait while the code moves. Describe the behavior and the interfaces involved; quote file paths and line numbers only as evidence, never as the description of the work.
 
 ## Labels
 
-Two axes, one label each, plus optional markers.
+The project owns its label set. Apply only labels the target repository already has (`gh label list --limit 100`), and never force a wrong one; an issue filed in the kit repository with `kit-upstream-propose` takes the label that skill names.
 
-| Axis | Labels |
-|---|---|
-| Kind | `bug`, `enhancement`, `documentation`, `follow-up`, `analysis` |
-| Area | One label per project area, created to match commit scopes |
-| Marker | `blocked`, `intake` (kit change proposals) |
+- Kind: at most one label saying what the item is. When the project has no kind labels, propose `bug`, `enhancement`, and `documentation` to the user before creating any, and leave items without a kind label until they confirm.
+- Area: only when `hosting.area_labels` lists areas. Each listed area has one label, matching the commit scope of the same name; apply at most one.
+- `blocked`: an optional marker, applied per «Blocked Issues» when the project has it.
 
-Create a missing label with a description (`gh label create <name> --description "<when to apply>"`) rather than forcing a wrong one. GitHub limits label descriptions to 100 characters: write one short clause saying when to apply the label, and keep it free of file paths that may move.
+Create only a label this section calls for: a kind label the user confirmed, or an area listed in `hosting.area_labels`. Give it a description (`gh label create <name> --description "<when to apply>"`). GitHub limits label descriptions to 100 characters: write one short clause saying when to apply the label, and keep it free of file paths that may move.
 
 ## Blocked Issues
 
-Apply `blocked` only when starting now would produce nothing: it waits on a user decision, another issue (named by number), or something outside the repository. The body states what removes the label. Remove it as soon as that condition clears.
+Mark an issue blocked only when starting now would produce nothing: it waits on a user decision, another issue (named by number), or something outside the repository. The body states what blocks it and what clears it, and the issue gets the `blocked` label when the project has one. Remove the label as soon as that condition clears.
 
 ## Triage And Closing
 

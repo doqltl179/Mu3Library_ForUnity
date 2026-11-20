@@ -1,7 +1,5 @@
 ---
 owns: "Project-specific knowledge the kit leaves open: architecture, domain terms, module map, local conventions, environments"
-volatility: evolving
-reviewed: {{date}}
 ---
 
 # Project Wiki

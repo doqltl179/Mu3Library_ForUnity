@@ -22,11 +22,11 @@ Stable design rationale. Open it to understand or change the structure; day-to-d
 
 | Layer | Location | Owned by | Role |
 |---|---|---|---|
-| Core kit | `core/`, `tools/agentkit.py` (installed at `.ai/kit/`) | Kit maintainers, changed upstream | Invariants, defaults, roles, procedures, stack knowledge |
-| Project overlay | `.ai/project/` | The project | Facts, parameters, active roles, bindings, local roles and procedures |
+| Core kit | `core/`, `tools/agentkit.py` (installed at `.ai/kit/`) | Kit maintainers, changed upstream | Invariants, policy defaults a project may replace, roles, procedures, stack knowledge |
+| Project overlay | `.ai/project/` | The project | Facts, parameters, replacements of core policy sections, active roles, bindings, local roles and procedures |
 | Generated | Entry files, tool folders, `.ai/generated/` | `agentkit.py sync` | Tool-specific views of the two layers above |
 
-The core is portable because everything project-specific is a parameter in the overlay. The generated layer exists because each AI tool reads a different file layout; rendering those layouts from one source keeps a single owner per fact while every tool gets native files.
+The core is portable because everything project-specific lives in the overlay: a parameter the core exposes, or a replacement of a core policy section per «Layers and Precedence» in [ssot.md](../principles/ssot.md); only the invariants bind every project unchanged. The generated layer exists because each AI tool reads a different file layout; rendering those layouts from one source keeps a single owner per fact while every tool gets native files.
 
 ## Planes
 

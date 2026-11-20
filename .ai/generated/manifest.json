@@ -1,6 +1,6 @@
 {
   "_generated": "agentkit:generated; do not edit",
-  "kit_version": "0.10.1",
+  "kit_version": "1.0.1",
   "files": [
     ".agents/skills/adr-write/SKILL.md",
     ".agents/skills/asmdef-triage/SKILL.md",
@@ -31,7 +31,6 @@
     ".agents/skills/kit-page-update/SKILL.md",
     ".agents/skills/kit-role-audit/SKILL.md",
     ".agents/skills/kit-skill-add/SKILL.md",
-    ".agents/skills/kit-stack-add/SKILL.md",
     ".agents/skills/kit-update/SKILL.md",
     ".agents/skills/kit-upstream-propose/SKILL.md",
     ".agents/skills/new-content-propose/SKILL.md",
@@ -94,7 +93,6 @@
     ".claude/skills/kit-page-update/SKILL.md",
     ".claude/skills/kit-role-audit/SKILL.md",
     ".claude/skills/kit-skill-add/SKILL.md",
-    ".claude/skills/kit-stack-add/SKILL.md",
     ".claude/skills/kit-update/SKILL.md",
     ".claude/skills/kit-upstream-propose/SKILL.md",
     ".claude/skills/new-content-propose/SKILL.md",

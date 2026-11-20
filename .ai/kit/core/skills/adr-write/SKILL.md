@@ -14,6 +14,7 @@ reviewed: 2026-10-09
 - An accepted record no longer holds and must be superseded.
 
 ## Do Not Use When
+- `docs.adr_dir` is empty → record the decision where «Decision Records» in [documentation.md](../../wiki/workflows/documentation.md) puts it.
 - The decision is cheap to reverse, had no real alternative, or is the obvious default → state it in the commit or pull request body instead.
 - Deciding what to build rather than how → `requirements-spec-write`.
 - Describing how existing behavior works → `project-docs-sync`.

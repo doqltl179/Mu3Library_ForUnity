@@ -72,7 +72,7 @@ Mu3Library is a set of reusable Unity UPM packages that external projects instal
 
 ## Human-Facing Docs
 
-- `README.md` and `CHANGELOG.md` are English; their localized copies are listed in `[docs.locale_paths]`.
+- `README.md` and `CHANGELOG.md` are English; their ko and ja copies are `docs/readme/README.{ko,ja}.md` and `docs/changelog/CHANGELOG.{ko,ja}.md`. A unit changes only the English source, and the release unit brings the copies up to it («Localized Copies» in [package-release.md](package-release.md)).
 - When `CHANGELOG.md` changes, check whether `README.md` needs the same change: new features, changed signatures, new define symbols, usage examples.
 - `CHANGELOG.md` tracks package releases only, under per-package headers ([package-release.md](package-release.md)). Repository workflow and tooling changes go to `docs/repository/CHANGELOG.md`.
 - `README.md` keeps its links to both localized READMEs and to `CHANGELOG.md`; `mu3-repo check` verifies them.
