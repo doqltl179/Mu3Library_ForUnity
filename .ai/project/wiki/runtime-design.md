@@ -16,8 +16,7 @@ Rules the package runtime follows because a defect or review proved them. Each n
 ## Route Away When
 
 - package surfaces, assemblies, DI, and C# conventions: [package-architecture.md](rules/package-architecture.md),
-- verifying the change: [unity-verification.md](unity-verification.md),
-- editing a scene or prefab: [unity-yaml-guide.md](unity-yaml-guide.md).
+- verifying the change: [unity-verification.md](unity-verification.md).
 
 ## Managers
 
