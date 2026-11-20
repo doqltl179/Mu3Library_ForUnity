@@ -3,7 +3,7 @@ name: asmdef-triage
 description: "Diagnose a Unity assembly-definition problem in the Mu3Library packages and choose the narrowest fix: missing or wrong references, optional-package define gates, code in the wrong assembly, or compile fallout. Use when a compile error points at assembly boundaries or an .asmdef edit is proposed; it first decides whether the edit is needed at all."
 category: code-change
 volatility: evolving
-reviewed: 2026-11-15
+reviewed: 2026-11-20
 ---
 
 # Asmdef Triage
@@ -25,7 +25,7 @@ reviewed: 2026-11-15
 2. Classify the cause: the code sits in the wrong surface, a reference is missing, a define gate is wrong, or no `.asmdef` change is needed.
 3. Decide which surface the code belongs to per «Package Surfaces» and «Assemblies And Optional Integrations» in [package-architecture.md](../../wiki/rules/package-architecture.md) before touching assembly metadata.
 4. Take the narrowest fix first: move the code, then split an optional integration into its gated file, and only then change references.
-5. When the fix touches a public API, `package.json`, a sample, or README/CHANGELOG, hand that part to its owner instead of widening the fix.
+5. When the fix touches a public API, `package.json`, or README/CHANGELOG, hand that part to its owner instead of widening the fix.
 6. Verify with the compile targets that include the affected assemblies per [unity-verification.md](../../wiki/unity-verification.md).
 
 ## Output
