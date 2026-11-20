@@ -7,6 +7,14 @@ Package release notes remain in:
 - `docs/changelog/CHANGELOG.ko.md`
 - `docs/changelog/CHANGELOG.ja.md`
 
+## 2026-11-20 (multiplayer sample removal)
+
+### Changed
+- The `full` project config no longer holds `sample-links.json` and `Assets/Mu3LibrarySamples.meta`, since Base's last sample, the Multiplayer sample, is gone (#556, ADR 0001 D14, D17), so `full` compiles no sample any more. The generator still links the `Samples~` of a package that a config's `sample-links.json` names, but no config holds one. The `--scene` example of `mu3-verify-build`, in its help and in [tools/README.md](../../tools/README.md#verification-build), names a scene saved into the project, `Assets/Scenes/Check.unity`, where it named the sample's. The multiplayer harness, which took over the sample's unattended run (#547), is unchanged.
+
+### What an existing checkout needs
+- Nothing: the next run refreshes each generated `full` project and removes its `Assets/Mu3LibrarySamples` link, without following it, and that link's `.meta` file. A work folder whose `full` project no run has refreshed since keeps the junction into the checkout's `Samples~`; delete it by hand as [Unity Project Configs](../../tools/README.md#unity-project-configs) says.
+
 ## 2026-11-17 (multiplayer harness)
 
 ### Added

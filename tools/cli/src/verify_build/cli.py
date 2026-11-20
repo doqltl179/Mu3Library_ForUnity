@@ -339,7 +339,7 @@ def verify_build(
     fresh: bool = typer.Option(False, "--fresh", help="Delete the project and the players in --work-dir and generate a new project."),
     build: bool = typer.Option(True, "--build/--no-build", help="Build the player, or only generate and change the project."),
     scene: list[str] | None = typer.Option(
-        None, "--scene", help="Scene asset of the project to build, such as Assets/Mu3LibrarySamples/...; repeat for more. Default: one empty scene."
+        None, "--scene", help="Scene asset of the project to build, such as Assets/Scenes/Check.unity; repeat for more. Default: one empty scene."
     ),
     build_timeout: int = typer.Option(
         3600, "--build-timeout", help="Seconds Unity may take to open the project and build, after which it is stopped."

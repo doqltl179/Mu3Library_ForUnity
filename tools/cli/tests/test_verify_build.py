@@ -115,7 +115,7 @@ class ProjectNameTests(unittest.TestCase):
 
 class SceneCheckTests(unittest.TestCase):
     def test_a_scene_is_an_asset_path_of_a_unity_scene(self) -> None:
-        self.assertIsNone(scene_problem("Assets/Mu3LibrarySamples/Multiplayer/Sample_Multiplayer.unity"))
+        self.assertIsNone(scene_problem("Assets/Scenes/Check.unity"))
         self.assertIsNone(scene_problem("Packages/com.example/Scenes/A.unity"))
         for scene in ("C:/x/A.unity", "/Assets/A.unity", "Assets\\A.unity", "Assets/../A.unity", "Library/A.unity", "Assets/A.prefab"):
             with self.subTest(scene=scene):

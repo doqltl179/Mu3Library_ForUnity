@@ -23,7 +23,7 @@ namespace MultiplayerHarness
         private const string TimeoutOption = "-mpharness-timeout";
 
         // The machine-wide network and the game ID of the harness alone, so that no other game on
-        // this computer, the Multiplayer sample among them, sees its lobbies.
+        // this computer sees its lobbies.
         private const string NetworkName = "mu3library-multiplayer-harness";
         private const int ProtocolVersion = 1;
 
