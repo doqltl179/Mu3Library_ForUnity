@@ -7,6 +7,15 @@ Package release notes remain in:
 - `docs/changelog/CHANGELOG.ko.md`
 - `docs/changelog/CHANGELOG.ja.md`
 
+## 2026-11-21 (agentkit 1.2.1)
+
+### Changed
+- Updated agentkit from 1.0.1 to 1.2.1 (#568). A rule learned from a correction now goes first into a code change that makes the mistake impossible, then into an automated check, and into `.ai/project/lessons.md` only when applying it needs judgment a tool cannot make. A change that works only by masking a defect outside its request, such as a delay, a retry, or a guard against a state that should never occur, now asks the user whether to fix the defect or keep the workaround, and matching the surrounding code no longer copies a workaround whose comment names its defect. A UI change records each changed state reached in the running app; this repository has no `commands.run` or `commands.e2e`, so a UI change here still states which states were checked and how. `test-add` adds a property-based test with a fixed seed for a property that must hold over an input space too large to list.
+- Version 1.2.0 adds a feature map, `.ai/project/wiki/features.md`, for a project whose user interface has screens, windows, or scenes. By the user's decision this repository keeps none: its interface is Base's two editor windows, `Mu3Window` with its drawers and `MultiplayerDebuggerWindow`, and the `Mu3Library/Update Package` menu, whose menu paths the `MenuItem` attributes already give, and no agent command opens them, so a map would cost an update in every unit that changes them for little gain.
+
+### What an existing checkout needs
+- Nothing.
+
 ## 2026-11-20 (agentkit 1.0.1)
 
 ### Changed
