@@ -11,6 +11,8 @@ using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.AddressableAssets.ResourceLocators;
 using UnityEngine.ResourceManagement.AsyncOperations;
+using UnityEngine.ResourceManagement.ResourceLocations;
+using UnityEngine.ResourceManagement.ResourceProviders;
 using UnityEngine.TestTools;
 
 namespace Mu3Library.Tests
@@ -18,7 +20,8 @@ namespace Mu3Library.Tests
     /// <summary>
     /// Catalog checks and updates against the project's own catalog, which has no remote catalog and
     /// <br/> so nothing to update. That path finishes without a download, so it shows that the calls
-    /// <br/> complete and handle each Addressables handle once, not that a real update works.
+    /// <br/> complete and handle each Addressables handle once, not that a real update works. List loads
+    /// <br/> run against a label served from memory, since the project's Addressable groups hold no entry.
     /// </summary>
     public class AddressablesManagerTests
     {
@@ -26,9 +29,13 @@ namespace Mu3Library.Tests
         private const int SettleFrames = 5;
         private const string FailedInitializationMessage = "Test initialization failed.";
         private const string ThrowingInitializationMessage = "Test initialization threw.";
+        private const string InMemoryLabelKey = "in-memory-label";
+        private static readonly string[] InMemoryLabelAssets = { "first asset", "second asset" };
+        private static readonly string[] CallsForInMemoryLabel = { "first asset", "second asset", "list: first asset, second asset" };
 
         private AddressablesManager _manager;
         private readonly List<AddressablesManager> _extraManagers = new();
+        private readonly List<InMemoryLabel> _inMemoryLabels = new();
         private readonly List<string> _handleErrors = new();
 
         [SetUp]
@@ -42,13 +49,26 @@ namespace Mu3Library.Tests
         public void TearDown()
         {
             Application.logMessageReceived -= CollectHandleErrors;
+
+            // A load a failed test left waiting finishes before the managers release it.
+            foreach (InMemoryLabel label in _inMemoryLabels)
+            {
+                label.FinishHeldLoads();
+            }
+
             _manager.Dispose();
             foreach (AddressablesManager manager in _extraManagers)
             {
                 manager.Dispose();
             }
 
+            foreach (InMemoryLabel label in _inMemoryLabels)
+            {
+                label.Remove();
+            }
+
             _extraManagers.Clear();
+            _inMemoryLabels.Clear();
             _handleErrors.Clear();
 
             LogAssert.ignoreFailingMessages = false;
@@ -142,6 +162,82 @@ namespace Mu3Library.Tests
 
             public void Finish(bool isSuccess)
                 => Complete(null, isSuccess, isSuccess ? null : FailedInitializationMessage);
+        }
+
+        /// <summary>
+        /// A label whose assets are strings served from memory, since the project's Addressable groups
+        /// <br/> hold no entry. While <see cref="IsHoldingLoads"/> is set, a load waits until
+        /// <br/> <see cref="FinishHeldLoads"/>, so a test can join it while it is still in progress.
+        /// </summary>
+        private sealed class InMemoryLabel : ResourceProviderBase
+        {
+            private readonly ResourceLocationMap _locator;
+            private readonly List<ProvideHandle> _heldLoads = new();
+
+            public bool IsHoldingLoads { get; set; }
+
+            public InMemoryLabel(string key, IReadOnlyList<string> assets)
+            {
+                // The ResourceManager keeps the provider it found for an id even once the provider is
+                // removed, so each label takes an id of its own.
+                m_ProviderId = $"{typeof(InMemoryLabel).FullName}.{Guid.NewGuid():N}";
+                _locator = new ResourceLocationMap(m_ProviderId);
+                foreach (string asset in assets)
+                {
+                    _locator.Add(key, new ResourceLocationBase(asset, asset, m_ProviderId, typeof(string)));
+                }
+
+                Addressables.ResourceManager.ResourceProviders.Add(this);
+                Addressables.AddResourceLocator(_locator);
+            }
+
+            public override void Provide(ProvideHandle provideHandle)
+            {
+                if (IsHoldingLoads)
+                {
+                    _heldLoads.Add(provideHandle);
+                    return;
+                }
+
+                provideHandle.Complete(provideHandle.Location.InternalId, true, null);
+            }
+
+            public void FinishHeldLoads()
+            {
+                IsHoldingLoads = false;
+                foreach (ProvideHandle load in _heldLoads)
+                {
+                    load.Complete(load.Location.InternalId, true, null);
+                }
+
+                _heldLoads.Clear();
+            }
+
+            public void Remove()
+            {
+                Addressables.RemoveResourceLocator(_locator);
+                Addressables.ResourceManager.ResourceProviders.Remove(this);
+            }
+        }
+
+        /// <summary>
+        /// A label of <see cref="InMemoryLabelAssets"/> under <see cref="InMemoryLabelKey"/>, removed with
+        /// <br/> the fixture. Addressables must be initialized first.
+        /// </summary>
+        private InMemoryLabel CreateInMemoryLabel()
+        {
+            InMemoryLabel label = new(InMemoryLabelKey, InMemoryLabelAssets);
+            _inMemoryLabels.Add(label);
+            return label;
+        }
+
+        private static string DescribeList(IList<string> assets)
+            => assets == null ? "no list" : $"list: {string.Join(", ", assets)}";
+
+        private async UniTask LoadAssetsAsyncAndRecord(List<string> calls)
+        {
+            IList<string> assets = await _manager.LoadAssetsAsync<string>(InMemoryLabelKey, calls.Add);
+            calls.Add(DescribeList(assets));
         }
 
         /// <summary>
@@ -511,6 +607,84 @@ namespace Mu3Library.Tests
 
             Assert.IsFalse(checkHandle.IsValid(), "The check handle was released once the check finished.");
             Assert.IsFalse(updateHandle.IsValid(), "The update handle was released once the update finished.");
+            AssertNoHandleErrors();
+        }
+
+        /// <summary>
+        /// A label loaded again, by another feature or a later screen, is served by the first load: from
+        /// <br/> the cache once it finished, or by joining it while it runs. The second call still gets
+        /// <br/> each asset through its per-asset callback before the list, as the first call does.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator LoadAssets_SameKeyAgain_HandsEachAssetBeforeTheList([Values(false, true)] bool isFirstLoadInProgress)
+        {
+            yield return InitializeManager();
+            InMemoryLabel label = CreateInMemoryLabel();
+            label.IsHoldingLoads = isFirstLoadInProgress;
+
+            List<string> firstCalls = new();
+            bool isFirstListReceived = false;
+            _manager.LoadAssets<string>(InMemoryLabelKey, firstCalls.Add, assets =>
+            {
+                firstCalls.Add(DescribeList(assets));
+                isFirstListReceived = true;
+            });
+            if (!isFirstLoadInProgress)
+            {
+                yield return RunUntil(() => isFirstListReceived, "the first LoadAssets completed");
+            }
+
+            List<string> secondCalls = new();
+            bool isSecondListReceived = false;
+            _manager.LoadAssets<string>(InMemoryLabelKey, secondCalls.Add, assets =>
+            {
+                secondCalls.Add(DescribeList(assets));
+                isSecondListReceived = true;
+            });
+            if (isFirstLoadInProgress)
+            {
+                CollectionAssert.IsEmpty(secondCalls, "A call that joins a load in progress waits for it.");
+                label.FinishHeldLoads();
+            }
+
+            yield return RunUntil(() => isFirstListReceived && isSecondListReceived, "both LoadAssets calls completed");
+            yield return RunFrames(SettleFrames);
+
+            CollectionAssert.AreEqual(CallsForInMemoryLabel, secondCalls, "The second call got each asset, then the list.");
+            CollectionAssert.AreEquivalent(CallsForInMemoryLabel, firstCalls, "The first call got each asset and the list.");
+            AssertNoHandleErrors();
+        }
+
+        [UnityTest]
+        public IEnumerator LoadAssetsAsync_SameKeyAgain_HandsEachAssetBeforeReturning([Values(false, true)] bool isFirstLoadInProgress)
+        {
+            yield return InitializeManager();
+            InMemoryLabel label = CreateInMemoryLabel();
+            label.IsHoldingLoads = isFirstLoadInProgress;
+
+            List<string> firstCalls = new();
+            UniTask firstLoad = LoadAssetsAsyncAndRecord(firstCalls);
+            if (!isFirstLoadInProgress)
+            {
+                yield return RunUntil(() => firstLoad.Status != UniTaskStatus.Pending, "the first LoadAssetsAsync completed");
+            }
+
+            List<string> secondCalls = new();
+            UniTask secondLoad = LoadAssetsAsyncAndRecord(secondCalls);
+            if (isFirstLoadInProgress)
+            {
+                CollectionAssert.IsEmpty(secondCalls, "A call that joins a load in progress waits for it.");
+                label.FinishHeldLoads();
+            }
+
+            yield return RunUntil(() => firstLoad.Status != UniTaskStatus.Pending && secondLoad.Status != UniTaskStatus.Pending,
+                "both LoadAssetsAsync calls completed");
+            firstLoad.GetAwaiter().GetResult();
+            secondLoad.GetAwaiter().GetResult();
+            yield return RunFrames(SettleFrames);
+
+            CollectionAssert.AreEqual(CallsForInMemoryLabel, secondCalls, "The second call got each asset, then the list.");
+            CollectionAssert.AreEquivalent(CallsForInMemoryLabel, firstCalls, "The first call got each asset and the list.");
             AssertNoHandleErrors();
         }
     }
