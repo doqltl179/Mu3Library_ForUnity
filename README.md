@@ -121,13 +121,32 @@ The Steam package holds `SteamBackend`, which runs multiplayer sessions on Steam
 The DI container, with `CoreBase` and `CoreRoot`, moved to the separate DI package: see its [README](packages/di/README.md) for registration, injection, cores, and the link.xml it writes for player builds that strip managed code. Base keeps the contracts its managers implement, `IInitializable`, `IUpdatable`, `ILateUpdatable`, `IObjectInjector`, and `[Inject]`, in its `Mu3Library.Foundation` assembly. The examples below inject Base's services with `[Inject]`, as a core of the DI package does.
 
 ### MVP (Model-View-Presenter)
-Separates UI into View, Presenter, and Model for testable business logic.
+Separates UI into View, Presenter, and Model for testable business logic. The view is a component, so it lives in a file named after its class, `MainMenuView.cs`, as do `UICore` and `UIBootstrap` below.
 
 ```csharp
-// Model: Data container
+using Mu3Library.Audio;
+using Mu3Library.DI;
+using Mu3Library.UI.MVP;
+using TMPro;
+using UnityEngine;
+using UnityEngine.UI;
+
+// Arguments: Data passed to each Open
+public class MainMenuArgs : Arguments
+{
+    public string PlayerName;
+}
+
+// Model: Data container, filled from the arguments before the presenter's LoadFunc() runs
 public class MainMenuModel : Model<MainMenuArgs>
 {
-    public string PlayerName { get; set; }
+    public string PlayerName { get; private set; }
+
+    // The base Init is empty: copy what the model needs from the arguments here
+    public override void Init(MainMenuArgs args)
+    {
+        PlayerName = args?.PlayerName;
+    }
 }
 
 // View: Unity component references
@@ -135,14 +154,18 @@ public class MainMenuView : View
 {
     [SerializeField] private Button _startButton;
     [SerializeField] private TextMeshProUGUI _titleText;
+    [SerializeField] private AudioClip _clickClip;
 
     public Button StartButton => _startButton;
     public TextMeshProUGUI TitleText => _titleText;
+    public AudioClip ClickClip => _clickClip;
 }
 
 // Presenter: Business logic
 public class MainMenuPresenter : Presenter<MainMenuView, MainMenuModel, MainMenuArgs>
 {
+    // From AudioCore, the core of the DI package's README that registers AudioManager;
+    // Open throws when no AudioCore is in the scene, since this member is required
     [Inject(typeof(AudioCore))] private IAudioManager _audioManager;
 
     protected override void LoadFunc()
@@ -156,17 +179,86 @@ public class MainMenuPresenter : Presenter<MainMenuView, MainMenuModel, MainMenu
         // Open animations, etc.
     }
 
+    protected override void UnloadFunc()
+    {
+        // A closed presenter is pooled with its view, and the next Open runs LoadFunc() on it again
+        _view.StartButton.onClick.RemoveListener(OnStartClicked);
+    }
+
     private void OnStartClicked()
     {
+        _audioManager.PlaySfx(_view.ClickClip);
         // Game start logic
     }
 }
-
-// Usage
-_mvpManager.Open<MainMenuPresenter>(new MainMenuArgs { PlayerName = "Player1" });
 ```
 
-When `MVPManager` is registered through `CoreBase`, presenter `[Inject]` fields and properties are populated before presenter initialization. Use `Arguments` for data that changes each time a presenter is opened.
+`MVPManager` opens a presenter only for a view type it holds a prefab of. Register each view prefab, one whose root holds the view component, with `RegisterViewResource` or `RegisterViewResources` before its first `Open`; adding `MainMenuView` to the root also adds the `Canvas`, `CanvasScaler`, `GraphicRaycaster`, and `CanvasGroup` the view requires. Without a registered prefab, `Open` logs `View not found` and returns null. `Open` builds the presenter's model with `Init(args)` and calls `LoadFunc()` while the view is still hidden. The view shows and starts opening in the next `MVPManager.Update()`, and later updates finish the open and, once the window has closed, unload it, so something has to call `Update()` every frame.
+
+With the DI package, a core registers the manager, and `CoreRoot` calls its `Update()` every frame and disposes it when the core is destroyed. When `MVPManager` is registered through `CoreBase`, presenter `[Inject]` fields and properties are populated before presenter initialization:
+
+```csharp
+using Mu3Library.DI;
+using Mu3Library.UI.MVP;
+using UnityEngine;
+
+public class UICore : CoreBase
+{
+    [SerializeField] private MainMenuView _mainMenuViewPrefab;
+
+    [Inject] private IMVPManager _mvpManager;
+
+    protected override void ConfigureContainer()
+    {
+        RegisterClass<MVPManager>();
+    }
+
+    protected override void Start()
+    {
+        base.Start(); // Injects _mvpManager
+
+        _mvpManager.RegisterViewResource(_mainMenuViewPrefab);
+        _mvpManager.Open<MainMenuPresenter>(new MainMenuArgs { PlayerName = "Player1" });
+    }
+}
+```
+
+Without the DI package's `CoreBase`, the code that creates the manager calls its `Update()` every frame and its `Dispose()` when done with it. Nothing gives such a manager an `IObjectInjector`, so it leaves presenter `[Inject]` members unset; leave the `[Inject]` field, with its `AudioCore`, which derives from `CoreBase`, and the `PlaySfx` call out of `MainMenuPresenter` there:
+
+```csharp
+using Mu3Library.UI.MVP;
+using UnityEngine;
+
+public class UIBootstrap : MonoBehaviour
+{
+    [SerializeField] private MainMenuView _mainMenuViewPrefab;
+
+    private MVPManager _mvpManager;
+
+    private void Awake()
+    {
+        _mvpManager = new MVPManager();
+        _mvpManager.RegisterViewResource(_mainMenuViewPrefab);
+    }
+
+    private void Start()
+    {
+        _mvpManager.Open<MainMenuPresenter>(new MainMenuArgs { PlayerName = "Player1" });
+    }
+
+    private void Update()
+    {
+        _mvpManager.Update();
+    }
+
+    private void OnDestroy()
+    {
+        _mvpManager.Dispose();
+    }
+}
+```
+
+Use `Arguments` for data that changes each time a presenter is opened.
 
 For chained presenters, ownership and visual hosting are configured separately.
 
