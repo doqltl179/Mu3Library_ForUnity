@@ -33,6 +33,10 @@ Dictionary<string, Texture2D> textures =
     await _addressablesManager.LoadAssetsWithKeysAsync<Texture2D>("test-image");
 ```
 
+`LoadAssets` hands each asset to its per-asset callback and then the list to its callback, and `LoadAssetsAsync` hands each asset to its per-asset callback before it returns the list. Both do so whether the call starts the load, joins a load of the same key and type still in progress, or is served from the cache.
+
+The manager caches what it loads under the key it was loaded with and counts no references. `ReleaseCachedAsset(key)` releases every handle the manager holds for that key, for every caller that loaded it, and `ClearCache` does the same for every key. When several features load the same key, one owner releases it, once none of them needs its assets any more.
+
 Catalog checks and updates, `CheckForCatalogUpdates`, `UpdateCatalogs`, and their UniTask variants, reach Addressables one at a time in call order. A call made while another one runs, from that call's callback included, starts on the ResourceManager update after the earlier callback, once its handle is settled, and `Dispose` reports a call that has not reached Addressables yet with null. An update reaches Addressables only once the manager is initialized: a manager that has not initialized yet runs the initialization `Initialize` runs, with the same `IsInitializing` state and events, and an update made while one runs waits for it. If that initialization fails, the update's callback receives null, and later updates fail the same way without another attempt until an initialize call succeeds.
 
 With the Mu3 Library DI package ([README](../di/README.md)), a core registers the manager like any other service, as a singleton under `AddressablesManager` and its interfaces `IAddressablesManager` and `IAddressablesManagerEventBus`, and the core calls its `Update`, which reports the initialization and download progress through `OnInitializeProgress` and `OnDownloadProgress`:

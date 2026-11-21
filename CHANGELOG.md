@@ -15,6 +15,9 @@ This changelog tracks package release changes only. Repository development workf
 
 ## [Unreleased]
 
+### Fixed
+- Addressables: `LoadAssets` and `LoadAssetsAsync` hand each asset to the per-asset callback whatever the cache holds (#570). A call for a key and type already cached, or still loading for an earlier call, called only the list callback, so the second load of the same label never saw its assets one by one; it now hands each asset to its per-asset callback before the list, once the load completes when it was still in progress. The package README also states that `ReleaseCachedAsset` releases a key for every caller that loaded it, since the manager counts no references.
+
 ## [base/0.30.0] - 2026-11-20
 
 ### Removed
