@@ -285,8 +285,9 @@ namespace Mu3Library.Addressable
                 return;
             }
 
-            // Addressables hands each asset to the per-asset callback of the call that starts the load
-            // only, so a call served from the cache or joining a load in progress hands them itself.
+            // Addressables hands each asset only to the per-asset callback of the call that starts the
+            // load, so for a call served from the cache or joining a load in progress the manager hands
+            // them on itself.
             AsyncOperationHandle<IList<T>> handle = Addressables.LoadAssetsAsync<T>(key, perAssetCallback);
             RegisterHandleCache(key, cacheKey, handle);
             handle.Completed += operation => callback?.Invoke(FinalizeCachedLoad<IList<T>>(key, cacheKey, operation));

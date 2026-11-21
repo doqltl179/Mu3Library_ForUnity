@@ -33,7 +33,7 @@ Dictionary<string, Texture2D> textures =
     await _addressablesManager.LoadAssetsWithKeysAsync<Texture2D>("test-image");
 ```
 
-`LoadAssets` hands each asset to its per-asset callback and then the list to its callback, and `LoadAssetsAsync` hands each asset to its per-asset callback before it returns the list. Both do so whether the call starts the load, joins a load of the same key and type still in progress, or is served from the cache.
+`LoadAssets` hands each asset to its per-asset callback and then the list to its callback, and `LoadAssetsAsync` hands each asset to its per-asset callback before it returns the list. Both do so whether the call starts the load, joins a load of the same key and type still in progress, or is served from the cache. A call that joins a load in progress receives its per-asset calls all at once when the load completes, not as each asset loads.
 
 The manager caches what it loads under the key it was loaded with and counts no references. `ReleaseCachedAsset(key)` releases every handle the manager holds for that key, for every caller that loaded it, and `ClearCache` does the same for every key. When several features load the same key, one owner releases it, once none of them needs its assets any more.
 
