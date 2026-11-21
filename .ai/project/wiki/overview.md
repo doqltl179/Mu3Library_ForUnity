@@ -34,7 +34,7 @@ Mu3Library is a set of reusable Unity UPM packages that external projects instal
 | Notifications | `packages/notifications/` | — | `notifications` |
 | Steam | `packages/steam/` | Base | `steam` |
 | URP | `packages/urp/` | Base | `urp` |
-| Watermelon Game | `packages/game/watermelon/` | Base, URP | `watermelon`, never `game` |
+| Watermelon Game | `packages/game/watermelon/` | Base | `watermelon`, never `game` |
 
 ## Development Projects
 

@@ -15,6 +15,9 @@ This changelog tracks package release changes only. Repository development workf
 
 ## [Unreleased]
 
+### Changed
+- Watermelon Game: the package no longer depends on the URP package (#572). Its `package.json` no longer lists `com.github.doqltl179.mu3library.urp`, and the `Mu3Library.Game.WatermelonGame` assembly no longer references `Mu3Library.URP`, which no code of the package used. A project now installs Base and Watermelon Game only, and a Built-in project no longer has to install the URP package and, through it, Unity's Universal RP (`com.unity.render-pipelines.universal`). A project that installed the URP package keeps it, since the project's own `Packages/manifest.json` lists it; the project can remove the package if nothing else uses it, and Universal RP then leaves with it unless the manifest lists Universal RP too. The public API is unchanged. The package is still developed and tested in a URP project, and its README recommends URP.
+
 ### Fixed
 - Addressables: `LoadAssets` and `LoadAssetsAsync` hand each asset to the per-asset callback whatever the cache holds (#570). A call for a key and type already cached, or still loading for an earlier call, called only the list callback or returned only the list, so the second load of the same label never saw its assets one by one; it now hands each asset to its per-asset callback before the list, all at once when the load completes if it was still in progress. The package README also states that `ReleaseCachedAsset` releases a key for every caller that loaded it, since the manager counts no references.
 
