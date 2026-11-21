@@ -1,6 +1,6 @@
 ﻿# Mu3 Library Game - Watermelon
 
-Reusable 2D Watermelon Game board runtime for Unity 6.3 and later. The runtime assembly is `Mu3Library.Game.WatermelonGame` and references `Mu3Library` and `Mu3Library.Foundation`, and `Unity.InputSystem` while the Input System package is installed.
+Reusable 2D Watermelon Game board runtime for Unity 6.3 and later. The runtime assembly is `Mu3Library.Game.WatermelonGame` and references `Mu3Library`, `Mu3Library.Foundation`, and `UnityEngine.UI`, and `Unity.InputSystem` while the Input System package is installed.
 
 The package depends on no render pipeline package. It is developed and tested in a project that uses the Universal Render Pipeline (URP), and URP is the recommended render pipeline for projects that use this package.
 
