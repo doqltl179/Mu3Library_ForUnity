@@ -55,7 +55,7 @@ Each line's full rule lives on the linked page.
 ## This Project
 
 - Project: **Mu3Library_ForUnity** — Reusable Unity UPM packages (Addressables, Base, DI, Input System, Localization, Notifications, Steam, URP, Watermelon Game) that external Unity projects install through Git URLs; the tools generate the Unity projects that exercise them from the configs in tools/unity-projects.
-- Kit: version 1.0.1, `.ai/kit/` (read-only here). CLI: `python .ai/kit/tools/agentkit.py <sync|check|freshness|new|update>`
+- Kit: version 1.2.1, `.ai/kit/` (read-only here). CLI: `python .ai/kit/tools/agentkit.py <sync|check|freshness|new|update>`
 - Overlay: `.ai/project/` · Owners and skills: `.ai/generated/catalog.md` · Project wiki: `.ai/project/wiki/README.md` · Lessons: `.ai/project/lessons.md`
 - Human-facing language: `ko`
 
@@ -70,6 +70,7 @@ An entry that starts with `Replaces «<Section>» in <page>.md:` replaces, in th
 - README.md and CHANGELOG.md have ko and ja copies at docs/readme/README.{ko,ja}.md and docs/changelog/CHANGELOG.{ko,ja}.md; a unit changes only the English source, and each release unit brings all four copies up to their sources as a whole («Localized Copies» in .ai/project/wiki/package-release.md).
 - Replaces «Worktrees» in git-workflow.md: a unit's worktree folder is <worktree_root>/<short-name> of the session's checkout, such as .worktrees/n430 for issue #430, not the branch name, to keep paths short (.ai/project/wiki/overview.md).
 - Replaces «Cleanup» in git-workflow.md: a Claude app worktree (.claude/worktrees/<name>) that holds a unit's branch belongs to the app, so cleanup keeps it and moves it to the session's own branch instead of removing it (.ai/project/wiki/overview.md).
+- Replaces «Project Wiki» in project-overlay.md: the project wiki keeps no feature map (wiki/features.md), by the user's decision of 2026-11-21 (#568). The packages' only user interface is editor tooling: MultiplayerDebuggerWindow and the Mu3Library/Update Package menu, whose MenuItem attributes give their paths; the abstract Mu3Window, whose menu a consuming project's subclass sets; and the window drawers, created as assets from Mu3Library/Editor Window/Window Drawers. No agent command opens any of it, so a map would cost an update in every unit that changes it for little gain.
 
 ### Commands
 

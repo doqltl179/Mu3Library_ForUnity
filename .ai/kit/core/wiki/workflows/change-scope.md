@@ -25,6 +25,7 @@ Every changed line traces to the request. Unrequested changes cost review time, 
 
 - Name the assumptions the change rests on: which interpretation of the request, the inputs and callers the code expects, and the environment it runs in. Settle each per «Stop, Pause, or Proceed» in integrity.md, and record the ones you proceed on in the plan when one exists, and in the report.
 - When the request prescribes an approach and a simpler one meets the same goal (an existing mechanism, fewer moving parts, no new dependency), the choice between them is a decision the user owns: put both, with the trade-off, per «Stop, Pause, or Proceed» before building.
+- When the change works only by masking a defect outside the request (a delay or timer, a retry, a guard against a state the code should never reach), choosing between fixing the defect and the workaround is a decision the user owns: name the defect and its fix per «Stop, Pause, or Proceed» before writing the workaround. A workaround the user accepts gets a comment that names the defect and links its issue when it has one («Leftovers Become Issues» in [issues-and-prs.md](issues-and-prs.md)), in place of a comment arguing that the workaround is right, because the next agent copies a justified workaround as the project's pattern.
 
 ## Smallest Sufficient Change
 
@@ -36,7 +37,7 @@ Every changed line traces to the request. Unrequested changes cost review time, 
 ## Edit Boundaries
 
 - Change only the lines the request needs. Leave neighboring code, comments, formatting, and names as they are, even when you would write them differently.
-- Write new lines to the project's rules and the bound stack packs; where those leave a choice open, match the surrounding code.
+- Write new lines to the project's rules and the bound stack packs; where those leave a choice open, match the surrounding code, except a workaround whose comment names the defect it masks: new code that needs it masks the same defect, so settle it under the workaround rule in «Before Editing» instead of copying it.
 - Update a comment or doc that your change makes false; leave the others.
 - Restructure code the request does not name only when that makes the requested change simpler or safer, with `refactor-safely` and before the change: as its own unit when it is planned up front, as its own commits first when it is found mid-unit.
 - Formatting that the project's format check requires for the lines you touch is part of the change. A formatting or style sweep beyond that is its own unit, never part of a behavior change.

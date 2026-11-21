@@ -49,7 +49,7 @@ Releases of the project the kit is installed in. Kit releases follow [versioning
 - Apply this section to each changelog in scope that the project keeps per «Changelog» in documentation.md; skip it when there is none.
 - Move `## [Unreleased]` entries under `## [<version>] - <YYYY-MM-DD>`, leaving an empty Unreleased section.
 - Check that every merged user-visible change since the last tag has an entry; missing entries matter more than polished wording.
-- Breaking changes and migration steps appear first.
+- Breaking changes and migration steps appear first, except in the kit's own `CHANGELOG.md` in the kit repository, which keeps the order of «Changelog Format» in [versioning.md](../evolution/versioning.md).
 
 ## Tags And Notes
 

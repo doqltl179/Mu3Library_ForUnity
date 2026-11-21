@@ -1,6 +1,6 @@
 {
   "_generated": "agentkit:generated; do not edit",
-  "kit_version": "1.0.1",
+  "kit_version": "1.2.1",
   "files": [
     ".agents/skills/adr-write/SKILL.md",
     ".agents/skills/asmdef-triage/SKILL.md",

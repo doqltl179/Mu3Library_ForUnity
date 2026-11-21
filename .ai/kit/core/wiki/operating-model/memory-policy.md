@@ -32,6 +32,12 @@ reviewed: 2026-10-09
 | A lesson or rule that would help every project | `.ai/project/lessons.md`, and the kit via the `kit-upstream-propose` skill when step 4 of «Promotion» allows it | Until a kit release contains it |
 | A user's personal cross-project preference | The tool's user-level memory | The user's choice |
 
+For a rule learned from a correction, use the first of these that can hold it, because a check gives the same verdict on every run while a written rule works only when the next agent reads and applies it:
+
+1. A code change that makes the mistake impossible, for example a type that cannot be built in an invalid state.
+2. An automated check.
+3. A written store from the table above, only for a rule whose application needs judgment a tool cannot make.
+
 Tool-managed memory (for example auto-memory features) holds only personal preferences and pointers; project rules always live in the files above, where every tool and teammate can see them.
 
 ## Do Not Persist
@@ -46,5 +52,5 @@ Tool-managed memory (for example auto-memory features) holds only personal prefe
 
 1. Session → plan: anything the next step or a resumed session needs.
 2. Plan → project wiki or lessons: at closeout, only what stays true after the task.
-3. Lessons → wiki page or automated check: when a lesson becomes a rule the project follows, move it to the owning page, or into an automated check when a tool can enforce it, and delete the lesson.
+3. Lessons → wiki page, code change, or automated check: when a lesson becomes a rule the project follows, move it to the owning page, or into a code change or automated check when one can enforce it, and delete the lesson.
 4. Project → kit: when a lesson, rule, or kit defect is not project-specific, run `kit-upstream-propose` only when the user asks for it or `evolution.propose_upstream` is true. Otherwise name it in the report as a candidate the user may propose. Either way, keep the lesson locally until a kit release contains it.

@@ -12,6 +12,7 @@ A project concept carries one name everywhere: code, docs, issues, and conversat
 
 - naming a new type, module, function, file, setting, or doc section after a project concept,
 - the user, an issue, or the code uses two words for one concept or one word for two,
+- the user names a part of a user interface by its position or look instead of its name,
 - adding or changing a glossary entry at `docs.glossary`.
 
 ## Route Away When
@@ -33,4 +34,5 @@ A project concept carries one name everywhere: code, docs, issues, and conversat
 
 - Use the canonical term in new names, docs, issues, commit messages, and reports. Keep an existing identifier that uses another word unless renaming it is the request; renaming a public name follows «Compatibility» in [code-changes.md](code-changes.md).
 - When the user or a document uses a synonym to avoid, write the canonical term in what you produce.
+- When the user names a part of a user interface by its position or look (for example "the button at the top left"), find the candidate screen in the feature map («Project Wiki» in [project-overlay.md](../integration/project-overlay.md)) when the project has one, identify the part from the file that the entry cites or by reaching the screen with the entry's steps in the running app, and write the part's canonical term. Ask which part is meant when more than one still matches.
 - When one word could mean two concepts and the choice changes the result, ask which is meant per «Stop, Pause, or Proceed» in [integrity.md](../principles/integrity.md), then record the answer in the glossary.

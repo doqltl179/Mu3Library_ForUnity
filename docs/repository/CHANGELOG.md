@@ -7,6 +7,15 @@ Package release notes remain in:
 - `docs/changelog/CHANGELOG.ko.md`
 - `docs/changelog/CHANGELOG.ja.md`
 
+## 2026-11-21 (agentkit 1.2.1)
+
+### Changed
+- Updated agentkit from 1.0.1 to 1.2.1 (#568). A rule learned from a correction now goes first into a code change that makes the mistake impossible, then into an automated check, and into a written store such as `.ai/project/lessons.md` only when applying it needs judgment a tool cannot make. A change that works only by masking a defect outside its request, such as a delay, a retry, or a guard against a state that should never occur, now asks the user, before the workaround is written, whether to fix the defect or write the workaround, and matching the surrounding code no longer copies a workaround whose comment names its defect. A UI change records each changed state as reached in the running app, with a screenshot, recording, or captured output, and where the app cannot run it follows «When Verification Cannot Run» in the kit's `verification.md`. `test-add` adds a property-based test with a fixed seed for a property that must hold over an input space too large to list.
+- Version 1.2.0 adds a feature map, `.ai/project/wiki/features.md`, for a project whose user interface has screens, windows, or scenes. By the user's decision this repository keeps none, and a `Replaces «Project Wiki» in project-overlay.md:` entry in `project.guardrails` says so. The packages' only user interface is editor tooling: `MultiplayerDebuggerWindow` and the `Mu3Library/Update Package` menu, whose `MenuItem` attributes give their paths; the abstract `Mu3Window`, whose menu a consuming project's subclass sets; and the window drawers of Base, Addressables, DI, Input System, and Localization, created as assets from `Mu3Library/Editor Window/Window Drawers`. No agent command opens any of it, so a map would cost an update in every unit that changes it for little gain.
+
+### What an existing checkout needs
+- Nothing.
+
 ## 2026-11-20 (agentkit 1.0.1)
 
 ### Changed
