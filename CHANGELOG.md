@@ -15,6 +15,9 @@ This changelog tracks package release changes only. Repository development workf
 
 ## [Unreleased]
 
+### Changed
+- Watermelon Game: the package no longer depends on the URP package (#572). Its `package.json` no longer lists `com.github.doqltl179.mu3library.urp`, and the `Mu3Library.Game.WatermelonGame` assembly no longer references `Mu3Library.URP`, which no code of the package used. A project now installs Base and Watermelon Game only, and a Built-in project no longer has to install the URP package and, through it, Unity's Universal RP (`com.unity.render-pipelines.universal`). A project that installed the URP package keeps it, since the project's own `Packages/manifest.json` lists it; the project can remove the package if nothing else uses it, and Universal RP then leaves with it unless the manifest lists Universal RP too. The public API is unchanged. The package is still developed and tested in a URP project, and its README recommends URP.
+
 ## [base/0.30.0] - 2026-11-20
 
 ### Removed

@@ -1,6 +1,8 @@
 ﻿# Mu3 Library Game - Watermelon
 
-Reusable 2D Watermelon Game board runtime for Unity 6.3 and later. The runtime assembly is `Mu3Library.Game.WatermelonGame` and references `Mu3Library` and `Mu3Library.URP`, and `Unity.InputSystem` while the Input System package is installed.
+Reusable 2D Watermelon Game board runtime for Unity 6.3 and later. The runtime assembly is `Mu3Library.Game.WatermelonGame` and references `Mu3Library`, `Mu3Library.Foundation`, and `UnityEngine.UI`, and `Unity.InputSystem` while the Input System package is installed.
+
+The package depends on no render pipeline package. It is developed and tested in a project that uses the Universal Render Pipeline (URP), and URP is the recommended render pipeline for projects that use this package.
 
 ## Runtime API
 
@@ -174,14 +176,13 @@ A subclass can override `CanStartDrag(Vector2)` and `IsPointerOverUI(Vector2)`, 
 
 ## Install
 
-The package depends on Base and URP, so install the three packages in the order Base, URP, Watermelon Game. In Unity, open **Window > Package Manager**, choose **+ > Add package from git URL...**, and enter each URL in that order, with each placeholder replaced by that package's own release version:
+The package depends on Base, so install the two packages in the order Base, Watermelon Game. In Unity, open **Window > Package Manager**, choose **+ > Add package from git URL...**, and enter each URL in that order, with each placeholder replaced by that package's own release version:
 
 ```text
 https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/base#base/v<base-version>
-https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/urp#urp/v<urp-version>
 https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/game/watermelon#game/watermelon/v<watermelon-version>
 ```
 
-The Installation section of the [repository README](https://github.com/doqltl179/Mu3Library_ForUnity) gives these URLs with the latest release tags, and the `dependencies` of this package's `package.json` name the lowest Base and URP versions it works with.
+The Installation section of the [repository README](https://github.com/doqltl179/Mu3Library_ForUnity) gives these URLs with the latest release tags, and the `dependencies` of this package's `package.json` name the lowest Base version it works with.
 
 Inside this repository, the project config `tools/unity-projects/watermelon` names the package as `"checkout"` instead, and the repository's tools write the absolute path of the package folder into each Unity project they generate from it, which works only for that checkout.
