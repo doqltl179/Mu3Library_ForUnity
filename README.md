@@ -154,9 +154,11 @@ public class MainMenuView : View
 {
     [SerializeField] private Button _startButton;
     [SerializeField] private TextMeshProUGUI _titleText;
+    [SerializeField] private AudioClip _clickClip;
 
     public Button StartButton => _startButton;
     public TextMeshProUGUI TitleText => _titleText;
+    public AudioClip ClickClip => _clickClip;
 }
 
 // Presenter: Business logic
@@ -177,14 +179,21 @@ public class MainMenuPresenter : Presenter<MainMenuView, MainMenuModel, MainMenu
         // Open animations, etc.
     }
 
+    protected override void UnloadFunc()
+    {
+        // A closed presenter is pooled with its view, and the next Open runs LoadFunc() on it again
+        _view.StartButton.onClick.RemoveListener(OnStartClicked);
+    }
+
     private void OnStartClicked()
     {
+        _audioManager.PlaySfx(_view.ClickClip);
         // Game start logic
     }
 }
 ```
 
-`MVPManager` opens a presenter only for a view type it holds a prefab of. Register each view prefab, one whose root holds the view component, with `RegisterViewResource` or `RegisterViewResources` before its first `Open`; adding `MainMenuView` to the root also adds the `Canvas`, `CanvasScaler`, `GraphicRaycaster`, and `CanvasGroup` the view requires. Without a registered prefab, `Open` logs `View not found` and returns null. `Open` builds the presenter's model with `Init(args)` and calls `LoadFunc()`; from there, the load, open, close, and unload transitions advance only in `MVPManager.Update()`, so something has to call it every frame.
+`MVPManager` opens a presenter only for a view type it holds a prefab of. Register each view prefab, one whose root holds the view component, with `RegisterViewResource` or `RegisterViewResources` before its first `Open`; adding `MainMenuView` to the root also adds the `Canvas`, `CanvasScaler`, `GraphicRaycaster`, and `CanvasGroup` the view requires. Without a registered prefab, `Open` logs `View not found` and returns null. `Open` builds the presenter's model with `Init(args)` and calls `LoadFunc()` while the view is still hidden. The view shows and starts opening in the next `MVPManager.Update()`, and later updates finish the open and, once the window has closed, unload it, so something has to call `Update()` every frame.
 
 With the DI package, a core registers the manager, and `CoreRoot` calls its `Update()` every frame and disposes it when the core is destroyed. When `MVPManager` is registered through `CoreBase`, presenter `[Inject]` fields and properties are populated before presenter initialization:
 
@@ -214,7 +223,7 @@ public class UICore : CoreBase
 }
 ```
 
-Without the DI package's `CoreBase`, the code that creates the manager calls its `Update()` every frame and its `Dispose()` when done with it. Nothing gives such a manager an `IObjectInjector`, so it leaves presenter `[Inject]` members unset; leave the `[Inject]` field and its `AudioCore`, which derives from `CoreBase`, out of `MainMenuPresenter` there:
+Without the DI package's `CoreBase`, the code that creates the manager calls its `Update()` every frame and its `Dispose()` when done with it. Nothing gives such a manager an `IObjectInjector`, so it leaves presenter `[Inject]` members unset; leave the `[Inject]` field, with its `AudioCore`, which derives from `CoreBase`, and the `PlaySfx` call out of `MainMenuPresenter` there:
 
 ```csharp
 using Mu3Library.UI.MVP;
