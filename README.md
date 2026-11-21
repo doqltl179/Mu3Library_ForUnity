@@ -82,11 +82,11 @@
     # URP package (install Base first)
     https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/urp#urp/v0.5.0
 
-    # Watermelon Game package (install Base and URP first)
+    # Watermelon Game package (install Base first)
     https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/game/watermelon#game/watermelon/v0.8.0
    ```
 
-Install the packages in the order Base, URP, Watermelon Game: URP depends on Base, and Watermelon Game on both.
+URP and Watermelon Game each depend on Base, so install Base before either. Watermelon Game does not need URP.
 
 The Notifications package holds local notifications for Android and iOS. It needs no other Mu3Library package.
 
@@ -113,7 +113,7 @@ The Steam package holds `SteamBackend`, which runs multiplayer sessions on Steam
     - `packages/di/package.json` (install Base first)
     - `packages/steam/package.json` (install Steamworks.NET and Base first)
     - `packages/urp/package.json` (install Base first)
-    - `packages/game/watermelon/package.json` (install Base and URP first)
+    - `packages/game/watermelon/package.json` (install Base first)
 
 ## 📚 Core Modules
 
@@ -465,7 +465,7 @@ This project is distributed under the MIT License.
 - DI: `com.github.doqltl179.mu3library.di` (depends on Base)
 - Steam: `com.github.doqltl179.mu3library.steam` (depends on Base and needs Steamworks.NET)
 - URP: `com.github.doqltl179.mu3library.urp` (depends on Base)
-- Watermelon Game: `com.github.doqltl179.mu3library.game.watermelon` (depends on Base and URP)
+- Watermelon Game: `com.github.doqltl179.mu3library.game.watermelon` (depends on Base)
 - Versions and release notes: [`CHANGELOG.md`](CHANGELOG.md)
 
 Made with ❤️ for Unity Developers
