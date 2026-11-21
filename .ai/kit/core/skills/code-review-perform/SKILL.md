@@ -38,10 +38,10 @@ reviewed: 2026-10-09
 - Compatibility: changes to public APIs, CLI flags, config keys, file formats, persisted data, and wire protocols meet «Compatibility» in [code-changes.md](../../wiki/workflows/code-changes.md).
 - Code-change rules: added or upgraded dependencies, migrations, and generated files meet «Dependencies», «Schema And Data Migrations», and «Generated Code» in code-changes.md.
 - Scope: the diff meets every rule in [change-scope.md](../../wiki/workflows/change-scope.md).
-- Maintainability: the change fits existing patterns and the project's documented conventions (stack packs, project rules, contributing guide), citing the rule for each finding; names state what things do and use the project's terms per [domain-terms.md](../../wiki/workflows/domain-terms.md); no duplicated logic or unreachable code.
+- Maintainability: the change fits the project's documented conventions (stack packs, project rules, contributing guide), citing the rule for each finding, and fits existing patterns; a marked workaround copied into new code without the user decision that «Edit Boundaries» in [change-scope.md](../../wiki/workflows/change-scope.md) requires is a finding; names state what things do and use the project's terms per [domain-terms.md](../../wiki/workflows/domain-terms.md); no duplicated logic or unreachable code.
 - Tests: new behavior and fixed bugs have tests that fail without the change; no skipped tests, loosened assertions, or mocked-away failures per «Never Fake Success» in [integrity.md](../../wiki/principles/integrity.md).
 - Doc sync: owning docs changed with the behavior per «Doc Sync Rule» in [documentation.md](../../wiki/workflows/documentation.md), and so did the changelog when the project keeps one per «Changelog» on the same page.
-- Evidence: every verification claim by the author is backed by a quoted command and result from this change.
+- Evidence: every verification claim by the author is backed by a quoted command and result from this change, and a UI change by the evidence «Evidence Format» in [verification.md](../../wiki/workflows/verification.md) asks for each changed state, or by the fallback that the UI row of «Verification By Change Type» there names.
 
 ## Output
 - The report per «Output Format», naming the reviewed commit IDs and the disposition.

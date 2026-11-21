@@ -31,7 +31,7 @@ reviewed: 2026-10-09
 4. State the root cause as a chain: cause → mechanism → symptom. Keep asking why the faulty state arose until the answer is a defect in code, data, or configuration, not another symptom.
 5. Search for the same faulty pattern elsewhere with `rg`.
 6. Write the regression test with `test-add` and confirm it fails for the root-cause reason before the fix. The test must drive the faulty interaction as it happens in use; when no test level can, follow «When Verification Cannot Run» in [verification.md](../../wiki/workflows/verification.md).
-7. Fix the root cause. Do not special-case the reported input or mask the error (see «Never Fake Success» in [integrity.md](../../wiki/principles/integrity.md)). Remove the temporary logging until `rg` finds no copy of its marker.
+7. Fix the root cause. Do not special-case the reported input or mask the error (see «Never Fake Success» in [integrity.md](../../wiki/principles/integrity.md)). When the root cause lies outside what this unit may change, follow the workaround rule in «Before Editing» in [change-scope.md](../../wiki/workflows/change-scope.md): a workaround stands in for the fix only after the user accepts it, and the report states that the root cause is unfixed and names its issue when it has one. Remove the temporary logging until `rg` finds no copy of its marker.
 8. Verify: the regression test passes when step 6 produced one, the original reproduction no longer shows the symptom, and the checks per «Verification By Change Type» in [verification.md](../../wiki/workflows/verification.md) pass.
 9. Commit the test and fix with `git-commit`. Fix other occurrences from step 5 when they are in scope; otherwise register them with `github-issue-create`.
 
