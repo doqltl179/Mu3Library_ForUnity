@@ -1312,6 +1312,35 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void SteamVoice_RecordsUntilStopped_AndDecodesWhatItHandsOut_AtItsRate()
+        {
+            // #576 on one account: Steam voice starts and stops through the backend, and what it
+            // records decodes. A microphone that hears nothing gives Steam nothing to hand out,
+            // so the decode is checked only for what it handed out within a second.
+            Assert.That(_backend.VoiceSampleRate, Is.InRange(11025, 48000));
+            Assert.That(_backend.StartVoiceRecording(), Is.True);
+            Assert.That(_backend.IsRecordingVoice, Is.True);
+
+            int parts = 0;
+            Stopwatch watch = Stopwatch.StartNew();
+            while (watch.Elapsed.TotalSeconds < 1)
+            {
+                if (_backend.TryReadVoice(out ReadOnlySpan<byte> voice))
+                {
+                    Assert.That(_backend.TryDecodeVoice(voice, out ReadOnlySpan<float> samples), Is.True);
+                    Assert.That(samples.Length, Is.GreaterThan(0));
+                    parts++;
+                }
+
+                Thread.Sleep(20);
+            }
+
+            TestContext.WriteLine($"Steam handed out {parts} parts of voice in a second at {_backend.VoiceSampleRate} Hz.");
+            _backend.StopVoiceRecording();
+            Assert.That(_backend.IsRecordingVoice, Is.False);
+        }
+
+        [Test]
         public void SteamPresence_WithADisplayToken_SetsSteamDisplayWhileAStatusIsSet()
         {
             // FR-13: the token is what Steam's friends list shows; the test app has none of this
