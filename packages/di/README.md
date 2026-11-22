@@ -73,7 +73,31 @@ public class AudioCore : CoreBase
 }
 ```
 
-`MVPManager` also uses the narrow `IObjectInjector` capability to apply `[Inject]` field and property injection to presenters created outside the container. The concrete `ContainerScope` and its internal injection implementation remain private to the DI assembly.
+`RegisterClass<T>()` registers a class with a parameterless constructor as a singleton. A core also registers an implementation of its choice for one service type, an instance it created itself, and a factory:
+
+```csharp
+public class GameCore : CoreBase
+{
+    [SerializeField] private ContentDatabase _contentDatabase; // a ScriptableObject loaded before the core
+
+    protected override void ConfigureContainer()
+    {
+        // An instance created outside the container, registered as itself and its interfaces
+        RegisterInstance(_contentDatabase);
+
+        // An implementation chosen for IScoreService, built through its constructor
+        RegisterClass<IScoreService, ScoreService>(ServiceLifetime.Singleton);
+
+        // A factory, for an object the container cannot build by itself
+        RegisterFactory<ISaveStore>(scope =>
+            new FileSaveStore(Application.persistentDataPath, scope.Resolve<IScoreService>()));
+    }
+}
+```
+
+`RegisterClass<TService, TImpl>` maps the implementation to `TService` only, and it and `RegisterFactory` take a `ServiceLifetime`, singleton by default, and a key. A singleton or scoped service is created as it registers, as `RegisterClass<T>()` creates its class, so that its lifecycle callbacks run from the core's initialization: register what its constructor, its required `[Inject]` members, or its factory resolves before it. A core owns a single scope, so a scoped service has one instance per core, as a singleton does. A transient service is created on each resolve, and the core calls none of its lifecycle callbacks. `RegisterInstance` fills the instance's `[Inject]` members at once and calls its lifecycle callbacks as it does a singleton's.
+
+`MVPManager` also uses the narrow `IObjectInjector` capability to apply `[Inject]` field and property injection to presenters created outside the container, so it never sees the concrete `ContainerScope`, which only a core and the factories it registers receive, and the scope's injection implementation stays internal to the DI assembly.
 
 ### Cores and CoreRoot
 
@@ -133,7 +157,7 @@ In a player built with **Managed Stripping Level** set to Medium or High, the Un
 
 Create each drawer with **Assets > Create > Mu3Library > Editor Window > Window Drawers > DI Validator** or **Runtime Diagnostics** and add it to the drawer list of a `Mu3Window`. Both read the cores registered with `CoreRoot` while the game runs and change nothing.
 
-- **DI Validator** lists how many registrations each core has and reports, before the first resolve or injection throws, a registered implementation whose constructor or required `[Inject]` members cannot be resolved, and a required `[Inject]` member the container can never fill on a registered implementation or on the core itself, as described above. Reading the registrations resolves nothing.
+- **DI Validator** lists how many registrations each core has and reports, before the first resolve or injection throws, a registered implementation whose constructor or required `[Inject]` members cannot be resolved, and a required `[Inject]` member the container can never fill on a registered implementation or on the core itself, as described above. Of what a core registers, it reports a transient class it cannot build: a singleton or scoped class is created as it registers, so one that cannot be built throws from `ConfigureContainer` instead, and the core never reaches `CoreRoot`. It leaves out an instance, which `RegisterInstance` injects as it registers it, and a factory's product, whose type is known only once the factory runs. Reading the registrations resolves nothing.
 - **Runtime Diagnostics** lists, for each core, the presenters its `MVPManager` manages, and, while the Addressables package (`com.github.doqltl179.mu3library.addressables`) is installed, how many assets each `AddressablesManager` caches, how many load handles it tracks, and the keys it caches assets for.
 
 ## Documentation

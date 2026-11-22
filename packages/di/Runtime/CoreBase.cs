@@ -499,15 +499,110 @@ namespace Mu3Library.DI
         protected void RegisterClass<T>()
             where T : class, new()
         {
-            if (_scope == null)
+            if (!IsScopeReady())
             {
-                Debug.LogError($"Container is not initialized yet. Register from ConfigureContainer() or later. type: {GetType().Name}");
                 return;
             }
 
             _scope.Register<T>(ServiceLifetime.Singleton);
             // Immediately resolve to ensure lifecycle tracking (IInitializable, IUpdatable, etc.)
             _scope.Resolve<T>();
+        }
+
+        /// <summary>
+        /// Register <typeparamref name="TImpl"/> as <typeparamref name="TService"/> only, with the
+        /// given lifetime and key. The container builds it through its constructor, whose
+        /// parameters it resolves from this core, and then fills its <c>[Inject]</c> members.
+        /// </summary>
+        /// <remarks>
+        /// A singleton or scoped service is created at once, as <see cref="RegisterClass{T}()"/>
+        /// creates its class, so its lifecycle callbacks run from this core's initialization, and
+        /// what its constructor and required <c>[Inject]</c> members need must be registered
+        /// before it. A core owns a single scope, so a scoped service has one instance per core,
+        /// as a singleton does. A transient service is created on each resolve, and the core
+        /// calls none of its lifecycle callbacks.
+        /// </remarks>
+        protected void RegisterClass<TService, TImpl>(ServiceLifetime lifetime = ServiceLifetime.Singleton, string key = null)
+            where TService : class
+            where TImpl : class, TService
+        {
+            if (!IsScopeReady())
+            {
+                return;
+            }
+
+            _scope.Register<TService, TImpl>(lifetime, key);
+            CreateIfShared(typeof(TService), lifetime, key);
+        }
+
+        /// <summary>
+        /// Register an instance created outside the container, such as a manager that has to be
+        /// initialized before use, as <typeparamref name="TService"/> and, unless
+        /// <paramref name="registerInterfaces"/> is false, as each of its interfaces. Its
+        /// <c>[Inject]</c> members are filled at once, and the core calls its lifecycle callbacks
+        /// as it does a singleton's.
+        /// </summary>
+        /// <remarks>
+        /// When the injection throws, the registration is undone before the exception reaches
+        /// this core, as <see cref="ContainerScope.RegisterInstance{TService}"/> describes.
+        /// </remarks>
+        protected void RegisterInstance<TService>(TService instance, bool registerInterfaces = true, string key = null)
+            where TService : class
+        {
+            if (!IsScopeReady())
+            {
+                return;
+            }
+
+            _scope.RegisterInstance(instance, registerInterfaces, key);
+        }
+
+        /// <summary>
+        /// Register <paramref name="factory"/> as the way to create <typeparamref name="TService"/>,
+        /// with the given lifetime and key. The factory receives this core's scope, from which it
+        /// can resolve what it needs, and the container fills the <c>[Inject]</c> members of what
+        /// it returns.
+        /// </summary>
+        /// <remarks>
+        /// A singleton or scoped service is created at once, as with
+        /// <see cref="RegisterClass{TService, TImpl}"/>, so the factory runs here and what it
+        /// resolves must be registered before it. A transient factory runs on each resolve.
+        /// </remarks>
+        protected void RegisterFactory<TService>(Func<ContainerScope, TService> factory, ServiceLifetime lifetime = ServiceLifetime.Singleton, string key = null)
+            where TService : class
+        {
+            if (!IsScopeReady())
+            {
+                return;
+            }
+
+            // The container logs a null factory and registers nothing.
+            _scope.RegisterFactory(factory, lifetime, key);
+            if (factory != null)
+            {
+                CreateIfShared(typeof(TService), lifetime, key);
+            }
+        }
+
+        private bool IsScopeReady()
+        {
+            if (_scope != null)
+            {
+                return true;
+            }
+
+            Debug.LogError($"Container is not initialized yet. Register from ConfigureContainer() or later. type: {GetType().Name}");
+            return false;
+        }
+
+        // A singleton or scoped registration is resolved right away, as RegisterClass<T>() does,
+        // so that its lifecycle tracking starts with the core instead of at its first resolve.
+        private void CreateIfShared(Type serviceType, ServiceLifetime lifetime, string key)
+        {
+            if (lifetime != ServiceLifetime.Transient)
+            {
+                _scope.Resolve(serviceType, key);
+            }
         }
     }
 }
