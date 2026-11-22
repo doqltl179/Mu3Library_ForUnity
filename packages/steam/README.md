@@ -1,6 +1,6 @@
 ﻿# Mu3 Library Steam
 
-Steam package of **Mu3Library For Unity**: `SteamBackend`, a backend that runs the player-hosted multiplayer sessions of Base's `MultiplayerManager` on Steam lobbies and Steam networking sockets, with invites through the Steam overlay, players' Steam avatars, Steam rich presence, Steam's measure of each connection, and, in the editor, a fallback to Base's local backend when Steam cannot start.
+Steam package of **Mu3Library For Unity**: `SteamBackend`, a backend that runs the player-hosted multiplayer sessions of Base's `MultiplayerManager` on Steam lobbies and Steam networking sockets, with invites through the Steam overlay, players' Steam avatars, Steam rich presence, Steam voice, Steam's measure of each connection, and, in the editor, a fallback to Base's local backend when Steam cannot start.
 
 - Package name: `com.github.doqltl179.mu3library.steam`
 - Assembly: `Mu3Library.Steam.Multiplayer`, with the namespace `Mu3Library.Steam.Multiplayer`, for the editor and 64-bit standalone players only (Windows x64, macOS, Linux x64).
@@ -50,6 +50,7 @@ if (created.IsSuccess)
 - The manager's avatars load the players' Steam profile pictures as textures and follow a player's new picture.
 - The manager's presence status sets Steam rich presence: the friends list shows the status through a `steam_display` token that the game defines for its app ID on the Steamworks partner site and names in `SteamBackendOptions.PresenceDisplayToken`, and the players of one session are grouped together through `steam_player_group`.
 - `TryGetConnectionQuality` answers Steam's measure of a connection's ping, packet loss, and data rates.
+- Voice (`IVoiceBackend`) records with Steam voice, which uses the microphone and settings the player chose in Steam, and decodes any player's Steam voice at Steam's optimal sample rate (`VoiceSampleRate`). [Multiplayer](https://github.com/doqltl179/Mu3Library_ForUnity#multiplayer) in the repository README shows how a game sends and plays it; in the editor's fallback, `LocalBackend` records the microphone instead.
 - `IUnavailableReasonBackend` names why the backend is not available, such as `SteamNotRunning`.
 
 Steam publishes lobby data a moment after it is set, so a new lobby can take a few seconds to show up in a search.
