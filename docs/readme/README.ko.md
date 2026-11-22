@@ -59,7 +59,7 @@
 3. 다음 URL 중 하나를 입력:
    ```
     # Base 패키지
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/base#base/v0.30.0
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/base#base/v0.31.0
 
     # Notifications 패키지
     https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/notifications#notifications/v0.1.0
@@ -71,19 +71,19 @@
     https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/localization#localization/v0.1.0
 
     # Addressables 패키지 (먼저 Base 설치)
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/addressables#addressables/v0.1.0
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/addressables#addressables/v0.1.1
 
     # DI 패키지 (먼저 Base 설치)
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/di#di/v0.1.0
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/di#di/v0.2.0
 
     # Steam 패키지 (먼저 Steamworks.NET과 Base 설치)
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/steam#steam/v0.1.1
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/steam#steam/v0.2.0
 
     # URP 패키지 (먼저 Base 설치)
     https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/urp#urp/v0.5.0
 
     # Watermelon Game 패키지 (먼저 Base와 URP 설치)
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/game/watermelon#game/watermelon/v0.8.0
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/game/watermelon#game/watermelon/v0.8.1
    ```
 
 패키지는 Base, URP, Watermelon Game 순서로 설치합니다. URP는 Base에, Watermelon Game은 그 둘 모두에 의존합니다.

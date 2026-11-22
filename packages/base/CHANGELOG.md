@@ -6,6 +6,10 @@ Detailed per-release notes live in the repository root `CHANGELOG.md` under the 
 
 ## [Unreleased]
 
+## [0.31.0] - 2026-11-22
+
+- See `base/0.31.0` in the repository root `CHANGELOG.md`. Highlights: the host of a multiplayer game begins another load phase within the game with `BeginLoadPhase` and waits again for every player to load, so the packet format version is now 7 and every player of a game updates together; and voice for sessions through the optional `IVoiceBackend`, `VoicePlayer`, and the host's `SetRelayFilter`, with the local backend recording the default microphone.
+
 ## [0.30.0] - 2026-11-20
 
 - See `base/0.30.0` in the repository root `CHANGELOG.md`. Highlights: the **Multiplayer** sample is removed, so Base ships no sample; a copy a project imported earlier stays in its `Assets/Samples` folder.

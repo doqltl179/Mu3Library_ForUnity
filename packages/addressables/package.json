@@ -1,6 +1,6 @@
 {
     "name": "com.github.doqltl179.mu3library.addressables",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "displayName": "Mu3 Library Addressables",
     "description": "Addressables management for Mu3Library: AddressablesManager wraps Unity's Addressables package to initialize it with a result, load and cache an asset, a list of assets, or a dictionary of assets by their primary keys under one key, query download sizes and download dependencies with progress, check for and update catalogs one call at a time, and release what a key loaded. Supports UniTask async variants when UniTask is installed. The Addressable Group Data Exporter drawer generates scripts of the labels, groups, and entries of the project's Addressable groups.",
     "unity": "6000.3",

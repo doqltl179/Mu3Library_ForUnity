@@ -59,7 +59,7 @@
 3. 以下のURLのいずれかを入力:
    ```
     # Base パッケージ
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/base#base/v0.30.0
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/base#base/v0.31.0
 
     # Notifications パッケージ
     https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/notifications#notifications/v0.1.0
@@ -71,19 +71,19 @@
     https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/localization#localization/v0.1.0
 
     # Addressables パッケージ（先に Base をインストール）
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/addressables#addressables/v0.1.0
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/addressables#addressables/v0.1.1
 
     # DI パッケージ（先に Base をインストール）
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/di#di/v0.1.0
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/di#di/v0.2.0
 
     # Steam パッケージ（先に Steamworks.NET と Base をインストール）
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/steam#steam/v0.1.1
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/steam#steam/v0.2.0
 
     # URP パッケージ（先に Base をインストール）
     https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/urp#urp/v0.5.0
 
     # Watermelon Game パッケージ（先に Base と URP をインストール）
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/game/watermelon#game/watermelon/v0.8.0
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/game/watermelon#game/watermelon/v0.8.1
    ```
 
 パッケージは Base、URP、Watermelon Game の順にインストールしてください。URP は Base に、Watermelon Game はその両方に依存します。
