@@ -659,13 +659,13 @@ namespace Mu3Library.Steam.Multiplayer
         #endregion
 
         /// <summary>
-        /// Closes every connection, leaves every lobby, and lets go of Steam's callbacks. Steam
-        /// itself shuts down only if this backend started it. When the game shut Steam down first,
-        /// also when it started Steam again since, only the backend's own resources are released,
-        /// as the remarks on the class describe. A backend that a failed Steam call made
-        /// unavailable closed its connections, left its lobbies, and deleted its rich presence
-        /// keys at that failure already; it still tries the rest, and releases its own resources
-        /// either way.
+        /// Closes every connection, leaves every lobby, stops the voice recording it started, and
+        /// lets go of Steam's callbacks. Steam itself shuts down only if this backend started it.
+        /// When the game shut Steam down first, also when it started Steam again since, only the
+        /// backend's own resources are released, as the remarks on the class describe. A backend
+        /// that a failed Steam call made unavailable closed its connections, left its lobbies,
+        /// deleted its rich presence keys, and stopped its voice recording at that failure
+        /// already; it still tries the rest, and releases its own resources either way.
         /// </summary>
         public void Dispose()
         {

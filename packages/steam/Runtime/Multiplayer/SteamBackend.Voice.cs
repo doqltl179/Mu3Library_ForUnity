@@ -76,7 +76,8 @@ namespace Mu3Library.Steam.Multiplayer
 
         /// <summary>
         /// Stops Steam voice and tells Steam that this player no longer speaks in the game. Steam
-        /// records a moment longer, which <see cref="TryReadVoice"/> still hands out.
+        /// records a moment longer, which <see cref="TryReadVoice"/> still hands out, in the frames
+        /// it has some, until Steam answers that it no longer records.
         /// </summary>
         public void StopVoiceRecording()
         {

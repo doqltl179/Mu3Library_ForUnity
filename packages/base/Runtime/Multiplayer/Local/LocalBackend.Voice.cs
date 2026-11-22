@@ -19,8 +19,8 @@ namespace Mu3Library.Multiplayer.Local
         /// <summary>
         /// Starts recording the default microphone, which stands in for Steam voice, so the same
         /// game code records, sends, and plays voice in the editor and between the processes of
-        /// one computer. False when no microphone is connected, in a WebGL player, which has no
-        /// <c>Microphone</c>, and once the backend is no longer available.
+        /// one computer. False when no microphone is connected, in a WebGL player, where the
+        /// backend does not record, and once the backend is no longer available.
         /// </summary>
         /// <remarks>
         /// <para>

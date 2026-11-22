@@ -7,8 +7,8 @@ namespace Mu3Library.Multiplayer.Local
     /// <summary>
     /// Records the default microphone with <c>Microphone.Start</c>. The backends of one process
     /// share the recording: the first that starts starts the microphone, each reads it from where
-    /// it started, and the last that stops ends it. A WebGL player, which has no
-    /// <c>Microphone</c>, never starts.
+    /// it started, and the last that stops ends it. It never starts in a WebGL player, whose
+    /// <c>UnityEngine.AudioModule</c> on the 6000.3 floor holds no <c>Microphone</c>.
     /// </summary>
 #if UNITY_WEBGL && !UNITY_EDITOR
     internal sealed class MicrophoneVoiceSource : ILocalVoiceSource

@@ -45,7 +45,8 @@ namespace Mu3Library.Multiplayer.Backend
         /// <summary>
         /// Stops recording. Steam goes on a moment after the call, so
         /// <see cref="TryReadVoice"/> may still hand out the end of what this player said: keep
-        /// calling it until it answers false.
+        /// calling it once a frame, as while recording, and send what it hands out. It hands out
+        /// nothing more once the backend finished recording.
         /// </summary>
         public void StopVoiceRecording();
 
