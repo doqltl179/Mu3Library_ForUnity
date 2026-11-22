@@ -1,10 +1,10 @@
 ﻿# Mu3 Library Steam
 
-Steam package of **Mu3Library For Unity**: `SteamBackend`, a backend that runs the player-hosted multiplayer sessions of Base's `MultiplayerManager` on Steam lobbies and Steam networking sockets, with invites through the Steam overlay, players' Steam avatars, Steam rich presence, Steam voice, Steam's measure of each connection, and, in the editor, a fallback to Base's local backend when Steam cannot start.
+Steam package of **Mu3Library For Unity**: `SteamBackend`, a backend that runs the player-hosted multiplayer sessions of Base's `MultiplayerManager` on Steam lobbies and Steam networking sockets, with invites through the Steam overlay, players' Steam avatars, Steam rich presence, Steam voice, Steam's measure of each connection, and, in the editor, a fallback to Base's local backend when Steam cannot start; Steam achievements and stats, with optional debug console commands for achievements; and a storage of Base's save system on Steam Cloud.
 
 - Package name: `com.github.doqltl179.mu3library.steam`
-- Assembly: `Mu3Library.Steam.Multiplayer`, with the namespace `Mu3Library.Steam.Multiplayer`, for the editor and 64-bit standalone players only (Windows x64, macOS, Linux x64).
-- Depends on Mu3 Library (Base), whose `Mu3Library.Multiplayer` assembly holds the manager, the backend interface this backend implements, and the local backend.
+- Assemblies, each with the namespace of its name, for the editor and 64-bit standalone players only (Windows x64, macOS, Linux x64): `Mu3Library.Steam.Multiplayer`, the backend; `Mu3Library.Steam.Stats`, achievements, stats, and their console commands; and `Mu3Library.Steam.Cloud`, the Steam Cloud save storage.
+- Depends on Mu3 Library (Base), whose `Mu3Library.Multiplayer` assembly holds the manager, the backend interface this backend implements, and the local backend, whose `Mu3Library.Save` assembly holds the save system the Steam Cloud storage serves, and whose `Mu3Library.DebugConsole` assembly holds the console the achievement commands join.
 - Needs [Steamworks.NET](https://github.com/rlabrecque/Steamworks.NET) 2025.164.1 or later. Steamworks.NET is distributed through Git, so this package cannot declare it as a dependency: install it yourself first.
 
 ## Installation
@@ -18,7 +18,7 @@ Installation in the [repository README](https://github.com/doqltl179/Mu3Library_
 2. Mu3 Library (Base).
 3. This package.
 
-Without Steamworks.NET, or on a build target other than a standalone platform, Unity skips the `Mu3Library.Steam.Multiplayer` assembly: its `defineConstraints` list `MU3LIBRARY_STEAMWORKS_SUPPORT`, which its `versionDefines` sets for Steamworks.NET 2025.164.1 or later, and `UNITY_STANDALONE`. During development, a `steam_appid.txt` with the app ID in the project folder, or `SteamBackendOptions.AppId`, tells Steam which app the editor runs as; Steam's test app 480 works.
+Without Steamworks.NET, or on a build target other than a standalone platform, Unity skips the package's assemblies: their `defineConstraints` list `MU3LIBRARY_STEAMWORKS_SUPPORT`, which their `versionDefines` sets for Steamworks.NET 2025.164.1 or later, and `UNITY_STANDALONE`. During development, a `steam_appid.txt` with the app ID in the project folder, or `SteamBackendOptions.AppId`, tells Steam which app the editor runs as; Steam's test app 480 works.
 
 Up to Base 0.28.0, the backend came with Base in the `Mu3Library.Multiplayer.Steam` assembly and namespace. A project that uses it installs this package when it updates Base past 0.28.0 and changes:
 
@@ -55,6 +55,41 @@ if (created.IsSuccess)
 
 Steam publishes lobby data a moment after it is set, so a new lobby can take a few seconds to show up in a search.
 
+## Achievements, Stats, And Steam Cloud
+
+Two more assemblies of this package, under the same gate as `Mu3Library.Steam.Multiplayer`, use the Steam the game started, through `SteamBackend.TryCreate` or its own `SteamAPI.Init`, and start none themselves:
+
+- `Mu3Library.Steam.Stats` (namespace `Mu3Library.Steam.Stats`): `SteamStatsManager`, through `ISteamStatsManager`, unlocks an achievement and stores it at once so Steam shows its notification, reads an achievement's state, unlock time, and names, lists every achievement, shows an achievement's progress (`IndicateAchievementProgress`), and locks one again for testing (`ClearAchievement`); it reads and sets integer and float stats and sends them with `StoreStats`. Every call answers a `SteamStatsResult`: `SteamNotRunning` while Steam does not run in the process, `Refused` when Steam answers no, such as for a name the app does not define or before Steam handed this player's stats, which it does a moment after it starts, and `InvalidArgument` for an empty name or a progress at or past its maximum.
+- `Mu3Library.Steam.Cloud` (namespace `Mu3Library.Steam.Cloud`): `SteamCloudSaveStorage` is an `ISaveStorage` of Base's save system on Steam Remote Storage, so a `SaveManager` keeps its slots in Steam Cloud: each slot is the file `<folder>/<slot ID>.sav` of the app's Steam Cloud files, `Saves` by default. Steam keeps the files on the computer and sends them to the cloud while Steam Cloud is on for the account and the app (`IsCloudEnabled`); the app's Steam Cloud settings on the partner site need a quota for them. A write Steam refuses, such as one past the quota, answers `StorageFailed`, and so does a read, write, or delete while Steam does not run, when `Exists` answers false and `GetSlotIds` lists nothing. Steam's file names ignore case and Steam lists them in lower case, so `GetSlotIds`, and with it `SaveManager.GetSlots`, answers lower-case slot IDs: give slots lower-case IDs, or compare them ignoring case. Whether a write that a crash cuts short leaves the previous file is up to the Steam client.
+
+```csharp
+using Mu3Library.DebugConsole;
+using Mu3Library.Save;
+using Mu3Library.Steam.Cloud;
+using Mu3Library.Steam.Stats;
+using UnityEngine;
+
+var stats = new SteamStatsManager();
+SteamStatsResult unlocked = stats.UnlockAchievement("ACH_WIN_ONE_GAME");
+if (!unlocked.IsSuccess)
+{
+    Debug.LogWarning($"Achievement not unlocked: {unlocked}");
+}
+
+stats.SetStat("NumGames", games);
+stats.StoreStats();                                  // at the end of a match, not every frame
+
+var saves = new SaveManager(new SteamCloudSaveStorage());   // slots in Steam Cloud
+saves.Save("slot1");
+
+// Only when the game wants it: console commands for achievements.
+SteamStatsCommands.Register(console, stats);                          // developer commands
+// SteamStatsCommands.Register(console, stats, ConsoleAccess.Player);  // or: listing and unlocking for players too
+```
+
+- **Console commands**: `SteamStatsCommands.Register` adds `steam.achievements`, which lists every achievement and whether it is unlocked, `steam.unlock <id>`, and `steam.clear <id>` to a `DebugConsoleManager` of Base's debug console; a game that does not call it has none of them. The game chooses who may list and unlock: developers only, the default, or players too with `ConsoleAccess.Player`, for a game that lets its players take achievements on purpose. `steam.clear` is always a developer command. `steam.unlock` and `steam.clear` are marked as changing progress, so the console's `HasModifiedProgress` tells the game a player used them. `SteamStatsCommands.Unregister` removes them.
+- Put the code that uses these assemblies behind the same gate as the multiplayer code (below).
+
 ## Platforms And The Gate
 
-Steam support covers the editor and 64-bit standalone players only: the `includePlatforms` of `Mu3Library.Steam.Multiplayer` leave out 32-bit Windows, so a 32-bit Windows player builds without that assembly. Put game code that uses its types in an assembly definition of your own that references `Mu3Library.Steam.Multiplayer` and copies the `includePlatforms`, `defineConstraints`, and `versionDefines` entry of `Mu3Library.Steam.Multiplayer.asmdef`; the entry is needed too, since a `versionDefines` symbol is defined only in the assembly that declares it. That code then compiles exactly where the Steam assembly does. `#if` on a `versionDefines` symbol and `UNITY_STANDALONE` cannot leave out a 32-bit Windows player, where both are defined, and adding `UNITY_64` is no way out either, since Unity 6.6 deprecates it, so that gate suits only a game that builds no 32-bit Windows player. Code without an assembly definition of its own (`Assembly-CSharp`) cannot read `versionDefines`, and `versionDefines` sees only a package that the Package Manager installed, not a `.unitypackage` import. Do not gate on `STEAMWORKS_NET`: the Steamworks.NET installer writes it into the project's scripting defines, where it stays after the package is removed.
+Steam support covers the editor and 64-bit standalone players only: the `includePlatforms` of the package's assemblies leave out 32-bit Windows, so a 32-bit Windows player builds without them. Put game code that uses their types in an assembly definition of your own that references the assemblies it uses, such as `Mu3Library.Steam.Multiplayer`, and copies the `includePlatforms`, `defineConstraints`, and `versionDefines` entry of `Mu3Library.Steam.Multiplayer.asmdef`, which the other two share; the entry is needed too, since a `versionDefines` symbol is defined only in the assembly that declares it. That code then compiles exactly where the Steam assembly does. `#if` on a `versionDefines` symbol and `UNITY_STANDALONE` cannot leave out a 32-bit Windows player, where both are defined, and adding `UNITY_64` is no way out either, since Unity 6.6 deprecates it, so that gate suits only a game that builds no 32-bit Windows player. Code without an assembly definition of its own (`Assembly-CSharp`) cannot read `versionDefines`, and `versionDefines` sees only a package that the Package Manager installed, not a `.unitypackage` import. Do not gate on `STEAMWORKS_NET`: the Steamworks.NET installer writes it into the project's scripting defines, where it stays after the package is removed.

@@ -35,6 +35,9 @@
 - ✨ **Particle Handler**: Convenient `ParticleSystem` playback, pause, stop, clear, restart, `Loop`/`IsLooping`/`SetLoop`/`PlayLoop`/`PlayOnce` controls, state queries, and lifecycle events on a required component
 - 🌐 **WebRequest**: HTTP GET/POST/PUT/PATCH/DELETE, download size queries, retry backoff, in-flight cancellation, download progress, UniTask support
 - 📊 **Observable Pattern**: Data change detection and event-based binding
+- 🖥 **Debug Console**: In-game console for player builds with typed commands, developer-only and player-facing access, a mark for commands that change progress, and Unity's log
+- 🔀 **State Machine**: Keyed states for game, UI, or AI flows, with enter and exit that may wait as coroutines or, with UniTask, as async methods, requests queued in order while a transition waits, guards, and a way back
+- 💾 **Save System**: Section-based saves into slots, with data versions and migration, checked files written safely, and Unity types such as `Vector3` saved as they are, and multiplayer session saves that keep each player's data under their ID and that the host can share with another player
 - 🛠 **Utility Collection**: Extension Methods, ObjectPool, EasingFunctions
 - ✅ **Initialization Result Contracts**: Addressables/Localization expose explicit init success/failure state
 - 🔁 **Resilient Networking**: WebRequest result-based APIs include status, headers, timeout, retry options, and opt-in cancellation propagation
@@ -59,7 +62,7 @@
 3. Enter one of the following URLs:
    ```
     # Base package
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/base#base/v0.31.0
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/base#base/v0.32.0
 
     # Notifications package
     https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/notifications#notifications/v0.1.0
@@ -71,13 +74,13 @@
     https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/localization#localization/v0.1.0
 
     # Addressables package (install Base first)
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/addressables#addressables/v0.1.1
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/addressables#addressables/v0.2.0
 
     # DI package (install Base first)
     https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/di#di/v0.2.0
 
     # Steam package (install Steamworks.NET and Base first)
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/steam#steam/v0.2.0
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/steam#steam/v0.3.0
 
     # URP package (install Base first)
     https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/urp#urp/v0.5.0
@@ -98,7 +101,7 @@ The Addressables package holds `AddressablesManager` and its group data exporter
 
 The DI package holds the `CoreBase` container with its link.xml processor and its validator and runtime diagnostics drawers. Install Base before it.
 
-The Steam package holds `SteamBackend`, which runs multiplayer sessions on Steam. Install Steamworks.NET and Base before it.
+The Steam package holds `SteamBackend`, which runs multiplayer sessions on Steam, Steam achievements and stats with optional debug console commands, and a Steam Cloud storage for the save system. Install Steamworks.NET and Base before it.
 
 ### Option 2: Package Manager (Local Disk)
 1. Clone this repository
@@ -360,6 +363,78 @@ await _sceneLoader.LoadSingleSceneAsync("Main");
 await _sceneLoader.LoadSingleSceneWithAddressablesAsync("Sample_Addressables");
 ```
 
+### State Machine
+`StateMachine<TKey>` (`Mu3Library.States`) moves between states that a game registers under keys, usually an enum: a game flow from boot to title, lobby, game, and results, a UI flow, or an enemy's behavior. A state, usually a `State` subclass, overrides what it needs: `Enter` and `Exit`, which may `yield` to wait as a coroutine does, and `Update`. The machine steps these routines from its own `Update`, so it waits for `null`, a nested routine, a `CustomYieldInstruction` such as `WaitUntil` or `WaitForSecondsRealtime`, and an `AsyncOperation`, but `WaitForSeconds` and the other `YieldInstruction`s wait one frame only, with a warning: wait for time with `WaitForSecondsRealtime` or `WaitUntil` instead. A transition exits the current state, waiting until its `Exit` ends, then enters the new one, waiting until its `Enter` ends, and raises `OnStateChanged`; one that waits for nothing ends within `ChangeState`. Requests that come while a transition waits run one by one in the order they came. `AddGuard` adds a condition that can block a transition, which `OnTransitionBlocked` reports, and `Back` returns to the previous state, one step: the machine keeps no history, so a second `Back` returns to where the first one left. The owner calls `Update` every frame, which steps a transition that waits and otherwise updates the current state. With UniTask, a state derived from `AsyncState` awaits its `EnterAsync` and `ExitAsync` instead. The machine is tied to no scene loader or UI system; here a game flow loads its scenes with `SceneLoader`:
+
+```csharp
+using System.Collections;
+using System.Threading;
+using Cysharp.Threading.Tasks; // for AsyncSceneState only
+using Mu3Library.Scene;
+using Mu3Library.States;
+using UnityEngine;
+
+public enum GameFlow { Boot, Title, Game }
+
+public class SceneState : State
+{
+    private readonly ISceneLoader _sceneLoader;
+    private readonly string _sceneName;
+
+    public SceneState(ISceneLoader sceneLoader, string sceneName)
+    {
+        _sceneLoader = sceneLoader;
+        _sceneName = sceneName;
+    }
+
+    // The next state comes in once the scene loaded. A routine may yield null, a nested routine,
+    // a CustomYieldInstruction such as WaitUntil or WaitForSecondsRealtime, or an AsyncOperation;
+    // WaitForSeconds waits one frame only.
+    public override IEnumerator Enter()
+    {
+        _sceneLoader.LoadSingleScene(_sceneName);
+        yield return new WaitUntil(() => !_sceneLoader.IsLoading);
+    }
+}
+
+// With UniTask, the same state awaits instead.
+public class AsyncSceneState : AsyncState
+{
+    private readonly ISceneLoader _sceneLoader;
+    private readonly string _sceneName;
+
+    public AsyncSceneState(ISceneLoader sceneLoader, string sceneName)
+    {
+        _sceneLoader = sceneLoader;
+        _sceneName = sceneName;
+    }
+
+    public override async UniTask EnterAsync(CancellationToken cancellationToken)
+    {
+        await _sceneLoader.LoadSingleSceneAsync(_sceneName);
+    }
+}
+
+// The owner outlives the scenes it loads, such as a core or an object kept with DontDestroyOnLoad.
+_flow = new StateMachine<GameFlow>();
+_flow.Add(GameFlow.Boot, new SceneState(_sceneLoader, "Boot"));
+_flow.Add(GameFlow.Title, new SceneState(_sceneLoader, "Title"));
+_flow.Add(GameFlow.Game, new SceneState(_sceneLoader, "Game"));
+_flow.AddGuard(transition => transition.To != GameFlow.Game || _isSignedIn);
+_flow.OnStateChanged += transition => Debug.Log($"Flow: {transition}");
+_flow.ChangeState(GameFlow.Boot);
+
+// Every frame.
+_flow.Update();
+
+// Later: requests made while the boot scene still loads wait their turn.
+_flow.ChangeState(GameFlow.Title);
+_flow.Back(); // to the state before the current one
+
+// When the owner goes away.
+_flow.Dispose();
+```
+
 ### WebRequest
 Simplifies HTTP request handling.
 
@@ -420,6 +495,122 @@ _playerData.Health.Set(80);
 ```
 
 An Observable field can also sit inside a `[Serializable]` class, an array, or a list on a component or ScriptableObject; editing it in the Inspector applies the value and notifies its subscribers, and so does undoing or redoing that edit or reverting a prefab instance, with the restored value. In an `ObservableDictionary`, the first row of a key wins: a row that repeats a key stays in the list with a warning until its key is changed.
+
+### Save System
+Saves and loads a game in sections: each system or stage describes its part of the game as one section, and the game saves and loads sections at points it chooses, such as a checkpoint or the end of a stage, rather than every detail of the moment. It lives in the `Mu3Library.Save` assembly, which an assembly definition of your own references.
+
+```csharp
+using System;
+using Mu3Library.Save;
+using UnityEngine;
+
+[Serializable]
+public class PlayerSaveData
+{
+    public Vector3 Position;
+    public int Level;
+}
+
+public class PlayerSaveSection : SaveSection<PlayerSaveData>
+{
+    private readonly Transform _player;
+    private readonly PlayerStats _stats;
+
+    public override string Key => "player";
+    public override int Version => 2;
+
+    public PlayerSaveSection(Transform player, PlayerStats stats)
+    {
+        _player = player;
+        _stats = stats;
+    }
+
+    protected override PlayerSaveData Capture() =>
+        new PlayerSaveData { Position = _player.position, Level = _stats.Level };
+
+    protected override void Restore(PlayerSaveData data)
+    {
+        _player.position = data.Position;
+        _stats.Level = data.Level;
+    }
+
+    // Version 1 saved no level, so those saves read it as 0.
+    protected override PlayerSaveData Migrate(int savedVersion, PlayerSaveData data)
+    {
+        if (savedVersion < 2)
+        {
+            data.Level = 1;
+        }
+
+        return data;
+    }
+}
+
+// Files in Saves under Application.persistentDataPath, written as JSON.
+var saves = new SaveManager();
+saves.RegisterSection(new PlayerSaveSection(playerTransform, playerStats));
+saves.RegisterSection(SaveSection.Create("stage", () => _stage, data => _stage = data));
+
+saves.Save("slot1");            // every registered section
+saves.Save("slot1", "stage");   // one section; the slot keeps the others
+
+saves.SetMetadata("slot1", "chapter", "3. The Forest");   // for a slot list
+
+SaveResult result = saves.Load("slot1");
+if (!result.IsSuccess)
+{
+    Debug.LogWarning($"Load failed: {result}");   // result.Reason says why
+}
+```
+
+- **Sections and slots**: A slot holds one entry per section key. Saving one section keeps the slot's other sections, and a section the slot holds that no code registers stays in it untouched. Loading the whole slot reads, checks, and migrates every registered section first, so a damaged or too new section, or a migration that throws, restores none of them, and then calls `RestoreDefault` on each registered section the slot does not hold, such as one the game added after the slot was saved. Saving one section into a damaged slot fails with `SaveFailureReason.Corrupted`, while saving the whole slot writes it anew with the registered sections only, since what it held cannot be read.
+- **Data**: The default `JsonSaveSerializer` writes a section's data through `JsonUtility`, so Unity types such as `Vector3`, `Quaternion`, and `Color` save as they are. The data is a `[Serializable]` class or struct; a primitive, a string, or a collection on its own is refused, so put it in a field. `JsonUtility` writes no dictionary or property.
+- **Versions**: Raise a section's `Version` when its data changes shape. A slot saved with an older version passes through `Migrate`, which receives the data read into the current type, where a field the old version lacked holds its default, and runs before any section restores, so it must not touch the game. A slot saved with a newer version fails with `SaveFailureReason.VersionTooNew`, and so does a save that would write an older version over it, so a build that went back a version loses nothing a newer one saved. A slot written in a newer slot format is refused the same way.
+- **Storage**: `FileSaveStorage` keeps each slot in `<slot ID>.sav` and writes it through a temporary file that then replaces it, so a write that stops partway leaves the previous save readable. `MemorySaveStorage` keeps slots in memory. Implement `ISaveStorage` for another place, such as a platform's cloud storage. Each slot carries a CRC-32 check, so a damaged file fails with `SaveFailureReason.Corrupted`.
+- **Slot lists**: `GetSlots` and `TryGetSlotInfo` read a slot's sections, versions, times, size, and metadata without restoring anything; a damaged or too new slot is left out. `SetMetadata` sets a short value of a saved slot for such a list, such as a chapter name or play time, up to 32 values of 256 characters each, and saves keep them; `Peek` reads one section's data without restoring it. `ExportSlot` and `ImportSlot` hand out and take back a slot's checked bytes, such as for a backup, and every length is checked before it is read, so bytes from elsewhere are safe to parse, while the sections they hold restore as their sender wrote them. `MaxSlotSize`, 8 MiB by default, caps a slot with all its sections.
+- Slot IDs take letters, digits, `_`, and `-`, up to 64 characters, but not a name Windows keeps for a device, such as `CON`; section and metadata keys also take `.`. A file system that ignores case keeps two IDs that differ only in case as one slot. Calls run on the calling thread, and a save, load, or storage failure comes back as a `SaveResult`; only a mistake in the calling code throws, such as a null argument or a `MaxSlotSize` of 0 or less. `ISaveManagerEventBus` raises `OnSaved`, `OnLoaded`, `OnSlotDeleted`, and `OnSlotImported`.
+
+### Debug Console
+An in-game console for player builds: commands the game registers, the lines it ran, and Unity's log, drawn over the game. It lives in the `Mu3Library.DebugConsole` assembly, which an assembly definition of your own references.
+
+```csharp
+using Mu3Library.DebugConsole;
+using UnityEngine;
+
+public class ConsoleSetup : MonoBehaviour
+{
+    private DebugConsoleManager _console;
+
+    private void Awake()
+    {
+        _console = new DebugConsoleManager();   // captures Unity's log while it lives
+
+        // Developer commands run in the editor and in a Development Build only.
+        _console.RegisterCommand<int>("level", level => LoadLevel(level),
+            new ConsoleCommandOptions("Loads a level.", affectsProgress: true));
+
+        // Player commands are what the game offers its players on purpose.
+        _console.RegisterCommand<int, int>("give", GiveItem,
+            new ConsoleCommandOptions("Gives an item.", ConsoleAccess.Player, affectsProgress: true));
+
+        // Let players open the console in a release build, for the Player commands only.
+        _console.PlayerConsoleEnabled = _settings.AllowPlayerConsole;
+        _console.OnProgressModified += commandName => _saveData.UsedConsole = true;
+
+        DebugConsoleView.Create(_console);   // the ` key opens it
+    }
+
+    private void GiveItem(int item, int count = 1) { /* ... */ }
+
+    private void OnDestroy() => _console.Dispose();
+}
+```
+
+- **Access**: A `Developer` command, the default, runs only in the editor and in a Development Build. A `Player` command is one the game offers its players on purpose, such as a convenience or a cheat it allows: it also runs in a release build once the game turns on `PlayerConsoleEnabled`. A release build keeps the console closed until then, and lists, completes, and runs only the commands its build lets run: it answers a `Developer` command as unknown.
+- **Progress**: A command marked `affectsProgress` sets `HasModifiedProgress` and raises `OnProgressModified` when it runs, even if it then throws, so the game can mark the save or hold back achievements by its own rules; `ResetProgressModified` clears the mark.
+- **Arguments**: A command takes up to four typed parameters: `string`, `int`, `long`, `float`, `double`, `bool` (`true`, `false`, `on`, `off`, `yes`, `no`, `1`, `0`), an enum by name or number, `Vector2` and `Vector3` as `x,y` and `x,y,z`. A method's default values make its last parameters optional, a vector's `default` reading as zero, and words in double quotes keep their spaces. A command registered with an `Action<ConsoleCall>` gets the words as typed and can `Print`. Names match without case; `help` and `clear` come built in.
+- **View**: `DebugConsoleView` draws the console with IMGUI, which reads the keyboard under either input backend. The toggle key, `` ` `` by default, opens and closes it, Enter runs the line, Up and Down walk the history, Tab completes a command name, and Escape closes it. On a device without a keyboard, call `Open` from the game's own button or gesture. The keys also reach the game's own input, so pause it while the console is open, such as from `OnOpenChanged`. The view filters Unity's log by level, and the console keeps the newest `MaxLines` lines, 1000 by default.
+- `Execute` runs a line from code and returns a `ConsoleResult` that says why a line failed, and a command that throws also logs its exception; `IDebugConsoleManagerEventBus` raises `OnLineAdded`, `OnCleared`, `OnOpenChanged`, `OnProgressModified`, and `OnExecuted`. Dispose the manager to stop capturing the log.
 
 ### Multiplayer
 `MultiplayerManager` (`Mu3Library.Multiplayer`) runs a player-hosted session: one player hosts, the others find the host's lobby and connect to the host, and the host decides the roster, the rules, and when the game starts. It runs on a backend: `LocalBackend` (`Mu3Library.Multiplayer.Local`), for several players inside one process or, on a network from `LocalNetwork.CreateMachineWide`, editors and player builds on one computer, or `SteamBackend` from the separate [Steam package](packages/steam/README.md). Code in an assembly definition of its own references `Mu3Library.Multiplayer` to use it. Everything runs on the main thread, and what the backend reports, the other players' messages, and the answers to lobby requests arrive from inside `Update`, so call it every frame.
@@ -593,7 +784,97 @@ private void OnVoice(MessageContext context, ReadOnlySpan<byte> payload)
     }
 }
 ```
+- **State sync**: `StateSyncManager` (`Mu3Library.Multiplayer.Sync`) keeps game states the same on every player within a byte budget, so systems whose state changes every frame do not each send messages of their own. Each system decides what its state holds and how precisely it writes it, in a `SyncState` subclass or an `ISyncState` of its own, with a whole write and, if it overrides one, a write of what changed. The manager decides how much goes and when: every `StateSyncConfig.TickIntervalSeconds` (20 times a second by default) it gathers the states that changed into one message per player and delivery mode, and sends each player at most `MaxBytesPerTick` (512 by default). States that do not fit wait for a later tick, picked by their priority and by how long they waited, and a player who missed a change, joins during the game, or comes back to their slot gets the whole state. The host sends the states it owns, and a state a client owns, such as its own character, goes from that client to the host under the same budget and on to the other players. An unreliable state, the default, also goes whole every `FullStateIntervalSeconds` (1 by default), so a copy that lost an update catches up; a reliable one suits a state that changes now and then, such as a door. An interest filter lets the host send a state only to the players it picks, such as those close by. `TransformSync` syncs a transform's position and rotation, quantized, and moves each copy smoothly between the updates. The manager syncs while the game runs (`SessionState.InGame`); `CheckRateLimits` tells whether what a client sends fits the session's rate limits, which the manager also checks as each game starts and logs when they do not, and the Multiplayer Debugger shows what each tick sent each player.
+
+```csharp
+// Beside the session code above: add using System.Collections.Generic; and using Mu3Library.Multiplayer.Sync;
+private const ushort SyncMessage = 3;
+private StateSyncManager _sync;
+private readonly List<TransformSync> _transforms = new List<TransformSync>();
+
+// In Awake, after Initialize. Every player creates it with the same config.
+_sync = new StateSyncManager(_manager, new StateSyncConfig(SyncMessage));
+
+// Once the game starts, every player registers the same states under the same IDs.
+_manager.OnGameStarted += startData =>
+{
+    _transforms.Add(new TransformSync(1, _boss.transform));
+    _sync.Register(_transforms[_transforms.Count - 1]); // the host sends it
+    foreach (Participant participant in _manager.Participants)
+    {
+        // An ID every player gives this player's character, such as its place in the start data.
+        TransformSync character = new TransformSync(CharacterIdOf(participant.Id), CharacterOf(participant.Id));
+        _transforms.Add(character);
+        _sync.Register(character, participant.Id); // its player sends it, and the host sends it on
+    }
+};
+
+// When the game ends, every player unregisters them, so the next game registers its own.
+_manager.OnReturnedToLobby += ClearSyncedStates;
+_manager.OnStateChanged += change =>
+{
+    if (change.Current == SessionState.Offline)
+    {
+        ClearSyncedStates();
+    }
+};
+
+// In Update, after _manager.Update(): send this tick's changes, and move the copies.
+_sync.Update();
+foreach (TransformSync synced in _transforms)
+{
+    synced.Update();
+}
+
+// In OnDestroy, before _manager.Dispose().
+_sync.Dispose();
+
+private void ClearSyncedStates()
+{
+    foreach (TransformSync synced in _transforms)
+    {
+        _sync.Unregister(synced.Id);
+    }
+
+    _transforms.Clear();
+}
+```
 - `IMultiplayerManagerEventBus` lists every event, and the XML comments of `IMultiplayerManager` and `IMultiplayerMessenger` describe each call; in the editor, **Mu3Library > Windows > Multiplayer Debugger** shows the running sessions in play mode.
+
+#### Session Saves
+`SessionSaveManager` (`Mu3Library.SessionSave`) saves a session through a `SaveManager` on the host, and lets the host send the save to another player, who can host the session from it later. The sections registered with the `SaveManager` hold what the whole session shares, such as the world; each `PlayerSaveSection<TData>`, or one from `PlayerSaveSection.Create`, is saved once for every player of the session as `player.<PlayerId>.<key>`, so a player's data stays theirs whoever hosts. Code in an assembly definition of its own references `Mu3Library.SessionSave`, `Mu3Library.Save`, and `Mu3Library.Multiplayer`.
+
+```csharp
+using System;
+using System.IO;
+using Mu3Library.Save;
+using Mu3Library.SessionSave;
+using UnityEngine;
+
+// Every player creates it the same way, with the same message type; the share takes it and the next one.
+var saves = new SaveManager(new FileSaveStorage(Path.Combine(Application.persistentDataPath, "SessionSaves")));
+saves.RegisterSection(SaveSection.Create("world", () => _world, data => _world = data));
+
+var session = new SessionSaveManager(_manager, saves, messageType: 900);
+session.RegisterPlayerSection(PlayerSaveSection.Create<InventoryData>("inventory",
+    player => _inventories[player],
+    (player, data) => _inventories[player] = data,
+    restoreDefault: player => _inventories[player] = new InventoryData()));
+
+// The host, at a point the game chooses; Update every frame paces a share.
+session.Save("coop-1", sessionName: "Forest Run");
+session.Load("coop-1");                          // before StartGame
+session.Share("coop-1", friendId, out uint shareId);
+
+// The player the host shares with.
+// AcceptShare replaces a slot of that ID, so the save takes a new one.
+session.OnShareOffered += offer => session.AcceptShare(offer.ShareId, $"shared-{Guid.NewGuid():N}");
+session.OnShareCompleted += transfer => Debug.Log($"Stored {transfer.SlotId}");
+```
+
+- **Players**: Only the host saves and loads. `Save` writes every player of the session, those whose slot the host keeps while they are away included, and a player the slot holds who is not in the session keeps their sections in it. `Load` gives each player of the session their sections, and a player the slot does not hold, such as one who joins the saved session for the first time, starts from `RestoreDefault`. `LoadPlayer` loads one player, such as one who joins a game already under way. A player section key takes up to 36 characters, and no other section's key may start with `player.`.
+- **Origin**: The slot's metadata names the host who last saved it and the session name it was saved with, which `TryGetSessionInfo` reads with the players the slot holds. A save received from another player keeps those, so it shows where it came from until the player saves it as host.
+- **Share**: `Share` offers a saved slot to another player of the session; their game answers `OnShareOffered` with `AcceptShare`, naming the slot to store it as, or `DeclineShare`. `AcceptShare` replaces a slot of that ID, so name one that none of the player's own saves uses, such as a new GUID, rather than the host's `SourceSlotId` or its `ShareId`, which each host counts from 1 again whenever it starts. The host then sends the save as reliable messages of at most `ShareChunkSize` bytes (16 KiB by default) at `ShareBytesPerSecond` (128 KiB a second by default), since the host's own sends pass no rate limit of the session and the share must leave room for the session's other messages; the player's two answers count toward the session's rate limits like any other message. The receiving player refuses a save larger than its `SaveManager.MaxSlotSize` and checks the whole save with the slot's CRC-32 before it stores it, so damaged bytes are never stored. `OnShareProgress` reports the bytes sent and received. Every share that `Share` started on the host, or that `OnShareOffered` reported on the receiving player, ends there with `OnShareCompleted` or `OnShareFailed` and a `SaveShareFailureReason`, such as `Declined`, `Corrupted`, `Timeout` (no answer within `ShareTimeoutSeconds`, 60 by default), `PlayerLeft`, or `SessionEnded`; an offer the receiving player turns down by itself, because it is too large (`TooLarge`) or another share runs (`Busy`), raises nothing there, and the host hears why.
 
 ## 🔧 Optional Packages
 
@@ -654,15 +935,19 @@ The fallback Inspector is registered with `isFallback` for every `MonoBehaviour`
 - **Audio**: BGM/SFX management system
 - **Particle**: `ParticleHandler` MonoBehaviour for convenient `ParticleSystem` control, loop configuration, and lifecycle events (`OnPlayed`, `OnStopped`, `OnPaused`, `OnUnPaused`, `OnCleared`, `OnRestarted`, `OnLoopChanged`, `OnCompleted`)
 - **DI**: Moved to the separate DI package ([README](packages/di/README.md)); Base keeps the lifecycle and injection contracts in `Mu3Library.Foundation`
+- **DebugConsole**: In-game console with typed commands, developer and player access, a progress mark, Unity's log, and an IMGUI view, in the `Mu3Library.DebugConsole` assembly
 - **Event**: Owner-managed subscription utilities, reusable one-shot helpers, and disposable `ISubscriptionInfo` tokens via `SubscribeHandler`
 - **Extensions**: Extension methods for GameObject, Transform, Vector3, etc.
 - **Localization**: Moved to the separate Localization package ([README](packages/localization/README.md))
-- **Multiplayer**: Player-hosted sessions with lobbies, roster, ready check, lobby data that the host sets and deletes and per-player data that each player sets and deletes, both of which every player hears change, lobby chat, capacity rules, per-client rate limits, game start, kicks, slots kept for players who drop during a game until they reconnect, within a time each client sets for its own attempts, and enter their lobby again, which the game hears when they cannot, a host-side wait for every player to finish loading after the start and again for each load phase the host begins within the game, game messages relayed by the host, with `MessageWriter` and `MessageReader` for their payloads, the quality of each connection (ping, packet loss, and bytes per second) and, on every player, each player's ping as the host measures it, players' avatars as textures, which follow a player's new picture and which the game releases once it no longer shows them, a presence status, and voice, which the backend records and decodes, the game carries as messages to the players it or the host's relay filter picks, and `VoicePlayer` plays through an `AudioSource` for each speaker, over a pluggable backend: `LocalBackend` (several players inside one process, or, on a network from `LocalNetwork.CreateMachineWide`, editors and player builds on one computer), whose network can simulate latency, jitter, packet loss, and outages, and `SteamBackend` (Steam lobbies and Steam connections, the players' Steam avatars, and Steam rich presence, which shows the status in the friends list), in the separate Steam package ([README](packages/steam/README.md)); per-type message counts; and, in the editor, the **Mu3Library > Windows > Multiplayer Debugger** window, which shows each running session's state, players, connection quality, and message counts in play mode, along with a **Host ping** column that shows each player's ping as the host measures it, on the host and on clients alike
+- **Multiplayer**: Player-hosted sessions with lobbies, roster, ready check, lobby data that the host sets and deletes and per-player data that each player sets and deletes, both of which every player hears change, lobby chat, capacity rules, per-client rate limits, game start, kicks, slots kept for players who drop during a game until they reconnect, within a time each client sets for its own attempts, and enter their lobby again, which the game hears when they cannot, a host-side wait for every player to finish loading after the start and again for each load phase the host begins within the game, game messages relayed by the host, with `MessageWriter` and `MessageReader` for their payloads, the quality of each connection (ping, packet loss, and bytes per second) and, on every player, each player's ping as the host measures it, players' avatars as textures, which follow a player's new picture and which the game releases once it no longer shows them, a presence status, and voice, which the backend records and decodes, the game carries as messages to the players it or the host's relay filter picks, and `VoicePlayer` plays through an `AudioSource` for each speaker, over a pluggable backend: `LocalBackend` (several players inside one process, or, on a network from `LocalNetwork.CreateMachineWide`, editors and player builds on one computer), whose network can simulate latency, jitter, packet loss, and outages, and `SteamBackend` (Steam lobbies and Steam connections, the players' Steam avatars, and Steam rich presence, which shows the status in the friends list), in the separate Steam package ([README](packages/steam/README.md)); state sync within a byte budget per player and tick, which gathers the states that changed into one message a player and picks what fits by priority and waiting time (`StateSyncManager`, with `TransformSync` for transforms); per-type message counts and their bytes; and, in the editor, the **Mu3Library > Windows > Multiplayer Debugger** window, which shows each running session's state, players, connection quality, message counts and bytes, and what each tick of its state sync sent each player in play mode, along with a **Host ping** column that shows each player's ping as the host measures it, on the host and on clients alike
   - **Writing a backend**: A backend for another platform implements `IMultiplayerBackend` from `Mu3Library.Multiplayer.Backend`, and may also implement two optional interfaces that the manager looks for: `ILobbyInviteBackend`, when its lobbies that are not public let a player in only by invite, so the host invites back a player who returns to a kept slot, and `IUnavailableReasonBackend`, to name why the backend is not available, as the Steam backend names `SteamNotRunning`. A third, `IVoiceBackend`, which the game uses itself, records and decodes voice. `LobbyDataKeys` lists the lobby data keys that the manager reserves under the `mu3.` prefix and writes in every lobby it creates; a backend stores them like any other lobby data and may read them. A backend that starts a search after `SearchLobbies` returns keeps a copy of the query from `LobbySearchQuery.Clone()`
 - **ObjectPool**: Queue-based object pooling with duplicate inactive enqueue protection, batch `List<T>` enqueue and count- or argument-list-based `List<T>` dequeue support, optional no-argument creation callbacks, typed `CreateArguments` initialization callbacks, and `Clear()` cleanup
 - **Observable**: Data change detection system
 - **Preference**: PlayerPrefs wrapper
 - **Resource**: Resources folder loading
+- **Save**: Section-based saves into slots, with data versions and migration, a checked slot format, and file or in-memory storage, in the `Mu3Library.Save` assembly
+- **SessionSave**: A multiplayer session's save on the host, with each player's sections under their ID, players who join or stay away handled, and its paced, checked share to another player who can host from it, in the `Mu3Library.SessionSave` assembly
+- **States**: `StateMachine<TKey>` with `State` and, with UniTask, `AsyncState`: transitions that exit and then enter, waiting for routines or async methods, requests queued in order, guards, and `Back`
 - **Scene**: Scene loading abstraction with phase/status queries, lifecycle/progress callbacks, one-shot lifecycle subscription helpers, and unified rejection events
 - **UI**: MVP pattern implementation, the `UIAreaGrid`/`UIAreaElement` helper that anchors children to one of nine areas with per-axis uniform or independent cut lines, and the `SafeCanvas`/`SafeRect` pair that keeps a canvas inside the screen safe area
 - **IS**: Moved to the separate Input System package ([README](packages/inputsystem/README.md))

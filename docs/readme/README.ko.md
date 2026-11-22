@@ -35,6 +35,9 @@
 - ✨ **Particle Handler**: 필수 `ParticleSystem`의 재생, 일시정지, 정지, 초기화, 재시작, `Loop`/`IsLooping`/`SetLoop`/`PlayLoop`/`PlayOnce` 제어, 상태 조회와 생명주기 이벤트를 제공하는 편의 컴포넌트
 - 🌐 **WebRequest**: HTTP GET/POST/PUT/PATCH/DELETE, 다운로드 크기 조회, 재시도 백오프, 진행 중 취소, 다운로드 진행률, UniTask 지원
 - 📊 **Observable 패턴**: 데이터 변경 감지 및 이벤트 기반 바인딩
+- 🖥 **디버그 콘솔**: 타입 지정 인자를 받는 명령, 개발자 전용 접근과 플레이어용 접근, 진행에 영향을 주는 명령의 표시, Unity 로그를 갖춘 플레이어 빌드용 게임 내 콘솔
+- 🔀 **상태 머신**: 게임, UI, AI 흐름을 위한 키 기반 상태. 코루틴처럼, 또는 UniTask가 있으면 비동기 메서드로 기다릴 수 있는 진입과 종료, 전환이 기다리는 동안 순서대로 대기하는 요청, 가드, 이전 상태로 돌아가기를 제공
+- 💾 **세이브 시스템**: 데이터 버전과 마이그레이션, 안전하게 기록되고 무결성을 검사하는 파일, `Vector3` 같은 Unity 타입을 그대로 저장하는 기능을 갖추고 섹션 단위로 슬롯에 저장하는 세이브와, 각 플레이어의 데이터를 그 ID 아래에 두고 호스트가 다른 플레이어와 공유할 수 있는 멀티플레이 세션 세이브
 - 🛠 **유틸리티 모음**: Extension Methods, ObjectPool, EasingFunctions
 - ✅ **초기화 결과 계약**: Addressables/Localization 초기화 성공/실패 상태를 명시적으로 제공
 - 🔁 **안정적인 네트워킹**: WebRequest 결과형 API에 상태 코드, 헤더, 타임아웃, 재시도 옵션과 선택적 취소 전파를 제공
@@ -59,7 +62,7 @@
 3. 다음 URL 중 하나를 입력:
    ```
     # Base 패키지
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/base#base/v0.31.0
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/base#base/v0.32.0
 
     # Notifications 패키지
     https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/notifications#notifications/v0.1.0
@@ -71,13 +74,13 @@
     https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/localization#localization/v0.1.0
 
     # Addressables 패키지 (먼저 Base 설치)
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/addressables#addressables/v0.1.1
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/addressables#addressables/v0.2.0
 
     # DI 패키지 (먼저 Base 설치)
     https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/di#di/v0.2.0
 
     # Steam 패키지 (먼저 Steamworks.NET과 Base 설치)
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/steam#steam/v0.2.0
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/steam#steam/v0.3.0
 
     # URP 패키지 (먼저 Base 설치)
     https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/urp#urp/v0.5.0
@@ -98,7 +101,7 @@ Addressables 패키지는 `AddressablesManager`와 그 그룹 데이터 내보�
 
 DI 패키지는 `CoreBase` 컨테이너와 그 link.xml 처리기, 검증 드로어와 런타임 진단 드로어를 담습니다. 먼저 Base를 설치하세요.
 
-Steam 패키지는 Steam에서 멀티플레이 세션을 실행하는 `SteamBackend`를 담습니다. 먼저 Steamworks.NET과 Base를 설치하세요.
+Steam 패키지는 Steam에서 멀티플레이 세션을 실행하는 `SteamBackend`, 선택적인 디버그 콘솔 명령을 갖춘 Steam 업적과 통계, 그리고 세이브 시스템용 Steam Cloud 저장소를 담습니다. 먼저 Steamworks.NET과 Base를 설치하세요.
 
 ### 방법 2: 패키지 매니저 (로컬 디스크)
 1. 이 저장소를 클론합니다
@@ -360,6 +363,78 @@ await _sceneLoader.LoadSingleSceneAsync("Main");
 await _sceneLoader.LoadSingleSceneWithAddressablesAsync("Sample_Addressables");
 ```
 
+### 상태 머신
+`StateMachine<TKey>`(`Mu3Library.States`)는 게임이 키(보통 enum) 아래에 등록한 상태 사이를 오갑니다. 부팅에서 타이틀, 로비, 게임, 결과로 이어지는 게임 흐름이나 UI 흐름, 적의 행동 같은 것입니다. 상태는 보통 `State`의 하위 클래스이며 필요한 것만 재정의합니다. 코루틴처럼 `yield`로 기다릴 수 있는 `Enter`와 `Exit`, 그리고 `Update`입니다. 머신은 이 루틴을 자기 `Update`에서 진행하므로 `null`, 중첩된 루틴, `WaitUntil`이나 `WaitForSecondsRealtime` 같은 `CustomYieldInstruction`, `AsyncOperation`을 기다리지만, `WaitForSeconds`와 그 밖의 `YieldInstruction`은 경고와 함께 한 프레임만 기다립니다. 시간을 기다리려면 대신 `WaitForSecondsRealtime`이나 `WaitUntil`을 쓰세요. 전환은 현재 상태에서 나가며 그 `Exit`가 끝날 때까지 기다리고, 새 상태에 들어가며 그 `Enter`가 끝날 때까지 기다린 뒤 `OnStateChanged`를 발생시킵니다. 아무것도 기다리지 않는 전환은 `ChangeState` 안에서 끝납니다. 전환이 기다리는 동안 들어온 요청은 들어온 순서대로 하나씩 실행됩니다. `AddGuard`는 전환을 막을 수 있는 조건을 추가하며, 막힌 전환은 `OnTransitionBlocked`가 알립니다. `Back`은 이전 상태로 한 단계 돌아갑니다. 머신은 이력을 보관하지 않으므로, 두 번째 `Back`은 첫 번째 `Back`이 떠나온 상태로 돌아갑니다. 소유자는 매 프레임 `Update`를 호출하며, `Update`는 기다리는 전환이 있으면 그 전환을 진행하고, 없으면 현재 상태를 업데이트합니다. UniTask가 있으면 `AsyncState`를 상속한 상태는 대신 `EnterAsync`와 `ExitAsync`를 await합니다. 머신은 어떤 씬 로더나 UI 시스템에도 묶여 있지 않습니다. 다음 예에서는 게임 흐름이 `SceneLoader`로 씬을 로드합니다.
+
+```csharp
+using System.Collections;
+using System.Threading;
+using Cysharp.Threading.Tasks; // AsyncSceneState에서만 씁니다
+using Mu3Library.Scene;
+using Mu3Library.States;
+using UnityEngine;
+
+public enum GameFlow { Boot, Title, Game }
+
+public class SceneState : State
+{
+    private readonly ISceneLoader _sceneLoader;
+    private readonly string _sceneName;
+
+    public SceneState(ISceneLoader sceneLoader, string sceneName)
+    {
+        _sceneLoader = sceneLoader;
+        _sceneName = sceneName;
+    }
+
+    // 다음 상태는 씬이 로드된 뒤에 들어옵니다. 루틴은 null, 중첩된 루틴,
+    // WaitUntil이나 WaitForSecondsRealtime 같은 CustomYieldInstruction, AsyncOperation을 yield할 수 있습니다.
+    // WaitForSeconds는 한 프레임만 기다립니다.
+    public override IEnumerator Enter()
+    {
+        _sceneLoader.LoadSingleScene(_sceneName);
+        yield return new WaitUntil(() => !_sceneLoader.IsLoading);
+    }
+}
+
+// UniTask가 있으면 같은 상태가 대신 await합니다.
+public class AsyncSceneState : AsyncState
+{
+    private readonly ISceneLoader _sceneLoader;
+    private readonly string _sceneName;
+
+    public AsyncSceneState(ISceneLoader sceneLoader, string sceneName)
+    {
+        _sceneLoader = sceneLoader;
+        _sceneName = sceneName;
+    }
+
+    public override async UniTask EnterAsync(CancellationToken cancellationToken)
+    {
+        await _sceneLoader.LoadSingleSceneAsync(_sceneName);
+    }
+}
+
+// 소유자는 코어나 DontDestroyOnLoad로 유지하는 오브젝트처럼, 자기가 로드하는 씬보다 오래 남습니다.
+_flow = new StateMachine<GameFlow>();
+_flow.Add(GameFlow.Boot, new SceneState(_sceneLoader, "Boot"));
+_flow.Add(GameFlow.Title, new SceneState(_sceneLoader, "Title"));
+_flow.Add(GameFlow.Game, new SceneState(_sceneLoader, "Game"));
+_flow.AddGuard(transition => transition.To != GameFlow.Game || _isSignedIn);
+_flow.OnStateChanged += transition => Debug.Log($"Flow: {transition}");
+_flow.ChangeState(GameFlow.Boot);
+
+// 매 프레임.
+_flow.Update();
+
+// 나중에: 부트 씬이 아직 로드되는 동안 한 요청은 자기 차례를 기다립니다.
+_flow.ChangeState(GameFlow.Title);
+_flow.Back(); // 현재 상태 직전의 상태로
+
+// 소유자가 사라질 때.
+_flow.Dispose();
+```
+
 ### WebRequest
 HTTP 요청을 간단하게 처리합니다.
 
@@ -420,6 +495,122 @@ _playerData.Health.Set(80);
 ```
 
 Observable 필드는 컴포넌트나 ScriptableObject의 `[Serializable]` 클래스, 배열, 리스트 안에 두어도 됩니다. Inspector에서 값을 바꾸면 값이 적용되고 구독자에게 통지됩니다. 그 편집을 Undo나 Redo하거나 프리팹 인스턴스를 되돌릴 때도 되돌아간 값으로 통지됩니다. `ObservableDictionary`에서는 같은 키를 가진 행 가운데 첫 행이 쓰이며, 키가 겹치는 행은 키를 바꿀 때까지 경고와 함께 목록에 남습니다.
+
+### 세이브 시스템
+게임을 섹션 단위로 저장하고 불러옵니다. 각 시스템이나 스테이지가 게임에서 자기가 맡은 부분을 섹션 하나로 기술하고, 게임은 그 순간의 세부 사항을 모두 저장하는 대신 체크포인트나 스테이지 끝처럼 자기가 고른 시점에 섹션을 저장하고 불러옵니다. `Mu3Library.Save` 어셈블리에 있으며, 자체 어셈블리 정의에서 이 어셈블리를 참조해 씁니다.
+
+```csharp
+using System;
+using Mu3Library.Save;
+using UnityEngine;
+
+[Serializable]
+public class PlayerSaveData
+{
+    public Vector3 Position;
+    public int Level;
+}
+
+public class PlayerSaveSection : SaveSection<PlayerSaveData>
+{
+    private readonly Transform _player;
+    private readonly PlayerStats _stats;
+
+    public override string Key => "player";
+    public override int Version => 2;
+
+    public PlayerSaveSection(Transform player, PlayerStats stats)
+    {
+        _player = player;
+        _stats = stats;
+    }
+
+    protected override PlayerSaveData Capture() =>
+        new PlayerSaveData { Position = _player.position, Level = _stats.Level };
+
+    protected override void Restore(PlayerSaveData data)
+    {
+        _player.position = data.Position;
+        _stats.Level = data.Level;
+    }
+
+    // 버전 1은 레벨을 저장하지 않았으므로, 그 세이브에서는 레벨이 0으로 읽힙니다.
+    protected override PlayerSaveData Migrate(int savedVersion, PlayerSaveData data)
+    {
+        if (savedVersion < 2)
+        {
+            data.Level = 1;
+        }
+
+        return data;
+    }
+}
+
+// Application.persistentDataPath 아래 Saves 폴더의 파일에 JSON으로 씁니다.
+var saves = new SaveManager();
+saves.RegisterSection(new PlayerSaveSection(playerTransform, playerStats));
+saves.RegisterSection(SaveSection.Create("stage", () => _stage, data => _stage = data));
+
+saves.Save("slot1");            // 등록된 모든 섹션
+saves.Save("slot1", "stage");   // 섹션 하나. 슬롯의 다른 섹션은 그대로 남습니다
+
+saves.SetMetadata("slot1", "chapter", "3. The Forest");   // 슬롯 목록용
+
+SaveResult result = saves.Load("slot1");
+if (!result.IsSuccess)
+{
+    Debug.LogWarning($"Load failed: {result}");   // 실패한 이유는 result.Reason에 있습니다
+}
+```
+
+- **섹션과 슬롯**: 슬롯은 섹션 키마다 항목 하나를 담습니다. 섹션 하나를 저장해도 슬롯의 다른 섹션은 그대로 남고, 슬롯에 있지만 어떤 코드도 등록하지 않은 섹션도 건드리지 않고 남겨 둡니다. 슬롯 전체를 불러오면 먼저 등록된 모든 섹션을 읽고 검사하고 마이그레이션하므로, 손상되었거나 너무 새로운 섹션이 있거나 마이그레이션이 예외를 던지면 어느 섹션도 복원하지 않습니다. 그다음 슬롯을 저장한 뒤 게임에 추가한 섹션처럼 슬롯에 없는 등록된 섹션마다 `RestoreDefault`를 호출합니다. 손상된 슬롯에 섹션 하나를 저장하면 `SaveFailureReason.Corrupted`로 실패하지만, 슬롯 전체를 저장하면 원래 담긴 내용을 읽을 수 없으므로 등록된 섹션만으로 슬롯을 새로 씁니다.
+- **데이터**: 기본 `JsonSaveSerializer`는 섹션의 데이터를 `JsonUtility`로 쓰므로 `Vector3`, `Quaternion`, `Color` 같은 Unity 타입이 그대로 저장됩니다. 데이터는 `[Serializable]` 클래스나 구조체입니다. 기본형, 문자열, 컬렉션을 그 자체로 넘기면 거부되므로 필드 안에 넣으세요. `JsonUtility`는 딕셔너리와 프로퍼티를 쓰지 않습니다.
+- **버전**: 섹션 데이터의 형태가 바뀌면 그 섹션의 `Version`을 올립니다. 이전 버전으로 저장된 슬롯은 `Migrate`를 거칩니다. `Migrate`는 현재 타입으로 읽어 들인 데이터를 받으며, 그 데이터에서 이전 버전에 없던 필드는 기본값을 가집니다. 또 `Migrate`는 어느 섹션도 복원되기 전에 실행되므로 게임을 건드려서는 안 됩니다. 더 새로운 버전으로 저장된 슬롯은 `SaveFailureReason.VersionTooNew`로 실패하며, 그 위에 이전 버전을 쓰려는 저장도 마찬가지이므로, 버전을 되돌린 빌드에서도 새 버전이 저장한 것은 사라지지 않습니다. 더 새로운 슬롯 형식으로 쓰인 슬롯도 같은 방식으로 거부됩니다.
+- **저장소**: `FileSaveStorage`는 각 슬롯을 `<slot ID>.sav`에 보관하며, 임시 파일에 먼저 쓴 뒤 그 파일로 기존 파일을 바꾸므로, 쓰기가 도중에 멈춰도 이전 세이브를 읽을 수 있습니다. `MemorySaveStorage`는 슬롯을 메모리에 보관합니다. 플랫폼의 클라우드 저장소처럼 다른 곳에 보관하려면 `ISaveStorage`를 구현하세요. 각 슬롯에는 CRC-32 검사값이 붙어 있어, 손상된 파일은 `SaveFailureReason.Corrupted`로 실패합니다.
+- **슬롯 목록**: `GetSlots`와 `TryGetSlotInfo`는 아무것도 복원하지 않고 슬롯의 섹션, 버전, 시간, 크기, 메타데이터를 읽습니다. 손상되었거나 너무 새로운 슬롯은 빠집니다. `SetMetadata`는 이런 목록에 보여 줄 챕터 이름이나 플레이 시간 같은 짧은 값을 저장된 슬롯에 설정하며, 256자 이하의 값을 32개까지 둘 수 있고 다시 저장해도 유지됩니다. `Peek`은 섹션 하나의 데이터를 복원하지 않고 읽습니다. `ExportSlot`과 `ImportSlot`은 백업처럼 슬롯의 검사된 바이트를 내보내고 다시 받아들이며, 모든 길이를 읽기 전에 검사하므로 다른 곳에서 온 바이트도 안전하게 파싱할 수 있습니다. 다만 그 안의 섹션은 보낸 쪽이 쓴 그대로 복원됩니다. `MaxSlotSize`(기본 8 MiB)는 모든 섹션을 포함한 슬롯 하나의 크기를 제한합니다.
+- 슬롯 ID에는 문자, 숫자, `_`, `-`를 64자까지 쓸 수 있지만, `CON`처럼 Windows가 장치 이름으로 예약한 이름은 쓸 수 없습니다. 섹션 키와 메타데이터 키에는 `.`도 쓸 수 있습니다. 대소문자를 구분하지 않는 파일 시스템에서는 대소문자만 다른 두 ID가 한 슬롯이 됩니다. 호출은 호출한 스레드에서 실행되며, 저장, 불러오기, 저장소의 실패는 `SaveResult`로 돌아옵니다. 예외는 null 인자나 0 이하의 `MaxSlotSize`처럼 호출하는 코드의 실수에만 던져집니다. `ISaveManagerEventBus`는 `OnSaved`, `OnLoaded`, `OnSlotDeleted`, `OnSlotImported`를 발생시킵니다.
+
+### 디버그 콘솔
+플레이어 빌드용 게임 내 콘솔입니다. 게임이 등록한 명령, 실행한 줄, Unity 로그를 게임 위에 그립니다. `Mu3Library.DebugConsole` 어셈블리에 있으며, 자체 어셈블리 정의에서 이 어셈블리를 참조해 씁니다.
+
+```csharp
+using Mu3Library.DebugConsole;
+using UnityEngine;
+
+public class ConsoleSetup : MonoBehaviour
+{
+    private DebugConsoleManager _console;
+
+    private void Awake()
+    {
+        _console = new DebugConsoleManager();   // 살아 있는 동안 Unity 로그를 수집합니다
+
+        // 개발자 명령은 에디터와 Development Build에서만 실행됩니다.
+        _console.RegisterCommand<int>("level", level => LoadLevel(level),
+            new ConsoleCommandOptions("Loads a level.", affectsProgress: true));
+
+        // 플레이어 명령은 게임이 의도적으로 플레이어에게 제공하는 명령입니다.
+        _console.RegisterCommand<int, int>("give", GiveItem,
+            new ConsoleCommandOptions("Gives an item.", ConsoleAccess.Player, affectsProgress: true));
+
+        // 릴리스 빌드에서도 플레이어가 콘솔을 열 수 있게 합니다. 쓸 수 있는 것은 Player 명령뿐입니다.
+        _console.PlayerConsoleEnabled = _settings.AllowPlayerConsole;
+        _console.OnProgressModified += commandName => _saveData.UsedConsole = true;
+
+        DebugConsoleView.Create(_console);   // ` 키로 엽니다
+    }
+
+    private void GiveItem(int item, int count = 1) { /* ... */ }
+
+    private void OnDestroy() => _console.Dispose();
+}
+```
+
+- **접근**: 기본값인 `Developer` 명령은 에디터와 Development Build에서만 실행됩니다. `Player` 명령은 편의 기능이나 게임이 허용하는 치트처럼 게임이 의도적으로 플레이어에게 제공하는 명령으로, 게임이 `PlayerConsoleEnabled`를 켜면 릴리스 빌드에서도 실행됩니다. 릴리스 빌드는 그때까지 콘솔을 닫아 두며, 그 빌드에서 실행할 수 있는 명령만 나열하고 자동 완성하고 실행합니다. `Developer` 명령에는 알 수 없는 명령이라고 응답합니다.
+- **진행**: `affectsProgress`로 표시한 명령은 실행되면, 그 뒤에 예외를 던지더라도 `HasModifiedProgress`를 설정하고 `OnProgressModified`를 발생시키므로, 게임은 자기 규칙에 따라 세이브에 표시를 남기거나 업적을 보류할 수 있습니다. `ResetProgressModified`는 그 표시를 지웁니다.
+- **인자**: 명령은 타입 지정 매개변수를 네 개까지 받습니다. `string`, `int`, `long`, `float`, `double`, `bool`(`true`, `false`, `on`, `off`, `yes`, `no`, `1`, `0`), 이름이나 숫자로 받는 enum, `x,y`와 `x,y,z`로 받는 `Vector2`와 `Vector3`입니다. 메서드의 기본값이 있으면 마지막 매개변수들을 생략할 수 있으며, 벡터의 `default`는 0 벡터로 읽히고, 큰따옴표로 묶은 단어는 공백을 유지합니다. `Action<ConsoleCall>`로 등록한 명령은 입력된 그대로의 단어를 받으며 `Print`로 출력할 수 있습니다. 이름은 대소문자를 구분하지 않고 일치시키며, `help`와 `clear`가 기본으로 들어 있습니다.
+- **화면**: `DebugConsoleView`는 어느 입력 백엔드에서든 키보드를 읽는 IMGUI로 콘솔을 그립니다. 전환 키(기본 `` ` ``)는 콘솔을 열고 닫으며, Enter는 줄을 실행하고, Up과 Down은 이력을 오가며, Tab은 명령 이름을 자동 완성하고, Escape는 콘솔을 닫습니다. 키보드가 없는 기기에서는 게임 자체의 버튼이나 제스처에서 `Open`을 호출하세요. 키 입력은 게임 자체의 입력에도 전달되므로, `OnOpenChanged`에서 처리하는 식으로 콘솔이 열려 있는 동안에는 게임의 입력을 멈추세요. 화면은 Unity 로그를 레벨별로 거르며, 콘솔은 최신 `MaxLines`줄(기본 1000줄)을 보관합니다.
+- `Execute`는 코드에서 줄 하나를 실행하고, 줄이 실패한 이유를 알려 주는 `ConsoleResult`를 반환하며, 예외를 던진 명령은 그 예외도 로그로 남깁니다. `IDebugConsoleManagerEventBus`는 `OnLineAdded`, `OnCleared`, `OnOpenChanged`, `OnProgressModified`, `OnExecuted`를 발생시킵니다. 로그 수집을 멈추려면 매니저를 해제하세요.
 
 ### Multiplayer
 `MultiplayerManager`(`Mu3Library.Multiplayer`)는 플레이어 호스트 세션을 실행합니다. 한 플레이어가 호스트를 맡고, 다른 플레이어는 호스트의 로비를 찾아 호스트에 연결하며, 참가자 목록과 규칙, 게임 시작 시점은 호스트가 정합니다. 매니저는 백엔드 위에서 동작합니다. 백엔드는 한 프로세스 안의 여러 플레이어나, `LocalNetwork.CreateMachineWide`로 만든 네트워크에서 같은 PC의 에디터와 플레이어 빌드를 위한 `LocalBackend`(`Mu3Library.Multiplayer.Local`), 또는 별도의 [Steam 패키지](../../packages/steam/README.md)에 있는 `SteamBackend`입니다. 자체 어셈블리 정의에 있는 코드는 `Mu3Library.Multiplayer`를 참조해야 매니저를 쓸 수 있습니다. 모든 처리는 메인 스레드에서 실행되며, 백엔드가 알리는 내용, 다른 플레이어의 메시지, 로비 요청에 대한 응답은 `Update` 안에서 도착하므로 매 프레임 `Update`를 호출하세요.
@@ -593,7 +784,97 @@ private void OnVoice(MessageContext context, ReadOnlySpan<byte> payload)
     }
 }
 ```
+- **상태 동기화**: `StateSyncManager`(`Mu3Library.Multiplayer.Sync`)는 바이트 예산 안에서 게임 상태를 모든 플레이어에게 똑같이 유지하므로, 매 프레임 상태가 바뀌는 시스템이 저마다 자기 메시지를 보내지 않아도 됩니다. 각 시스템은 `SyncState` 하위 클래스나 직접 구현한 `ISyncState`에서 상태에 무엇을 담고 얼마나 정밀하게 쓸지를 정하며, 상태 전체를 쓰는 방법과, 재정의한다면 바뀐 것만 쓰는 방법을 둡니다. 얼마를 언제 보낼지는 매니저가 정합니다. 매니저는 `StateSyncConfig.TickIntervalSeconds`(기본 1초에 20번)마다 바뀐 상태를 플레이어와 전송 방식마다 메시지 하나로 모으고, 각 플레이어에게 최대 `MaxBytesPerTick`(기본 512바이트)만큼 보냅니다. 들어가지 못한 상태는 이후 틱을 기다리며 우선순위와 기다린 시간에 따라 선택되고, 변경을 놓쳤거나 게임 중에 들어왔거나 자기 자리로 돌아온 플레이어는 상태 전체를 받습니다. 호스트는 자기가 소유한 상태를 보내고, 클라이언트 자신의 캐릭터처럼 클라이언트가 소유한 상태는 같은 예산 안에서 그 클라이언트에서 호스트로 간 뒤 다른 플레이어에게 전달됩니다. 기본값인 비신뢰 전송 상태는 `FullStateIntervalSeconds`(기본 1초)마다 전체로도 보내지므로, 업데이트를 잃은 사본도 따라잡습니다. 신뢰 전송 상태는 문처럼 가끔 바뀌는 상태에 맞습니다. 관심 필터를 쓰면 호스트는 가까이 있는 플레이어처럼 자기가 고른 플레이어에게만 상태를 보낼 수 있습니다. `TransformSync`는 트랜스폼의 위치와 회전을 양자화해 동기화하고, 각 사본을 업데이트 사이에서 부드럽게 움직입니다. 매니저는 게임이 진행되는 동안(`SessionState.InGame`) 동기화합니다. `CheckRateLimits`는 클라이언트가 보내는 양이 세션의 송신량 제한 안에 드는지 알려 주며, 매니저도 게임이 시작될 때마다 이를 확인해 들지 않으면 로그로 남깁니다. Multiplayer Debugger는 각 틱이 플레이어마다 보낸 것을 보여 줍니다.
+
+```csharp
+// 위 세션 코드에 더합니다. using System.Collections.Generic;과 using Mu3Library.Multiplayer.Sync;도 추가하세요
+private const ushort SyncMessage = 3;
+private StateSyncManager _sync;
+private readonly List<TransformSync> _transforms = new List<TransformSync>();
+
+// Awake에서 Initialize 뒤에. 모든 플레이어가 같은 설정으로 만듭니다.
+_sync = new StateSyncManager(_manager, new StateSyncConfig(SyncMessage));
+
+// 게임이 시작되면 모든 플레이어가 같은 상태를 같은 ID로 등록합니다.
+_manager.OnGameStarted += startData =>
+{
+    _transforms.Add(new TransformSync(1, _boss.transform));
+    _sync.Register(_transforms[_transforms.Count - 1]); // 호스트가 보냅니다
+    foreach (Participant participant in _manager.Participants)
+    {
+        // 시작 데이터에서의 순서처럼, 모든 플레이어가 이 플레이어의 캐릭터에 똑같이 붙이는 ID.
+        TransformSync character = new TransformSync(CharacterIdOf(participant.Id), CharacterOf(participant.Id));
+        _transforms.Add(character);
+        _sync.Register(character, participant.Id); // 그 플레이어가 보내고, 호스트가 다른 플레이어에게 전달합니다
+    }
+};
+
+// 게임이 끝나면 모든 플레이어가 등록을 해제하므로, 다음 게임은 자기 상태를 새로 등록합니다.
+_manager.OnReturnedToLobby += ClearSyncedStates;
+_manager.OnStateChanged += change =>
+{
+    if (change.Current == SessionState.Offline)
+    {
+        ClearSyncedStates();
+    }
+};
+
+// Update에서 _manager.Update() 뒤에: 이번 틱의 변경을 보내고 사본을 움직입니다.
+_sync.Update();
+foreach (TransformSync synced in _transforms)
+{
+    synced.Update();
+}
+
+// OnDestroy에서 _manager.Dispose() 전에.
+_sync.Dispose();
+
+private void ClearSyncedStates()
+{
+    foreach (TransformSync synced in _transforms)
+    {
+        _sync.Unregister(synced.Id);
+    }
+
+    _transforms.Clear();
+}
+```
 - `IMultiplayerManagerEventBus`에 모든 이벤트가 있고, `IMultiplayerManager`와 `IMultiplayerMessenger`의 XML 주석이 각 호출을 설명합니다. 에디터에서는 **Mu3Library > Windows > Multiplayer Debugger**가 플레이 모드에서 실행 중인 세션을 보여 줍니다.
+
+#### 세션 세이브
+`SessionSaveManager`(`Mu3Library.SessionSave`)는 호스트에서 `SaveManager`를 통해 세션을 저장하며, 호스트가 그 세이브를 다른 플레이어에게 보낼 수 있게 합니다. 받은 플레이어는 나중에 그 세이브로 세션의 호스트를 맡을 수 있습니다. `SaveManager`에 등록한 섹션은 월드처럼 세션 전체가 공유하는 것을 담고, 각 `PlayerSaveSection<TData>`나 `PlayerSaveSection.Create`로 만든 섹션은 세션의 플레이어마다 한 번씩 `player.<PlayerId>.<key>`로 저장되므로, 누가 호스트를 맡든 플레이어의 데이터는 그 플레이어의 것으로 남습니다. 자체 어셈블리 정의에 있는 코드는 `Mu3Library.SessionSave`, `Mu3Library.Save`, `Mu3Library.Multiplayer`를 참조합니다.
+
+```csharp
+using System;
+using System.IO;
+using Mu3Library.Save;
+using Mu3Library.SessionSave;
+using UnityEngine;
+
+// 모든 플레이어가 같은 메시지 종류로 같은 방식으로 만듭니다. 공유는 이 종류와 그다음 종류를 씁니다.
+var saves = new SaveManager(new FileSaveStorage(Path.Combine(Application.persistentDataPath, "SessionSaves")));
+saves.RegisterSection(SaveSection.Create("world", () => _world, data => _world = data));
+
+var session = new SessionSaveManager(_manager, saves, messageType: 900);
+session.RegisterPlayerSection(PlayerSaveSection.Create<InventoryData>("inventory",
+    player => _inventories[player],
+    (player, data) => _inventories[player] = data,
+    restoreDefault: player => _inventories[player] = new InventoryData()));
+
+// 호스트에서, 게임이 고른 시점에. 매 프레임 호출하는 Update가 공유의 속도를 조절합니다.
+session.Save("coop-1", sessionName: "Forest Run");
+session.Load("coop-1");                          // StartGame 전에
+session.Share("coop-1", friendId, out uint shareId);
+
+// 호스트가 공유하는 상대 플레이어에서.
+// AcceptShare는 그 ID의 슬롯을 덮어쓰므로, 받은 세이브에는 새 ID를 줍니다.
+session.OnShareOffered += offer => session.AcceptShare(offer.ShareId, $"shared-{Guid.NewGuid():N}");
+session.OnShareCompleted += transfer => Debug.Log($"Stored {transfer.SlotId}");
+```
+
+- **플레이어**: 저장과 불러오기는 호스트만 합니다. `Save`는 자리를 비운 동안 호스트가 자리를 유지하는 플레이어를 포함해 세션의 모든 플레이어를 쓰며, 슬롯에 있지만 세션에 없는 플레이어의 섹션은 슬롯에 그대로 남습니다. `Load`는 세션의 각 플레이어에게 자기 섹션을 주며, 저장된 세션에 처음 들어온 플레이어처럼 슬롯에 없는 플레이어는 `RestoreDefault`에서 시작합니다. `LoadPlayer`는 이미 진행 중인 게임에 들어온 플레이어처럼 플레이어 한 명을 불러옵니다. 플레이어 섹션 키는 36자까지 쓸 수 있으며, 다른 섹션의 키는 `player.`로 시작할 수 없습니다.
+- **출처**: 슬롯 메타데이터에는 마지막으로 슬롯을 저장한 호스트와 저장할 때의 세션 이름이 적히며, `TryGetSessionInfo`가 슬롯에 있는 플레이어와 함께 이를 읽습니다. 다른 플레이어에게서 받은 세이브는 이 값을 그대로 유지하므로, 받은 플레이어가 호스트로서 저장하기 전까지는 어디에서 왔는지 보여 줍니다.
+- **공유**: `Share`는 저장된 슬롯을 세션의 다른 플레이어에게 제안합니다. 그 플레이어의 게임은 `OnShareOffered`에, 저장할 슬롯을 지정한 `AcceptShare`나 `DeclineShare`로 응답합니다. `AcceptShare`는 그 ID의 슬롯을 덮어쓰므로, 호스트의 `SourceSlotId`나, 각 호스트가 시작할 때마다 1부터 다시 세는 `ShareId`가 아니라 새 GUID처럼 그 플레이어 자신의 세이브가 쓰지 않는 ID를 지정하세요. 그러면 호스트는 최대 `ShareChunkSize`바이트(기본 16 KiB)의 신뢰 전송 메시지로 `ShareBytesPerSecond`(기본 초당 128 KiB)에 맞춰 세이브를 보냅니다. 호스트 자신의 송신은 세션의 송신량 제한을 거치지 않지만, 공유는 세션의 다른 메시지가 지나갈 여유를 남겨야 하기 때문입니다. 플레이어의 두 응답은 다른 메시지와 마찬가지로 세션의 송신량 제한에 포함됩니다. 받는 플레이어는 자기 `SaveManager.MaxSlotSize`보다 큰 세이브를 거부하고, 저장하기 전에 슬롯의 CRC-32로 세이브 전체를 검사하므로 손상된 바이트는 절대 저장되지 않습니다. `OnShareProgress`는 보내고 받은 바이트를 알립니다. 호스트에서 `Share`가 시작했거나 받는 플레이어에서 `OnShareOffered`가 알린 모든 공유는 그곳에서 `OnShareCompleted`나, `Declined`, `Corrupted`, `Timeout`(`ShareTimeoutSeconds`, 기본 60초 안에 응답 없음), `PlayerLeft`, `SessionEnded` 같은 `SaveShareFailureReason`과 함께 `OnShareFailed`로 끝납니다. 너무 크거나(`TooLarge`) 다른 공유가 진행 중이어서(`Busy`) 받는 플레이어가 스스로 거절한 제안은 그곳에서 아무 이벤트도 발생시키지 않으며, 호스트가 그 이유를 전달받습니다.
 
 ## 🔧 선택적 패키지
 
@@ -654,15 +935,19 @@ fallback Inspector는 모든 `MonoBehaviour`와 `ScriptableObject`에 `isFallbac
 - **Audio**: BGM/SFX 관리 시스템
 - **Particle**: 편리한 `ParticleSystem` 제어, loop 설정과 `OnPlayed`, `OnStopped`, `OnPaused`, `OnUnPaused`, `OnCleared`, `OnRestarted`, `OnLoopChanged`, `OnCompleted` 이벤트를 제공하는 `ParticleHandler` MonoBehaviour
 - **DI**: 별도의 DI 패키지로 옮겨짐 ([README](../../packages/di/README.md)). 생명주기와 주입 계약은 Base의 `Mu3Library.Foundation`에 남음
+- **DebugConsole**: 타입 지정 인자를 받는 명령, 개발자와 플레이어 접근, 진행에 영향을 주는 명령의 표시, Unity 로그, IMGUI 화면을 갖춘 게임 내 콘솔(`Mu3Library.DebugConsole` 어셈블리)
 - **Event**: `SubscribeHandler`를 통한 owner 관리형 subscription 유틸리티, 재사용 가능한 일회성 helper, 폐기 가능한 `ISubscriptionInfo` token
 - **Extensions**: GameObject, Transform, Vector3 등 확장 메서드
 - **Localization**: 별도의 Localization 패키지로 옮겨짐 ([README](../../packages/localization/README.md))
-- **Multiplayer**: 교체 가능한 백엔드 위에서 로비, 참가자 목록, 준비 확인, 호스트가 설정하고 지우는 로비 데이터와 각 플레이어가 설정하고 지우는 플레이어별 데이터(둘 다 변경을 모든 플레이어가 전달받음), 로비 채팅, 정원 규칙, 클라이언트별 송신량 제한, 게임 시작, 강퇴, 게임 중 연결이 끊긴 플레이어가 클라이언트마다 정한 시도 시간 안에 다시 접속할 때까지 유지되는 자리와 그 뒤의 로비 재입장(실패하면 게임에 알림), 시작 뒤와 게임 안에서 호스트가 시작하는 각 로드 단계마다 모든 플레이어의 로드 완료를 호스트가 기다리는 동기화, 호스트가 중계하며 `MessageWriter`와 `MessageReader`로 내용을 쓰고 읽는 게임 메시지, 각 연결의 품질(핑, 패킷 손실, 초당 바이트)과 모든 플레이어가 읽는, 호스트가 잰 각 플레이어의 핑, 텍스처로 받고, 플레이어가 사진을 바꾸면 따라 바뀌며, 더 보여 주지 않으면 게임이 놓아주는 플레이어의 아바타, 프레즌스 상태, 그리고 백엔드가 녹음하고 디코딩하며, 게임이나 호스트의 중계 필터가 고른 플레이어에게 게임이 메시지로 실어 보내고, `VoicePlayer`가 화자마다 `AudioSource`로 재생하는 음성을 다루는 플레이어 호스트 세션. 백엔드로는 `LocalBackend`(한 프로세스 안에서 여러 플레이어, 또는 `LocalNetwork.CreateMachineWide`로 만든 네트워크에서 같은 PC의 에디터와 플레이어 빌드이며, 이 네트워크는 지연 시간, 지터, 패킷 손실, 네트워크 끊김을 시뮬레이션할 수 있음)가 있고, Steam 로비와 Steam 연결로 플레이하며 플레이어의 Steam 아바타와, 친구 목록에 상태를 보여 주는 Steam 리치 프레즌스를 다루는 `SteamBackend`는 별도의 Steam 패키지([README](../../packages/steam/README.md))에 있습니다. 메시지 종류별 개수도 제공하며, 에디터에는 플레이 모드에서 실행 중인 각 세션의 상태, 플레이어, 연결 품질, 메시지 개수를 보여 주는 **Mu3Library > Windows > Multiplayer Debugger** 창이 있으며, 이 창의 **Host ping** 열은 호스트에서든 클라이언트에서든 호스트가 잰 각 플레이어의 핑을 보여 줍니다
+- **Multiplayer**: 교체 가능한 백엔드 위에서 로비, 참가자 목록, 준비 확인, 호스트가 설정하고 지우는 로비 데이터와 각 플레이어가 설정하고 지우는 플레이어별 데이터(둘 다 변경을 모든 플레이어가 전달받음), 로비 채팅, 정원 규칙, 클라이언트별 송신량 제한, 게임 시작, 강퇴, 게임 중 연결이 끊긴 플레이어가 클라이언트마다 정한 시도 시간 안에 다시 접속할 때까지 유지되는 자리와 그 뒤의 로비 재입장(실패하면 게임에 알림), 시작 뒤와 게임 안에서 호스트가 시작하는 각 로드 단계마다 모든 플레이어의 로드 완료를 호스트가 기다리는 동기화, 호스트가 중계하며 `MessageWriter`와 `MessageReader`로 내용을 쓰고 읽는 게임 메시지, 각 연결의 품질(핑, 패킷 손실, 초당 바이트)과 모든 플레이어가 읽는, 호스트가 잰 각 플레이어의 핑, 텍스처로 받고, 플레이어가 사진을 바꾸면 따라 바뀌며, 더 보여 주지 않으면 게임이 놓아주는 플레이어의 아바타, 프레즌스 상태, 그리고 백엔드가 녹음하고 디코딩하며, 게임이나 호스트의 중계 필터가 고른 플레이어에게 게임이 메시지로 실어 보내고, `VoicePlayer`가 화자마다 `AudioSource`로 재생하는 음성을 다루는 플레이어 호스트 세션. 백엔드로는 `LocalBackend`(한 프로세스 안에서 여러 플레이어, 또는 `LocalNetwork.CreateMachineWide`로 만든 네트워크에서 같은 PC의 에디터와 플레이어 빌드이며, 이 네트워크는 지연 시간, 지터, 패킷 손실, 네트워크 끊김을 시뮬레이션할 수 있음)가 있고, Steam 로비와 Steam 연결로 플레이하며 플레이어의 Steam 아바타와, 친구 목록에 상태를 보여 주는 Steam 리치 프레즌스를 다루는 `SteamBackend`는 별도의 Steam 패키지([README](../../packages/steam/README.md))에 있습니다. 플레이어별, 틱별 바이트 예산 안에서 바뀐 상태를 플레이어마다 메시지 하나로 모으고 우선순위와 기다린 시간으로 들어갈 것을 고르는 상태 동기화(`StateSyncManager`, 트랜스폼에는 `TransformSync`)와 메시지 종류별 개수와 그 바이트 수도 제공하며, 에디터에는 플레이 모드에서 실행 중인 각 세션의 상태, 플레이어, 연결 품질, 메시지 개수와 바이트 수, 그리고 그 세션의 상태 동기화가 틱마다 각 플레이어에게 보낸 것을 보여 주는 **Mu3Library > Windows > Multiplayer Debugger** 창이 있으며, 이 창의 **Host ping** 열은 호스트에서든 클라이언트에서든 호스트가 잰 각 플레이어의 핑을 보여 줍니다
   - **백엔드 작성**: 다른 플랫폼의 백엔드는 `Mu3Library.Multiplayer.Backend`의 `IMultiplayerBackend`를 구현하며, 매니저가 찾는 두 선택 인터페이스도 구현할 수 있습니다. 공개가 아닌 로비에 초대로만 들어갈 수 있으면 `ILobbyInviteBackend`를 구현해 호스트가 유지되는 자리로 돌아온 플레이어를 다시 초대하게 하고, 백엔드를 사용할 수 없는 이유를 알리려면 Steam 백엔드가 `SteamNotRunning`을 알리듯 `IUnavailableReasonBackend`를 구현합니다. 세 번째인 `IVoiceBackend`는 게임이 직접 쓰는 인터페이스로, 음성을 녹음하고 디코딩합니다. `LobbyDataKeys`는 매니저가 `mu3.` 접두사로 예약해 자기가 만드는 모든 로비에 쓰는 로비 데이터 키를 담으며, 백엔드는 이 키를 다른 로비 데이터처럼 저장하며, 읽을 수도 있습니다. `SearchLobbies`가 반환된 뒤에 검색을 시작하는 백엔드는 `LobbySearchQuery.Clone()`으로 만든 쿼리 사본을 보관합니다
 - **ObjectPool**: 중복된 비활성 오브젝트 재등록 방지, `List<T>` 일괄 enqueue 및 count/인자 목록 기반 `List<T>` 반환 dequeue, 선택적 무인자 생성 콜백과 타입 안전한 `CreateArguments` 초기화 콜백, `Clear()` 정리를 지원하는 큐 기반 오브젝트 풀링
 - **Observable**: 데이터 변경 감지 시스템
 - **Preference**: PlayerPrefs 래퍼
 - **Resource**: Resources 폴더 로딩
+- **Save**: 데이터 버전과 마이그레이션, 무결성을 검사하는 슬롯 형식, 파일 또는 메모리 저장소를 갖추고 섹션 단위로 슬롯에 저장하는 세이브(`Mu3Library.Save` 어셈블리)
+- **SessionSave**: 호스트에서 저장하는 멀티플레이 세션 세이브. 각 플레이어의 섹션을 그 ID 아래에 두고, 새로 들어오거나 자리를 비운 플레이어를 처리하며, 그 세이브로 호스트를 맡을 수 있는 다른 플레이어에게 속도를 조절하고 무결성을 검사하며 공유(`Mu3Library.SessionSave` 어셈블리)
+- **States**: `State`와, UniTask가 있으면 `AsyncState`를 쓰는 `StateMachine<TKey>`. 루틴이나 비동기 메서드를 기다리며 나간 뒤 들어가는 전환, 순서대로 대기하는 요청, 가드, `Back`
 - **Scene**: phase/status 조회, lifecycle/progress callback, 일회성 lifecycle 구독 helper, 통합 rejection event를 제공하는 씬 로딩 추상화
 - **UI**: MVP 패턴 구현, 축별 일괄/단일 분할선으로 자식을 9개 영역 중 하나에 anchor로 맞추는 `UIAreaGrid`/`UIAreaElement`, canvas를 화면 safe area 안에 유지하는 `SafeCanvas`/`SafeRect`
 - **IS**: 별도의 Input System 패키지로 옮겨짐 ([README](../../packages/inputsystem/README.md))

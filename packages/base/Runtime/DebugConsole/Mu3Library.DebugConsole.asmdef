@@ -1,0 +1,14 @@
+{
+    "name": "Mu3Library.DebugConsole",
+    "rootNamespace": "Mu3Library.DebugConsole",
+    "references": [],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using Mu3Library.Multiplayer;
 using Mu3Library.Multiplayer.Data;
+using Mu3Library.Multiplayer.Sync;
 using UnityEditor;
 using UnityEngine;
 
@@ -13,8 +14,9 @@ namespace Mu3Library.Editor.Window
     /// <summary>
     /// Shows the multiplayer sessions of the game in play mode: each manager's session state, its
     /// players with each one's ping as the host measures it, which a client reads for every player
-    /// too, and the quality of this player's own connection to each, and how many messages of each
-    /// type it sent and received. It lists every <see cref="MultiplayerManager"/> from its creation
+    /// too, and the quality of this player's own connection to each, how many messages of each
+    /// type it sent and received and their bytes, and what each <see cref="StateSyncManager"/> on
+    /// it sent each player a tick. It lists every <see cref="MultiplayerManager"/> from its creation
     /// until it is disposed, whichever container or code created it, and reads them again every
     /// <see cref="RefreshIntervalSeconds"/>. Reading changes nothing.
     /// </summary>
@@ -203,7 +205,7 @@ namespace Mu3Library.Editor.Window
             if (view.Messages.Count > 0)
             {
                 GUILayout.Space(4f);
-                DrawRow(EditorStyles.boldLabel, "Message type", "Sent", "Received", "Sent/s", "Recv/s");
+                DrawRow(EditorStyles.boldLabel, "Message type", "Sent", "Received", "Sent/s", "Recv/s", "Sent B/s", "Recv B/s");
                 for (int i = 0; i < view.Messages.Count; i++)
                 {
                     MultiplayerSessionView.MessageRow row = view.Messages[i];
@@ -212,8 +214,42 @@ namespace Mu3Library.Editor.Window
                         row.Counts.Sent.ToString(CultureInfo.InvariantCulture),
                         row.Counts.Received.ToString(CultureInfo.InvariantCulture),
                         row.SentPerSecond.ToString("0.#", CultureInfo.InvariantCulture),
-                        row.ReceivedPerSecond.ToString("0.#", CultureInfo.InvariantCulture));
+                        row.ReceivedPerSecond.ToString("0.#", CultureInfo.InvariantCulture),
+                        Bytes(row.SentBytesPerSecond),
+                        Bytes(row.ReceivedBytesPerSecond));
                 }
+            }
+
+            for (int i = 0; i < view.Syncs.Count; i++)
+            {
+                DrawSync(view, view.Syncs[i]);
+            }
+        }
+
+        private static void DrawSync(MultiplayerSessionView view, MultiplayerSessionView.SyncView sync)
+        {
+            GUILayout.Space(4f);
+            EditorGUILayout.LabelField(string.Format(CultureInfo.InvariantCulture,
+                "State sync: {0} states, tick {1} every {2:0.###} s, up to {3} B a player a tick",
+                sync.StateCount, sync.Tick, sync.Sync.TickIntervalSeconds, sync.Sync.MaxBytesPerTick), EditorStyles.miniBoldLabel);
+            if (sync.Players.Count == 0)
+            {
+                return;
+            }
+
+            DrawRow(EditorStyles.boldLabel, "Sent to", "Last tick", "Max tick", "B/s", "States", "Deferred");
+            for (int i = 0; i < sync.Players.Count; i++)
+            {
+                MultiplayerSessionView.SyncPlayerRow row = sync.Players[i];
+                SyncPlayerStats stats = row.Stats;
+                int player = view.Players.FindIndex(candidate => candidate.Participant.Id == stats.Player);
+                DrawRow(EditorStyles.label,
+                    player >= 0 ? $"{view.Players[player].Participant.Name} ({stats.Player})" : stats.Player.ToString(),
+                    string.Format(CultureInfo.InvariantCulture, "{0} B", stats.LastTickBytes),
+                    string.Format(CultureInfo.InvariantCulture, "{0} B", stats.MaxTickBytes),
+                    Bytes(row.BytesPerSecond),
+                    stats.LastTickStates.ToString(CultureInfo.InvariantCulture),
+                    stats.LastTickDeferred.ToString(CultureInfo.InvariantCulture));
             }
         }
 

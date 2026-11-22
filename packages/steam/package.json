@@ -1,8 +1,8 @@
 {
     "name": "com.github.doqltl179.mu3library.steam",
-    "version": "0.2.0",
+    "version": "0.3.0",
     "displayName": "Mu3 Library Steam",
-    "description": "Steam for Mu3Library: SteamBackend runs the player-hosted multiplayer sessions of Base's MultiplayerManager on Steam lobbies and Steam networking sockets, with friend invites through the Steam overlay, players' Steam avatars, Steam rich presence, Steam voice, connection quality, and, in the editor, a fallback to the local backend when Steam cannot start. It needs Steamworks.NET 2025.164.1 or later, installed through its Git URL, and compiles in the editor and in 64-bit standalone players only.",
+    "description": "Steam for Mu3Library: SteamBackend runs the player-hosted multiplayer sessions of Base's MultiplayerManager on Steam lobbies and Steam networking sockets, with friend invites through the Steam overlay, players' Steam avatars, Steam rich presence, Steam voice, connection quality, and, in the editor, a fallback to the local backend when Steam cannot start; Steam achievements and stats with optional debug console commands; and a Steam Cloud storage for Base's save system. It needs Steamworks.NET 2025.164.1 or later, installed through its Git URL, and compiles in the editor and in 64-bit standalone players only.",
     "unity": "6000.3",
     "documentationUrl": "https://github.com/doqltl179/Mu3Library_ForUnity/blob/main/packages/steam/README.md",
     "changelogUrl": "https://github.com/doqltl179/Mu3Library_ForUnity/blob/main/CHANGELOG.md",
@@ -19,6 +19,6 @@
         "Lobby"
     ],
     "dependencies": {
-        "com.github.doqltl179.mu3library.base": "0.31.0"
+        "com.github.doqltl179.mu3library.base": "0.32.0"
     }
 }
