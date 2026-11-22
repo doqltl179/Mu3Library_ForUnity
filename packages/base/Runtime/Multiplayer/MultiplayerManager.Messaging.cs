@@ -19,6 +19,8 @@ namespace Mu3Library.Multiplayer
             // What GetMessageCounts reports, since the type was registered.
             public long Sent;
             public long Received;
+            public long SentBytes;
+            public long ReceivedBytes;
         }
 
         private enum DropReason : byte
@@ -162,6 +164,7 @@ namespace Mu3Library.Multiplayer
             if (result.IsSuccess && _messages.TryGetValue(messageType, out MessageRegistration registration))
             {
                 registration.Sent++;
+                registration.SentBytes += payload.Length;
             }
 
             // A handler of a player dropped on the way, or of this player's own copy, may end the
@@ -179,7 +182,8 @@ namespace Mu3Library.Multiplayer
             results.Clear();
             foreach (KeyValuePair<ushort, MessageRegistration> pair in _messages)
             {
-                results.Add(new MessageCounts(pair.Key, pair.Value.Sent, pair.Value.Received));
+                MessageRegistration registration = pair.Value;
+                results.Add(new MessageCounts(pair.Key, registration.Sent, registration.Received, registration.SentBytes, registration.ReceivedBytes));
             }
         }
 
@@ -579,6 +583,7 @@ namespace Mu3Library.Multiplayer
             if (sender != LocalPlayerId)
             {
                 registration.Received++;
+                registration.ReceivedBytes += payload.Length;
             }
 
             if (registration.Handler == null)
