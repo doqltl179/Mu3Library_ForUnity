@@ -246,12 +246,11 @@ namespace Mu3Library.DebugConsole
                 return Finish(null, ConsoleResult.Failure(ConsoleFailureReason.UnknownCommand, name, $"Unknown command '{name}'. Type help for the list."));
             }
 
+            // What is left is a player command while the player console is off.
             if (!CanRun(command))
             {
-                string reason = command.Access == ConsoleAccess.Developer
-                    ? $"'{command.Name}' runs only in the editor and in a Development Build."
-                    : $"'{command.Name}' runs once the game turns on the player console.";
-                return Finish(command.Name, ConsoleResult.Failure(ConsoleFailureReason.AccessDenied, command.Name, reason));
+                return Finish(command.Name, ConsoleResult.Failure(ConsoleFailureReason.AccessDenied, command.Name,
+                    $"'{command.Name}' runs once the game turns on the player console."));
             }
 
             var words = new string[_tokens.Count - 1];
