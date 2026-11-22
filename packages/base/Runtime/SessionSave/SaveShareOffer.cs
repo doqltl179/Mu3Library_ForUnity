@@ -20,7 +20,10 @@ namespace Mu3Library.SessionSave
         /// <summary>The save's size, in bytes.</summary>
         public int Size { get; }
 
-        /// <summary>The ID of the slot the host shares, which the receiving player may reuse.</summary>
+        /// <summary>
+        /// The ID of the host's slot. A slot of that ID on this player may be a save of their own,
+        /// which <see cref="ISessionSaveManager.AcceptShare"/> into it would replace.
+        /// </summary>
         public string SourceSlotId { get; }
 
         /// <summary>The session name the host saved the slot with, or null when it gave none.</summary>

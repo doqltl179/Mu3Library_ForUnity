@@ -414,6 +414,13 @@ namespace Mu3Library.SessionSave
 
         private void HandleOffer(PlayerId from, uint id, int size, string sourceSlotId, string sessionName)
         {
+            if (_incoming != null && _incoming.From == from && _incoming.Id != id)
+            {
+                // The host runs one share to a player at a time, so a new one from it means it ended
+                // the last one without reaching this player, as when this player was away a moment.
+                EndIncoming(_incoming, SaveShareFailureReason.Cancelled, tellHost: false);
+            }
+
             if (_incoming != null)
             {
                 SendPlayerEnd(id, SaveShareFailureReason.Busy);
@@ -462,19 +469,26 @@ namespace Mu3Library.SessionSave
             bytes.CopyTo(new Span<byte>(share.Buffer, share.Received, bytes.Length));
             share.Received += bytes.Length;
             share.LastHeard = Now;
-            OnShareProgress?.Invoke(Transfer(share));
-            if (share.Ended || share.Received < share.Size)
+            if (share.Received < share.Size)
             {
+                OnShareProgress?.Invoke(Transfer(share));
                 return;
             }
 
+            // The save is stored, and the share ends, even when a handler of the last progress throws.
             SaveResult imported = Saves.ImportSlot(share.SlotId, share.Buffer);
-            if (share.Ended)
+            SaveShareFailureReason reason = imported.IsSuccess ? SaveShareFailureReason.None : StoreFailure(imported.Reason);
+            try
             {
-                return;
+                if (!share.Ended)
+                {
+                    OnShareProgress?.Invoke(Transfer(share));
+                }
             }
-
-            EndIncoming(share, imported.IsSuccess ? SaveShareFailureReason.None : StoreFailure(imported.Reason), tellHost: true);
+            finally
+            {
+                EndIncoming(share, reason, tellHost: true);
+            }
         }
 
         private static SaveShareFailureReason StoreFailure(SaveFailureReason reason)
@@ -577,14 +591,12 @@ namespace Mu3Library.SessionSave
 
         private void CancelAllShares()
         {
-            _outgoingScratch.Clear();
-            _outgoingScratch.AddRange(_outgoing);
-            foreach (OutgoingShare share in _outgoingScratch)
+            // A list of its own, since Dispose may run from a handler while Update walks the scratch list.
+            foreach (OutgoingShare share in _outgoing.ToArray())
             {
                 EndOutgoing(share, SaveShareFailureReason.Cancelled, tellPlayer: true, raise: false);
             }
 
-            _outgoingScratch.Clear();
             if (_incoming != null)
             {
                 EndIncoming(_incoming, SaveShareFailureReason.Cancelled, tellHost: true, raise: false);

@@ -69,7 +69,9 @@ namespace Mu3Library.SessionSave
         /// keeps while they are away included. A player the slot holds who is not in the session
         /// keeps their sections in it. The slot's metadata names this host and, when given,
         /// <paramref name="sessionName"/>, up to <see cref="SaveLimits.MaxMetadataValueLength"/>
-        /// characters; a null name keeps the one the slot holds. Host only.
+        /// characters; a null name keeps the one the slot holds. Host only. The metadata is written
+        /// after the sections, so a storage failure there answers
+        /// <see cref="SessionSaveFailureReason.SaveFailed"/> with the sections already saved.
         /// </summary>
         public SessionSaveResult Save(string slotId, string sessionName = null);
 
@@ -111,7 +113,9 @@ namespace Mu3Library.SessionSave
         /// <summary>
         /// Accepts the offer <see cref="ISessionSaveManagerEventBus.OnShareOffered"/> raised: the
         /// save is stored as <paramref name="slotId"/> once it has all arrived, replacing a slot of
-        /// that ID.
+        /// that ID, so pick one that none of this player's own saves uses. A new offer from the same
+        /// host ends the share it replaces with <see cref="SaveShareFailureReason.Cancelled"/>, since
+        /// the host runs one share to a player at a time.
         /// </summary>
         public SessionSaveResult AcceptShare(uint shareId, string slotId);
 

@@ -102,8 +102,8 @@ namespace Mu3Library.Tests
         [SetUp]
         public void SetUp()
         {
-            _network = new LocalNetwork();
             _now = 0d;
+            _network = new LocalNetwork { Clock = () => _now };
         }
 
         [TearDown]
@@ -333,6 +333,41 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void Share_AgainAfterTheReceiverWasAway_ReplacesTheShareTheHostEnded()
+        {
+            Player host = CreatePlayer("Host", 1);
+            Player guest = CreatePlayer("Guest", 2);
+            Host(host, new SessionRules(4, requireReady: false));
+            Join(guest, host);
+            Assert.That(host.Multiplayer.StartGame().IsSuccess, Is.True);
+            Pump();
+            host.Inventories[host.Id] = new InventoryData { Items = Enumerable.Range(0, 1000).Select(i => "item-" + i).ToList() };
+            Assert.That(host.Session.Save("coop").IsSuccess, Is.True);
+            host.Session.ShareChunkSize = 1024;
+            host.Session.ShareBytesPerSecond = 1024;
+            guest.Answer = offer => guest.Session.AcceptShare(offer.ShareId, $"shared-{offer.ShareId}");
+            Assert.That(host.Session.Share("coop", guest.Id, out uint first).IsSuccess, Is.True);
+            PumpUntil(() => guest.Progress.Count > 0);
+
+            // The host drops the share while the guest is away and cannot tell it so.
+            guest.Backend.SimulateOutage(15f);
+            PumpUntil(() => host.Failed.Count > 0);
+            Assert.That(host.Failed[0].Reason, Is.EqualTo(SaveShareFailureReason.PlayerLeft));
+            Assert.That(guest.Failed, Is.Empty, "The guest has not heard of it.");
+            PumpUntil(() => guest.Multiplayer.State == SessionState.InGame &&
+                host.Multiplayer.TryGetParticipant(guest.Id, out Participant back) && back.IsConnected);
+
+            host.Session.ShareBytesPerSecond = SessionSaveManager.DefaultShareBytesPerSecond;
+            Assert.That(host.Session.Share("coop", guest.Id, out uint second).IsSuccess, Is.True);
+            PumpUntil(() => guest.Completed.Count > 0 && host.Completed.Count > 0);
+
+            Assert.That(guest.Failed.Select(failure => (failure.Transfer.ShareId, failure.Reason)),
+                Is.EqualTo(new[] { (first, SaveShareFailureReason.Cancelled) }), "The new offer ends the share the guest still held.");
+            Assert.That(guest.Completed[0].ShareId, Is.EqualTo(second));
+            Assert.That(guest.Saves.HasSlot($"shared-{second}"), Is.True);
+        }
+
+        [Test]
         public void ReceivedSave_LetsTheReceiverHostTheSession_WithEachPlayersSections()
         {
             Player host = CreatePlayer("Host", 1);
@@ -401,10 +436,10 @@ namespace Mu3Library.Tests
             return player;
         }
 
-        private void Host(Player player)
+        private void Host(Player player, SessionRules? rules = null)
         {
             MultiplayerResult? result = null;
-            var options = new LobbyCreateOptions { Visibility = LobbyVisibility.Public, Name = "Room", Rules = SessionRules.Default };
+            var options = new LobbyCreateOptions { Visibility = LobbyVisibility.Public, Name = "Room", Rules = rules ?? SessionRules.Default };
             player.Multiplayer.CreateLobby(options, answer => result = answer);
             Pump();
             Assert.That(result.HasValue && result.Value.IsSuccess, Is.True, "CreateLobby did not succeed.");
