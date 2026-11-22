@@ -9,7 +9,8 @@ namespace Mu3Library.Addressable
     /// a handle once the caller no longer uses the asset; disposing it again counts nothing.
     /// </summary>
     /// <remarks>
-    /// A handle of a load that failed holds no asset and is not valid. <see cref="IAddressablesManager.ReleaseCachedAsset"/>
+    /// A handle that <see cref="IAddressablesManager.LoadAssetHandle{T}"/> hands for a load that failed
+    /// holds no asset and is not valid; the UniTask form throws for such a load instead. <see cref="IAddressablesManager.ReleaseCachedAsset"/>
     /// and <see cref="IAddressablesManager.ClearCache"/> release the asset whatever handles remain,
     /// which then read not valid, and so does disposing the manager.
     /// </remarks>

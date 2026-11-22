@@ -687,7 +687,8 @@ namespace Mu3Library.Tests
             CollectionAssert.AreEquivalent(CallsForInMemoryLabel, firstCalls, "The first call got each asset and the list.");
             AssertNoHandleErrors();
         }
-        private const string FirstInMemoryAsset = "first asset";
+
+        private static readonly string FirstInMemoryAsset = InMemoryLabelAssets[0];
 
         private async UniTask<AssetHandle<string>> LoadHandle()
             => await _manager.LoadAssetHandleAsync<string>(InMemoryLabelKey);

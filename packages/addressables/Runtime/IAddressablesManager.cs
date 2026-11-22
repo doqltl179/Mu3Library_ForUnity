@@ -22,8 +22,10 @@ namespace Mu3Library.Addressable
         /// <see cref="AssetHandle{T}"/>. The manager counts the handles of each key and type and
         /// releases the cached asset when the last one is disposed, so callers that share an asset
         /// keep it for one another. A call that joins a load in progress gets its handle when the load
-        /// completes; a load that fails hands a handle that holds no asset and is not valid.
+        /// completes; a load that fails hands a handle that holds no asset and is not valid. Unlike
+        /// <see cref="LoadAsset{T}"/>, it needs a callback, since the caller must dispose the handle.
         /// </summary>
+        /// <exception cref="ArgumentNullException"><paramref name="callback"/> is null.</exception>
         public void LoadAssetHandle<T>(object key, Action<AssetHandle<T>> callback) where T : class;
         public void LoadAssets<T>(object key, Action<T> perAssetCallback = null, Action<IList<T>> callback = null);
         public void LoadAssetsWithKeys<T>(object key, Action<Dictionary<string, T>> callback = null);
