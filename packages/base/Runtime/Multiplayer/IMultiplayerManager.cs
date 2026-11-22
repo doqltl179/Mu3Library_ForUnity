@@ -397,22 +397,45 @@ namespace Mu3Library.Multiplayer
         public MultiplayerResult EndGame();
 
         /// <summary>
+        /// Host only, in a game. Begins another load phase of the running game, as for a level
+        /// that replaces the one every player loaded, with data the game chooses, such as the
+        /// level's name: every <see cref="Participant.IsLoaded"/> clears, every player hears
+        /// <see cref="IMultiplayerManagerEventBus.OnLoadPhaseBegan"/> with the data, and the host
+        /// waits again for every player in the session as the phase begins, the ones whose slot
+        /// it keeps while they are away and the ones who joined the game late included, under the
+        /// rules <see cref="ReportLoaded"/> describes for the start of a game, until it hears
+        /// <see cref="IMultiplayerManagerEventBus.OnAllPlayersLoaded"/> or
+        /// <see cref="IMultiplayerManagerEventBus.OnLoadTimedOut"/>. A wait that still runs ends
+        /// without either event, and a report sent before the phase began, which may still be on
+        /// its way, counts for nothing in it. Data larger than
+        /// <see cref="MultiplayerLimits.MaxStartDataSize"/> answers
+        /// <see cref="MultiplayerReason.MessageTooLarge"/>. When the session ends during the call,
+        /// or ends and another starts, the call answers the reason it ended with (see the remarks
+        /// of this interface), also when a handler of
+        /// <see cref="IMultiplayerManagerEventBus.OnLoadPhaseBegan"/> ended it.
+        /// </summary>
+        public MultiplayerResult BeginLoadPhase(ReadOnlySpan<byte> phaseData = default);
+
+        /// <summary>
         /// In a game. Reports that this player is ready to play it, for example once its scene
         /// loaded, which every player reads from <see cref="Participant.IsLoaded"/> and hears
         /// through <see cref="IMultiplayerManagerEventBus.OnParticipantChanged"/>. From the start
-        /// of a game, the host waits for every player it started with, the ones whose slot it
+        /// of a game, and again from each <see cref="BeginLoadPhase"/>, the host waits for every
+        /// player it started the game or the phase with, the ones whose slot it
         /// keeps while they are away included, since they may come back and report, and hears
         /// <see cref="IMultiplayerManagerEventBus.OnAllPlayersLoaded"/> once all of them reported, or
         /// <see cref="IMultiplayerManagerEventBus.OnLoadTimedOut"/> when
         /// <see cref="SessionRules.LoadTimeoutSeconds"/> passes first. A player who leaves, is
         /// kicked, or does not come back to their slot in time is no longer waited for; a player
-        /// who joins the running game is not waited for, but can report all the same; and the
-        /// return to the lobby ends the wait without either event and clears every flag. A player
-        /// who reported before its connection dropped stays loaded when it comes back to the same
-        /// game, and a report still on its way then goes again by itself; one that joins again
-        /// from another start of the game loads again, so its flag clears, and the host waits for
-        /// it again when the game started with it. For a client, success means the report went to
-        /// the host. Reporting again changes nothing.
+        /// who joins the running game after the game or the phase began is not waited for, but
+        /// can report all the same; and the return to the lobby ends the wait without either event
+        /// and clears every flag. A player who reported before its connection dropped stays loaded
+        /// when it comes back to the same game and phase, and a report still on its way then goes
+        /// again by itself; one that comes back after another phase began loads that phase; one
+        /// that joins again from another start of the game loads again, so its flag clears, and
+        /// the host waits for it again when the game or the phase started with it. A report counts
+        /// only in the phase it was sent in. For a client, success means the report went to the
+        /// host. Reporting again in the same phase changes nothing.
         /// Outside a game it answers <see cref="MultiplayerReason.InvalidState"/>, and while this
         /// player is <see cref="SessionState.Reconnecting"/>,
         /// <see cref="MultiplayerReason.ConnectionLost"/>. A client's report that cannot leave

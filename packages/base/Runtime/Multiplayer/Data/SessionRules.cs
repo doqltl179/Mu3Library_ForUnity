@@ -91,7 +91,8 @@ namespace Mu3Library.Multiplayer.Data
         public const float DefaultReconnectReservationSeconds = 60f;
 
         /// <summary>
-        /// How long the host waits from the start of a game for every player to report with
+        /// How long the host waits from the start of a game, and from each load phase it begins
+        /// with <see cref="IMultiplayerManager.BeginLoadPhase"/>, for every player to report with
         /// <see cref="IMultiplayerManager.ReportLoaded"/> that they are ready to play, in seconds:
         /// <see cref="DefaultLoadTimeoutSeconds"/> by default, 0 to wait without a limit. When the
         /// time passes first, the host hears <see cref="IMultiplayerManagerEventBus.OnLoadTimedOut"/>

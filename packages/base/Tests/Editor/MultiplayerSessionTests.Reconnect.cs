@@ -1268,6 +1268,7 @@ namespace Mu3Library.Tests
             writer.WriteByte((byte)SessionState.InGame);
             writer.WriteULong(host.Value);
             writer.WriteInt(1);
+            writer.WriteInt(0);
 
             // The rules: capacity, minimum players, ready check, late join, both rate limits, the
             // kick time, the reservation time, and the load timeout.
@@ -1282,6 +1283,7 @@ namespace Mu3Library.Tests
             writer.WriteInt(BitConverter.SingleToInt32Bits(SessionRules.DefaultLoadTimeoutSeconds));
 
             writer.WriteInt(MultiplayerConfig.DefaultMaxMessageSize);
+            writer.WriteBytes(ReadOnlySpan<byte>.Empty);
             writer.WriteBytes(ReadOnlySpan<byte>.Empty);
             writer.WriteInt(0);
             writer.WriteInt(2);

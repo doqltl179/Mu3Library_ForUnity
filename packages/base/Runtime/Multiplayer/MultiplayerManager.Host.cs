@@ -403,6 +403,7 @@ namespace Mu3Library.Multiplayer
             }
 
             _gameNumber++;
+            ResetLoadPhase();
             BeginLoadWait();
             _writer.Begin(PacketKind.GameStarted).WriteInt(_gameNumber);
             _writer.WriteBytes(_startData);
@@ -435,6 +436,7 @@ namespace Mu3Library.Multiplayer
             int generation = _sessionGeneration;
             ReturnRosterToLobby();
             EndLoadWait();
+            ResetLoadPhase();
 
             _backend.SetLobbyData(_lobbyId, LobbyDataKeys.State, LobbyDataKeys.StateLobby);
             if (!_rules.AllowLateJoin)
@@ -785,16 +787,18 @@ namespace Mu3Library.Multiplayer
             }
         }
 
-        /// <summary>Sends the player the session as it stands: state, rules, data, and the roster.</summary>
+        /// <summary>Sends the player the session as it stands: state, game and load phase, rules, data, and the roster.</summary>
         private bool SendWelcome(PeerConnection peer)
         {
             _writer.Begin(PacketKind.Welcome);
             _writer.WriteByte((byte)_state);
             _writer.WriteULong(_hostId.Value);
             _writer.WriteInt(_gameNumber);
+            _writer.WriteInt(_loadPhase);
             WriteRules(_writer, _rules);
             _writer.WriteInt(_maxMessageSize);
             _writer.WriteBytes(_startData);
+            _writer.WriteBytes(_loadPhaseData);
             WriteData(_writer, _lobbyData);
             _writer.WriteInt(_participants.Count);
             for (int i = 0; i < _participants.Count; i++)

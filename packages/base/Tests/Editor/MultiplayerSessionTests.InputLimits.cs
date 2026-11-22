@@ -579,8 +579,8 @@ namespace Mu3Library.Tests
 
         /// <summary>
         /// What a welcome holds before its lobby data: the state, the host, the game number, the
-        /// default rules, the message size limit, and the start data, which makes it a welcome
-        /// into a running game.
+        /// load phase, the default rules, the message size limit, the start data, which makes it a
+        /// welcome into a running game, and the empty data of the game's first load phase.
         /// </summary>
         private static void WriteWelcomeStart(PacketWriter writer, PlayerId host, byte[] startData)
         {
@@ -588,6 +588,7 @@ namespace Mu3Library.Tests
             writer.WriteByte((byte)(startData != null ? SessionState.InGame : SessionState.Lobby));
             writer.WriteULong(host.Value);
             writer.WriteInt(startData != null ? 1 : 0);
+            writer.WriteInt(0);
 
             // The rules: capacity, minimum players, ready check, late join, both rate limits, the
             // kick time, the reservation time, and the load timeout.
@@ -603,6 +604,7 @@ namespace Mu3Library.Tests
 
             writer.WriteInt(MultiplayerConfig.DefaultMaxMessageSize);
             writer.WriteBytes(startData);
+            writer.WriteBytes(ReadOnlySpan<byte>.Empty);
         }
 
         private static readonly (string Key, string Value)[] NoEntries = Array.Empty<(string, string)>();

@@ -123,19 +123,35 @@ namespace Mu3Library.Multiplayer
         public event Action OnReturnedToLobby;
 
         /// <summary>
-        /// Raised on the host, once a game, when every player the game waits for reported with
-        /// <see cref="IMultiplayerManager.ReportLoaded"/> before
+        /// Raised on every player, the host included, when the host began another load phase of
+        /// the running game with <see cref="IMultiplayerManager.BeginLoadPhase"/>, with the data
+        /// it began the phase with, such as the level to load. Every
+        /// <see cref="Participant.IsLoaded"/> is clear by then: load what the data names, then
+        /// call <see cref="IMultiplayerManager.ReportLoaded"/>. A player who comes back to its
+        /// slot in the same game after the phase began hears it as it comes back, before
+        /// <see cref="OnParticipantReconnected"/>, and a player who joins the game while a phase
+        /// the host began runs hears it after <see cref="OnGameStarted"/>, both with the data of
+        /// the phase that runs then.
+        /// </summary>
+        public event Action<ReadOnlyMemory<byte>> OnLoadPhaseBegan;
+
+        /// <summary>
+        /// Raised on the host, once a load phase, when every player the phase waits for reported
+        /// with <see cref="IMultiplayerManager.ReportLoaded"/> before
         /// <see cref="SessionRules.LoadTimeoutSeconds"/> passed; the last one may be a player
-        /// who left instead.
+        /// who left instead. A game's first load phase begins as it starts, and each
+        /// <see cref="IMultiplayerManager.BeginLoadPhase"/> begins another.
         /// </summary>
         public event Action OnAllPlayersLoaded;
 
         /// <summary>
-        /// Raised on the host, once a game, when <see cref="SessionRules.LoadTimeoutSeconds"/>
-        /// passed since the game started before every player it waits for reported with
-        /// <see cref="IMultiplayerManager.ReportLoaded"/>, with the players who did not, in roster
-        /// order. The wait ends there: later reports still set <see cref="Participant.IsLoaded"/>,
-        /// but neither this event nor <see cref="OnAllPlayersLoaded"/> follows.
+        /// Raised on the host, once a load phase, when <see cref="SessionRules.LoadTimeoutSeconds"/>
+        /// passed since the phase began, as the game started or with
+        /// <see cref="IMultiplayerManager.BeginLoadPhase"/>, before every player it waits for
+        /// reported with <see cref="IMultiplayerManager.ReportLoaded"/>, with the players who did
+        /// not, in roster order. The wait ends there: later reports still set
+        /// <see cref="Participant.IsLoaded"/>, but neither this event nor
+        /// <see cref="OnAllPlayersLoaded"/> follows.
         /// </summary>
         public event Action<IReadOnlyList<PlayerId>> OnLoadTimedOut;
 

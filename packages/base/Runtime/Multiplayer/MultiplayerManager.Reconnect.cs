@@ -488,18 +488,19 @@ namespace Mu3Library.Multiplayer
 
         /// <summary>
         /// Raises what a returning player missed and the return itself, once the state shows
-        /// where the session is now: the start of another game, or the end of its own.
+        /// where the session is now: the start of another game, another load phase of its own,
+        /// or the end of its own.
         /// </summary>
-        private void HandleReturned(SessionState state, bool isSameGame)
+        private void HandleReturned(SessionState state, bool isSameGame, bool isSamePhase)
         {
             int generation = _sessionGeneration;
             BeginLobbyRejoin();
 
             // A load report still on its way when the connection dropped is lost; it goes again.
-            if (isSameGame && _reportedLoadedGame == _gameNumber
+            if (isSamePhase && _reportedLoadedGame == _gameNumber && _reportedLoadedPhase == _loadPhase
                 && TryGetParticipant(LocalPlayerId, out Participant returning) && !returning.IsLoaded)
             {
-                _writer.Begin(PacketKind.ReportLoaded).WriteInt(_gameNumber);
+                WriteReportLoaded();
                 if (SendToHost(DeliveryMode.Reliable) != MultiplayerReason.None || generation != _sessionGeneration || _state != state)
                 {
                     return;
@@ -509,6 +510,14 @@ namespace Mu3Library.Multiplayer
             if (state == SessionState.InGame && !isSameGame)
             {
                 Raise(_onGameStarted, new System.ReadOnlyMemory<byte>(_startData));
+                if (_loadPhase > 0 && generation == _sessionGeneration && _state == state)
+                {
+                    Raise(_onLoadPhaseBegan, new System.ReadOnlyMemory<byte>(_loadPhaseData));
+                }
+            }
+            else if (isSameGame && !isSamePhase)
+            {
+                Raise(_onLoadPhaseBegan, new System.ReadOnlyMemory<byte>(_loadPhaseData));
             }
             else if (state == SessionState.Lobby)
             {
