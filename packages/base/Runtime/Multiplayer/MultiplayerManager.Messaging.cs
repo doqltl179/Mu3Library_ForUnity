@@ -13,6 +13,9 @@ namespace Mu3Library.Multiplayer
             public MessageHandler Handler;
             public MessagePolicy Policy;
 
+            // Asked by the host for each player a message of the type would reach; null lets every one.
+            public RelayFilter Filter;
+
             // What GetMessageCounts reports, since the type was registered.
             public long Sent;
             public long Received;
@@ -68,6 +71,9 @@ namespace Mu3Library.Multiplayer
         // no limit: only registered types reach a handler.
         private readonly HashSet<(ushort MessageType, Type Exception)> _loggedHandlerFailures = new HashSet<(ushort MessageType, Type Exception)>();
 
+        // Relay filter exceptions logged per session, counted as the handler exceptions are.
+        private readonly HashSet<(ushort MessageType, Type Exception)> _loggedRelayFilterFailures = new HashSet<(ushort MessageType, Type Exception)>();
+
         // Players a reliable message could not reach. Reused, so finding none costs nothing.
         private readonly List<PeerConnection> _unreachablePeers = new List<PeerConnection>();
 
@@ -99,6 +105,17 @@ namespace Mu3Library.Multiplayer
         public bool UnregisterMessage(ushort messageType)
         {
             return _messages.Remove(messageType);
+        }
+
+        public bool SetRelayFilter(ushort messageType, RelayFilter filter)
+        {
+            if (!_messages.TryGetValue(messageType, out MessageRegistration registration))
+            {
+                return false;
+            }
+
+            registration.Filter = filter;
+            return true;
         }
 
         public MultiplayerResult Send(ushort messageType, ReadOnlySpan<byte> payload, MessageTarget target, DeliveryMode deliveryMode = DeliveryMode.Reliable)
@@ -213,12 +230,13 @@ namespace Mu3Library.Multiplayer
         {
             PlayerId self = LocalPlayerId;
             bool written = false;
+            RelayFilter filter = _messages.TryGetValue(messageType, out MessageRegistration registration) ? registration.Filter : null;
 
             // A drop raised from an event handler of an outer send may still wait in the list.
             int unreachableBefore = _unreachablePeers.Count;
             foreach (PeerConnection peer in _peers.Values)
             {
-                if (!peer.IsWelcomed || !Reaches(target, self, peer.Player))
+                if (!peer.IsWelcomed || !Reaches(target, self, peer.Player) || !PassesRelayFilter(filter, messageType, self, peer.Player))
                 {
                     continue;
                 }
@@ -314,6 +332,11 @@ namespace Mu3Library.Multiplayer
                     break;
                 }
 
+                if (!PassesRelayFilter(registration.Filter, messageType, sender.Player, peer.Player))
+                {
+                    continue;
+                }
+
                 if (!written)
                 {
                     WriteMessageFromHost(sender.Player, messageType, payload, deliveryMode);
@@ -326,9 +349,42 @@ namespace Mu3Library.Multiplayer
             int generation = _sessionGeneration;
             DropUnreachablePeers();
 
-            if (generation == _sessionGeneration && Reaches(target, sender.Player, LocalPlayerId))
+            if (generation == _sessionGeneration && Reaches(target, sender.Player, LocalPlayerId)
+                && PassesRelayFilter(registration.Filter, messageType, sender.Player, LocalPlayerId))
             {
                 DeliverMessage(sender.Player, messageType, deliveryMode, payload);
+            }
+        }
+
+        /// <summary>
+        /// Asks a type's relay filter whether a message from <paramref name="sender"/> reaches
+        /// <paramref name="recipient"/>; without a filter every one passes. An exception the filter
+        /// throws keeps the message from that player, since a filter that cannot answer must not
+        /// let through what it was meant to hold back, and is logged once per type and exception
+        /// type in a session.
+        /// </summary>
+        private bool PassesRelayFilter(RelayFilter filter, ushort messageType, PlayerId sender, PlayerId recipient)
+        {
+            if (filter == null)
+            {
+                return true;
+            }
+
+            try
+            {
+                return filter(sender, recipient);
+            }
+            catch (Exception e)
+            {
+                Type type = e.GetType();
+                if (_loggedRelayFilterFailures.Add((messageType, type)))
+                {
+                    Debug.LogException(e);
+                    Debug.LogFormat(LogType.Warning, LogOption.NoStacktrace, null, "{0}",
+                        $"[Multiplayer] The relay filter of message type {messageType} threw {type.Name}, so the message did not reach {recipient}. Further {type.Name}s from this filter go unlogged until the session ends.");
+                }
+
+                return false;
             }
         }
 
@@ -647,6 +703,7 @@ namespace Mu3Library.Multiplayer
         {
             _loggedDrops.Clear();
             _loggedHandlerFailures.Clear();
+            _loggedRelayFilterFailures.Clear();
             _unreachablePeers.Clear();
             _hostMaxMessageSize = 0;
         }

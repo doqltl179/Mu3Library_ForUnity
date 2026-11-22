@@ -377,6 +377,9 @@ namespace Mu3Library.Tests
                 Assert.That(backend.GetLobbyData(SomeLobby, "key"), Is.Null);
                 Assert.That(backend.SetPresence("Waiting", SomeLobby, 2), Is.False);
                 Assert.That(backend.GetPlayerName(SomeAccount), Is.EqualTo(SomeAccount.ToString()));
+                Assert.That(backend.StartVoiceRecording(), Is.False);
+                Assert.That(backend.TryReadVoice(out _), Is.False);
+                Assert.That(backend.TryDecodeVoice(new byte[] { 1, 2, 3 }, out _), Is.False);
 
                 backend.Update();
                 Assert.That(answers, Is.EquivalentTo(new[] { "create SteamNotRunning", "join SteamNotRunning", "search SteamNotRunning", "avatar SteamNotRunning" }));
@@ -662,6 +665,8 @@ namespace Mu3Library.Tests
             yield return FirstCall("GetLobbyOwner", (backend, answer) => backend.GetLobbyOwner(SomeLobby), PlayerId.None);
             yield return FirstCall("IsLobbyMember", (backend, answer) => backend.IsLobbyMember(SomeLobby, SomeAccount), false);
             yield return FirstCall("SetPresence", (backend, answer) => backend.SetPresence("Waiting", SomeLobby, 2), false);
+            yield return FirstCall("StartVoiceRecording", (backend, answer) => backend.StartVoiceRecording(), false);
+            yield return FirstCall("TryDecodeVoice", (backend, answer) => backend.TryDecodeVoice(new byte[] { 1, 2, 3 }, out _), false);
             yield return FirstCall("CreateLobby", (backend, answer) => { backend.CreateLobby(LobbyVisibility.Public, 4, null, (reason, lobby) => answer(reason)); return null; }, null, MultiplayerReason.SteamNotRunning);
             yield return FirstCall("JoinLobby", (backend, answer) => { backend.JoinLobby(SomeLobby, answer); return null; }, null, MultiplayerReason.SteamNotRunning);
             yield return FirstCall("SearchLobbies", (backend, answer) => { backend.SearchLobbies(null, (reason, lobbies) => answer(reason)); return null; }, null, MultiplayerReason.SteamNotRunning);

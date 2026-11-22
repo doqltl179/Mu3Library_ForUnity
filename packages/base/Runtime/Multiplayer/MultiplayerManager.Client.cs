@@ -371,6 +371,10 @@ namespace Mu3Library.Multiplayer
                     HandleReturnedToLobby();
                     break;
 
+                case PacketKind.LoadPhaseBegan:
+                    HandleLoadPhaseBegan(ref reader);
+                    break;
+
                 case PacketKind.MessageFromHost:
                     ClientHandleMessage(ref reader);
                     break;
@@ -442,6 +446,12 @@ namespace Mu3Library.Multiplayer
 
             PlayerId host = new PlayerId(reader.ReadULong());
             int gameNumber = reader.ReadInt();
+            int loadPhase = reader.ReadInt();
+            if (loadPhase < 0)
+            {
+                throw new FormatException($"Invalid load phase {loadPhase} in the welcome.");
+            }
+
             SessionRules rules = ReadRules(ref reader);
             int hostMaxMessageSize = reader.ReadInt();
             if (hostMaxMessageSize < 1)
@@ -449,6 +459,7 @@ namespace Mu3Library.Multiplayer
                 throw new FormatException($"Invalid message size limit {hostMaxMessageSize} in the welcome.");
             }
             byte[] startData = reader.ReadBytes(MultiplayerLimits.MaxStartDataSize);
+            byte[] loadPhaseData = reader.ReadBytes(MultiplayerLimits.MaxStartDataSize);
             Dictionary<string, string> lobbyData = ReadData(ref reader, MultiplayerLimits.MaxLobbyDataSize);
 
             int count = reader.ReadInt();
@@ -472,9 +483,12 @@ namespace Mu3Library.Multiplayer
             // another, hears of it as it comes back.
             bool isReturning = _state == SessionState.Reconnecting;
             bool isSameGame = state == SessionState.InGame && gameNumber == _gameNumber;
+            bool isSamePhase = isSameGame && loadPhase == _loadPhase;
 
             _isWelcomed = true;
             _gameNumber = gameNumber;
+            _loadPhase = loadPhase;
+            _loadPhaseData = loadPhaseData;
             _rules = rules;
             _hostMaxMessageSize = hostMaxMessageSize;
             _startData = startData;
@@ -505,7 +519,7 @@ namespace Mu3Library.Multiplayer
 
             if (isReturning)
             {
-                HandleReturned(state, isSameGame);
+                HandleReturned(state, isSameGame, isSamePhase);
                 return;
             }
 
@@ -520,10 +534,15 @@ namespace Mu3Library.Multiplayer
             _pendingCallback = null;
             Invoke(callback, MultiplayerResult.Success);
 
-            // A late joiner arrives in a running game and needs its start data as much as anyone.
+            // A late joiner arrives in a running game and needs its start data as much as anyone,
+            // and the data of the load phase the host began since, if any.
             if (state == SessionState.InGame && generation == _sessionGeneration)
             {
                 Raise(_onGameStarted, new ReadOnlyMemory<byte>(_startData));
+                if (_loadPhase > 0 && generation == _sessionGeneration && _state == SessionState.InGame)
+                {
+                    Raise(_onLoadPhaseBegan, new ReadOnlyMemory<byte>(_loadPhaseData));
+                }
             }
         }
 
@@ -597,6 +616,7 @@ namespace Mu3Library.Multiplayer
 
             _gameNumber = gameNumber;
             _startData = startData;
+            ResetLoadPhase();
 
             // The host cleared every loaded flag as the game started.
             for (int i = 0; i < _participants.Count; i++)
@@ -620,6 +640,7 @@ namespace Mu3Library.Multiplayer
             }
 
             ReturnRosterToLobby();
+            ResetLoadPhase();
 
             int generation = _sessionGeneration;
             SetState(SessionState.Lobby, MultiplayerReason.None);
