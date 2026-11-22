@@ -68,6 +68,8 @@ One row per concept, one column per language of the localized copies («Human-Fa
 | push to talk | Recording voice only while a key is held | 눌러서 말하기 | プッシュトゥトーク |
 | save slot, save section | A named save of `SaveManager` that the game writes and loads as a whole, and one system's part of it with its own key and data version (`SaveSection<TData>`); not the slot a multiplayer session keeps for a player who dropped | 세이브 슬롯, 세이브 섹션 | セーブスロット、セーブセクション |
 | slot metadata | The short values a slot list reads from a save slot without loading it (`SetMetadata`) | 슬롯 메타데이터 | スロットメタデータ |
+| session save, player section | A save slot of a multiplayer session that the host writes through `SessionSaveManager`, and the part of it that each player has their own of, saved under their `PlayerId` (`PlayerSaveSection<TData>`) | 세션 세이브, 플레이어 섹션 | セッションセーブ、プレイヤーセクション |
+| save share | The host's sending of a session save to another player, who stores it as a slot of their own (`SessionSaveManager.Share`) | 세이브 공유 | セーブ共有 |
 | debug console, player console | The in-game console of `DebugConsoleManager`, and the same console opened to players in a release build (`PlayerConsoleEnabled`) | 디버그 콘솔, 플레이어 콘솔 | デバッグコンソール、プレイヤーコンソール |
 | developer command, player command | A console command that runs only in the editor and a Development Build (`ConsoleAccess.Developer`), and one the game offers its players on purpose (`ConsoleAccess.Player`) | 개발자 명령, 플레이어 명령 | 開発者コマンド、プレイヤーコマンド |
 | affects progress | A console command marked to change the game's progress, which sets `HasModifiedProgress` | 진행에 영향을 주는 | 進行に影響する |

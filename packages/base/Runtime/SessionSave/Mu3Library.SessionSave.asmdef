@@ -1,0 +1,18 @@
+{
+    "name": "Mu3Library.SessionSave",
+    "rootNamespace": "Mu3Library.SessionSave",
+    "references": [
+        "GUID:1819abc2fc0b47cb923c2edd77eec531",
+        "GUID:e8cd03960cfe03647ada1ecc7577e225",
+        "GUID:883e019308824d7f93096e20e7592c31"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
