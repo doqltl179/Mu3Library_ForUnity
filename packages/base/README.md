@@ -1,6 +1,6 @@
 ﻿# Mu3 Library (Base)
 
-Core runtime package of **Mu3Library For Unity**: the lifecycle and injection contracts its managers implement, MVP UI system, audio, scene loading, WebRequest, Observable, section-based saves, player-hosted multiplayer sessions, and the shared editor tooling.
+Core runtime package of **Mu3Library For Unity**: the lifecycle and injection contracts its managers implement, MVP UI system, audio, scene loading, WebRequest, Observable, section-based saves, an in-game debug console, player-hosted multiplayer sessions, and the shared editor tooling.
 
 - Package name: `com.github.doqltl179.mu3library.base`
 - Optional integrations (enabled by define symbols when the package is present): UniTask, Addressables, Input System. [Optional Packages](https://github.com/doqltl179/Mu3Library_ForUnity#-optional-packages) in the repository README gives their define symbols.

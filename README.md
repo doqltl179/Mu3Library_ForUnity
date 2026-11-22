@@ -35,6 +35,7 @@
 - ✨ **Particle Handler**: Convenient `ParticleSystem` playback, pause, stop, clear, restart, `Loop`/`IsLooping`/`SetLoop`/`PlayLoop`/`PlayOnce` controls, state queries, and lifecycle events on a required component
 - 🌐 **WebRequest**: HTTP GET/POST/PUT/PATCH/DELETE, download size queries, retry backoff, in-flight cancellation, download progress, UniTask support
 - 📊 **Observable Pattern**: Data change detection and event-based binding
+- 🖥 **Debug Console**: In-game console for player builds with typed commands, developer-only and player-facing access, a mark for commands that change progress, and Unity's log
 - 💾 **Save System**: Section-based saves into slots, with data versions and migration, checked files written safely, and Unity types such as `Vector3` saved as they are
 - 🛠 **Utility Collection**: Extension Methods, ObjectPool, EasingFunctions
 - ✅ **Initialization Result Contracts**: Addressables/Localization expose explicit init success/failure state
@@ -496,6 +497,48 @@ if (!result.IsSuccess)
 - **Slot lists**: `GetSlots` and `TryGetSlotInfo` read a slot's sections, versions, times, size, and metadata without restoring anything; a damaged or too new slot is left out. `SetMetadata` sets a short value of a saved slot for such a list, such as a chapter name or play time, up to 32 values of 256 characters each, and saves keep them; `Peek` reads one section's data without restoring it. `ExportSlot` and `ImportSlot` hand out and take back a slot's checked bytes, such as for a backup, and every length is checked before it is read, so bytes from elsewhere are safe to parse, while the sections they hold restore as their sender wrote them. `MaxSlotSize`, 8 MiB by default, caps a slot with all its sections.
 - Slot IDs take letters, digits, `_`, and `-`, up to 64 characters, but not a name Windows keeps for a device, such as `CON`; section and metadata keys also take `.`. A file system that ignores case keeps two IDs that differ only in case as one slot. Calls run on the calling thread, and a save, load, or storage failure comes back as a `SaveResult`; only a mistake in the calling code throws, such as a null argument or a `MaxSlotSize` of 0 or less. `ISaveManagerEventBus` raises `OnSaved`, `OnLoaded`, `OnSlotDeleted`, and `OnSlotImported`.
 
+### Debug Console
+An in-game console for player builds: commands the game registers, the lines it ran, and Unity's log, drawn over the game. It lives in the `Mu3Library.DebugConsole` assembly, which an assembly definition of your own references.
+
+```csharp
+using Mu3Library.DebugConsole;
+using UnityEngine;
+
+public class ConsoleSetup : MonoBehaviour
+{
+    private DebugConsoleManager _console;
+
+    private void Awake()
+    {
+        _console = new DebugConsoleManager();   // captures Unity's log while it lives
+
+        // Developer commands run in the editor and in a Development Build only.
+        _console.RegisterCommand<int>("level", level => LoadLevel(level),
+            new ConsoleCommandOptions("Loads a level.", affectsProgress: true));
+
+        // Player commands are what the game offers its players on purpose.
+        _console.RegisterCommand<int, int>("give", GiveItem,
+            new ConsoleCommandOptions("Gives an item.", ConsoleAccess.Player, affectsProgress: true));
+
+        // Let players open the console in a release build, for the Player commands only.
+        _console.PlayerConsoleEnabled = _settings.AllowPlayerConsole;
+        _console.OnProgressModified += commandName => _saveData.UsedConsole = true;
+
+        DebugConsoleView.Create(_console);   // the ` key opens it
+    }
+
+    private void GiveItem(int item, int count = 1) { /* ... */ }
+
+    private void OnDestroy() => _console.Dispose();
+}
+```
+
+- **Access**: A `Developer` command, the default, runs only in the editor and in a Development Build. A `Player` command is one the game offers its players on purpose, such as a convenience or a cheat it allows: it also runs in a release build once the game turns on `PlayerConsoleEnabled`. A release build keeps the console closed until then, and lists, completes, and runs only the commands its build lets run: it answers a `Developer` command as unknown.
+- **Progress**: A command marked `affectsProgress` sets `HasModifiedProgress` and raises `OnProgressModified` when it runs, even if it then throws, so the game can mark the save or hold back achievements by its own rules; `ResetProgressModified` clears the mark.
+- **Arguments**: A command takes up to four typed parameters: `string`, `int`, `long`, `float`, `double`, `bool` (`true`, `false`, `on`, `off`, `yes`, `no`, `1`, `0`), an enum by name or number, `Vector2` and `Vector3` as `x,y` and `x,y,z`. A method's default values make its last parameters optional, a vector's `default` reading as zero, and words in double quotes keep their spaces. A command registered with an `Action<ConsoleCall>` gets the words as typed and can `Print`. Names match without case; `help` and `clear` come built in.
+- **View**: `DebugConsoleView` draws the console with IMGUI, which reads the keyboard under either input backend. The toggle key, `` ` `` by default, opens and closes it, Enter runs the line, Up and Down walk the history, Tab completes a command name, and Escape closes it. On a device without a keyboard, call `Open` from the game's own button or gesture. The keys also reach the game's own input, so pause it while the console is open, such as from `OnOpenChanged`. The view filters Unity's log by level, and the console keeps the newest `MaxLines` lines, 1000 by default.
+- `Execute` runs a line from code and returns a `ConsoleResult` that says why a line failed, and a command that throws also logs its exception; `IDebugConsoleManagerEventBus` raises `OnLineAdded`, `OnCleared`, `OnOpenChanged`, `OnProgressModified`, and `OnExecuted`. Dispose the manager to stop capturing the log.
+
 ### Multiplayer
 `MultiplayerManager` (`Mu3Library.Multiplayer`) runs a player-hosted session: one player hosts, the others find the host's lobby and connect to the host, and the host decides the roster, the rules, and when the game starts. It runs on a backend: `LocalBackend` (`Mu3Library.Multiplayer.Local`), for several players inside one process or, on a network from `LocalNetwork.CreateMachineWide`, editors and player builds on one computer, or `SteamBackend` from the separate [Steam package](packages/steam/README.md). Code in an assembly definition of its own references `Mu3Library.Multiplayer` to use it. Everything runs on the main thread, and what the backend reports, the other players' messages, and the answers to lobby requests arrive from inside `Update`, so call it every frame.
 
@@ -729,6 +772,7 @@ The fallback Inspector is registered with `isFallback` for every `MonoBehaviour`
 - **Audio**: BGM/SFX management system
 - **Particle**: `ParticleHandler` MonoBehaviour for convenient `ParticleSystem` control, loop configuration, and lifecycle events (`OnPlayed`, `OnStopped`, `OnPaused`, `OnUnPaused`, `OnCleared`, `OnRestarted`, `OnLoopChanged`, `OnCompleted`)
 - **DI**: Moved to the separate DI package ([README](packages/di/README.md)); Base keeps the lifecycle and injection contracts in `Mu3Library.Foundation`
+- **DebugConsole**: In-game console with typed commands, developer and player access, a progress mark, Unity's log, and an IMGUI view, in the `Mu3Library.DebugConsole` assembly
 - **Event**: Owner-managed subscription utilities, reusable one-shot helpers, and disposable `ISubscriptionInfo` tokens via `SubscribeHandler`
 - **Extensions**: Extension methods for GameObject, Transform, Vector3, etc.
 - **Localization**: Moved to the separate Localization package ([README](packages/localization/README.md))
