@@ -84,7 +84,8 @@ namespace Mu3Library.Multiplayer
         /// Raised when a player's ready flag or loaded flag (<see cref="Participant.IsLoaded"/>)
         /// changes, this player's own included. Returning to the lobby clears every ready,
         /// late-join, and loaded flag at once, which <see cref="OnReturnedToLobby"/> reports
-        /// instead, so does the start of a game for the loaded flags, and a change of a player's
+        /// instead, so does the start of a game for the loaded flags, and so does the start of a
+        /// load phase, which <see cref="OnLoadPhaseBegan"/> reports, and a change of a player's
         /// data raises <see cref="OnParticipantDataChanged"/>.
         /// </summary>
         public event Action<Participant> OnParticipantChanged;

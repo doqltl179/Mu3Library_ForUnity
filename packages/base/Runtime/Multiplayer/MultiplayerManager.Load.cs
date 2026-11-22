@@ -42,6 +42,7 @@ namespace Mu3Library.Multiplayer
 
             int generation = _sessionGeneration;
             _loadPhase++;
+            int phase = _loadPhase;
             _loadPhaseData = phaseData.ToArray();
 
             // A wait that still runs ends here without either event.
@@ -50,9 +51,10 @@ namespace Mu3Library.Multiplayer
             _writer.WriteInt(_loadPhase);
             _writer.WriteBytes(_loadPhaseData);
 
-            // As in StartGame, a handler of a player dropped on the way may have ended the session (#340).
+            // As in StartGame, a handler of a player dropped on the way may have ended the session
+            // (#340), or ended the game, or begun another phase, after which this one is over.
             BroadcastToWelcomed(ConnectionId.None);
-            if (generation == _sessionGeneration)
+            if (generation == _sessionGeneration && _state == SessionState.InGame && _loadPhase == phase)
             {
                 Raise(_onLoadPhaseBegan, new ReadOnlyMemory<byte>(_loadPhaseData));
             }
