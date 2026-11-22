@@ -26,7 +26,7 @@ Branch names and switches come from the profile: `policy.integration_branch`, `p
 | `policy.release_branch` | Release. When it differs from the integration branch, changes arrive only through a promotion from it («Promotion» in [release.md](release.md)) |
 | Task branch | One per unit, named by `policy.branch_pattern`, in the unit's own worktree when «Worktrees» gives it one |
 
-- Never commit directly to a branch in `policy.protected_branches`; changes arrive through merged pull requests or, with `hosting.platform = "none"`, through the approved merge commit of «Scaling The Order» in [request-lifecycle.md](../operating-model/request-lifecycle.md) or of «Promotion» in [release.md](release.md).
+- Never commit directly to a branch in `policy.protected_branches`; changes arrive through merged pull requests or, with `hosting.platform = "none"`, through the approved merge commit of «Scaling The Order» in [request-lifecycle.md](../operating-model/request-lifecycle.md) or of «Promotion» in [release.md](release.md). The one exception is a repository with no commit yet: `kit-install` makes a single empty bootstrap commit directly on its first branch, and the installation unit's pull request, or its merge commit with `hosting.platform = "none"`, names that commit.
 - With `policy.commit_convention = "conventional"`, the branch `<type>` is one of `feat`, `fix`, `docs`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, and the scope matches the commit scope. Otherwise `<type>` is a short lowercase word for the kind of change, such as `fix` or `feat`.
 - One task branch carries one bounded unit and, when `policy.issue_first` is on, one issue.
 
@@ -112,7 +112,7 @@ With head-branch deletion on («Repository Settings» in [issues-and-prs.md](iss
 
 Stop and report instead of improvising when:
 
-- a commit is about to land on a protected branch, other than the approved merge of «Scaling The Order» in request-lifecycle.md or of «Promotion» in release.md with `hosting.platform = "none"`, or project files are about to be edited in the main checkout while `policy.worktrees` is on or another unit runs at the same time,
+- a commit is about to land on a protected branch, other than the empty bootstrap commit «Branch Policy» allows or the approved merge of «Scaling The Order» in request-lifecycle.md or of «Promotion» in release.md with `hosting.platform = "none"`, or project files are about to be edited in the main checkout while `policy.worktrees` is on or another unit runs at the same time,
 - the branch or worktree does not match the unit or the naming pattern,
 - local and remote state diverged, or a push would overwrite remote work,
 - files cannot be attributed to the current concern,

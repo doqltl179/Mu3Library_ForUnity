@@ -7,6 +7,14 @@ Package release notes remain in:
 - `docs/changelog/CHANGELOG.ko.md`
 - `docs/changelog/CHANGELOG.ja.md`
 
+## 2026-11-22 (agentkit 1.2.2)
+
+### Changed
+- Updated agentkit from 1.2.1 to 1.2.2 (#584), a patch release with no migration steps. Its fixes cover installing the kit into a new repository and a missing integration or release branch: `install` no longer writes a `[tools]` block that repeats the default targets, `kit-install` handles a repository with no commit yet and sends the installation to the integration branch, and when one of the integration and release branches is missing, «Repository Settings» in the kit's `issues-and-prs.md` creates it from the other after confirmation, a rule `release-cut` now follows for a missing release branch. This repository already has the kit and both `develop` and `main`, so none of it changes how work runs here.
+
+### What an existing checkout needs
+- Nothing.
+
 ## 2026-11-21 (agentkit 1.2.1)
 
 ### Changed

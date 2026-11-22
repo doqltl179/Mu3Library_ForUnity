@@ -4,6 +4,14 @@ All notable changes to the kit. Format: [Keep a Changelog](https://keepachangelo
 
 ## [Unreleased]
 
+## [1.2.2] - 2026-11-22
+
+### Fixed
+- `install` no longer writes a `[tools]` block when `--tools` lists the default targets of the profile template, in any order. Before, the README's own command (`--tools claude,codex,copilot`) wrote `targets = ["claude", "codex", "copilot"]`, so the first `check` after installing warned that the profile repeats a kit default, and the key pinned the targets against later kit defaults. A list that differs from the default is written as before. (patch)
+- `kit-install` step 2 covers a repository with no commit yet, which has no default branch to cut the task branch from: one empty bootstrap commit on the first branch the user names (the planned release branch), pushed when the repository has a remote, then the task branch as usual. «Branch Policy» in `git-workflow.md` allows that commit as its one exception to committing directly on a protected branch, provided the installation unit's pull request (or its merge commit with `hosting.platform = "none"`) names it, and «Stop Conditions» there no longer stops on it. Before, step 2 could not be followed, and agents worked around it differently. (patch)
+- `kit-install` sends the installation to `policy.integration_branch`, not to the current default branch. Before the pull request, or with `hosting.platform = "none"` the merge, step 10 now creates the integration branch from the current default branch when it is missing, after the user confirms, and on GitHub proposes it as the default branch in the same step, so the installation issue closes when the pull request merges. When the integration branch already exists, the unit's commits move onto it first, so the pull request carries no release-branch commits. Step 11 keeps head-branch deletion and the label review. Before, a project with a separate release branch got the installation straight into that branch, against «Pull Request Targets» in `issues-and-prs.md` and the promotion-only release branch in «Branch Policy» in `git-workflow.md`, and with `hosting.platform = "none"` no step created the integration branch. (patch)
+- A release branch that differs from the integration branch and does not exist yet now has a rule: «Repository Settings» in `issues-and-prs.md` creates whichever of the two branches is missing from the other, after confirmation, and `kit-install` step 10 does so during installation, before the installation lands, so the release branch receives the kit with the first promotion; `release-cut` sends a missing release branch to that rule first. Before, only a missing integration branch had a rule, and the first promotion into a missing release branch had nowhere to go. (patch)
+
 ## [1.2.1] - 2026-11-21
 
 ### Fixed
