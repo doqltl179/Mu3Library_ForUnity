@@ -364,7 +364,7 @@ await _sceneLoader.LoadSingleSceneWithAddressablesAsync("Sample_Addressables");
 ```
 
 ### State Machine
-`StateMachine<TKey>` (`Mu3Library.States`) moves between states that a game registers under keys, usually an enum: a game flow from boot to title, lobby, game, and results, a UI flow, or an enemy's behavior. A state, usually a `State` subclass, overrides what it needs: `Enter` and `Exit`, which may `yield` to wait as a coroutine does, and `Update`. A transition exits the current state, waiting until its `Exit` ends, then enters the new one, waiting until its `Enter` ends, and raises `OnStateChanged`; one that waits for nothing ends within `ChangeState`. Requests that come while a transition waits run one by one in the order they came. `AddGuard` adds a condition that can block a transition, which `OnTransitionBlocked` reports, and `Back` returns to the previous state. The owner calls `Update` every frame, which steps a transition that waits and otherwise updates the current state. With UniTask, a state derived from `AsyncState` awaits its `EnterAsync` and `ExitAsync` instead. The machine is tied to no scene loader or UI system; here a game flow loads its scenes with `SceneLoader`:
+`StateMachine<TKey>` (`Mu3Library.States`) moves between states that a game registers under keys, usually an enum: a game flow from boot to title, lobby, game, and results, a UI flow, or an enemy's behavior. A state, usually a `State` subclass, overrides what it needs: `Enter` and `Exit`, which may `yield` to wait as a coroutine does, and `Update`. The machine steps these routines from its own `Update`, so it waits for `null`, a nested routine, a `CustomYieldInstruction` such as `WaitUntil` or `WaitForSecondsRealtime`, and an `AsyncOperation`, but `WaitForSeconds` and the other `YieldInstruction`s wait one frame only, with a warning: wait for time with `WaitForSecondsRealtime` or `WaitUntil` instead. A transition exits the current state, waiting until its `Exit` ends, then enters the new one, waiting until its `Enter` ends, and raises `OnStateChanged`; one that waits for nothing ends within `ChangeState`. Requests that come while a transition waits run one by one in the order they came. `AddGuard` adds a condition that can block a transition, which `OnTransitionBlocked` reports, and `Back` returns to the previous state, one step: the machine keeps no history, so a second `Back` returns to where the first one left. The owner calls `Update` every frame, which steps a transition that waits and otherwise updates the current state. With UniTask, a state derived from `AsyncState` awaits its `EnterAsync` and `ExitAsync` instead. The machine is tied to no scene loader or UI system; here a game flow loads its scenes with `SceneLoader`:
 
 ```csharp
 using System.Collections;
@@ -388,7 +388,8 @@ public class SceneState : State
     }
 
     // The next state comes in once the scene loaded. A routine may yield null, a nested routine,
-    // a CustomYieldInstruction such as WaitUntil or WaitForSecondsRealtime, or an AsyncOperation.
+    // a CustomYieldInstruction such as WaitUntil or WaitForSecondsRealtime, or an AsyncOperation;
+    // WaitForSeconds waits one frame only.
     public override IEnumerator Enter()
     {
         _sceneLoader.LoadSingleScene(_sceneName);
@@ -414,7 +415,7 @@ public class AsyncSceneState : AsyncState
     }
 }
 
-// The owner, such as a core or a MonoBehaviour.
+// The owner outlives the scenes it loads, such as a core or an object kept with DontDestroyOnLoad.
 _flow = new StateMachine<GameFlow>();
 _flow.Add(GameFlow.Boot, new SceneState(_sceneLoader, "Boot"));
 _flow.Add(GameFlow.Title, new SceneState(_sceneLoader, "Title"));
@@ -429,6 +430,9 @@ _flow.Update();
 // Later: requests made while the boot scene still loads wait their turn.
 _flow.ChangeState(GameFlow.Title);
 _flow.Back(); // to the state before the current one
+
+// When the owner goes away.
+_flow.Dispose();
 ```
 
 ### WebRequest

@@ -162,6 +162,32 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void Requests_FromAStateAndFromAHandler_RunOnceTheTransitionThatAskedEnds()
+        {
+            // The boot state moves on to the title once it loaded, and the flow goes on to the
+            // lobby as the title comes in.
+            _machine.Add((Flow)10, new RoutineState(() => LoadingThen(_machine, Flow.Title)));
+            _machine.OnStateChanged += transition =>
+            {
+                if (transition.To == Flow.Title)
+                {
+                    _machine.ChangeState(Flow.Lobby);
+                }
+            };
+
+            _machine.ChangeState((Flow)10);
+            Assert.That(_machine.Current, Is.EqualTo((Flow)10));
+            _machine.Update();
+
+            Assert.That(_machine.Current, Is.EqualTo(Flow.Lobby));
+            Assert.That(_machine.IsTransitioning, Is.False);
+            Assert.That(_changes.ConvertAll(change => change.ToString()), Is.EqualTo(new[]
+            {
+                "(none) -> 10", "10 -> Title", "Title -> Lobby",
+            }));
+        }
+
+        [Test]
         public void Guard_BlocksATransition_AndTheMachineStaysWhereItIs()
         {
             bool isReady = false;
@@ -321,6 +347,13 @@ namespace Mu3Library.Tests
         {
             yield return null;
             yield return new WaitUntil(isDone);
+        }
+
+        /// <summary>Waits a frame, as a load does, then asks for the next state from inside the routine.</summary>
+        private static IEnumerator LoadingThen(StateMachine<Flow> machine, Flow next)
+        {
+            yield return null;
+            machine.ChangeState(next);
         }
 
         private static IEnumerator Throwing()

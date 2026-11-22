@@ -337,15 +337,25 @@ namespace Mu3Library.States
             return true;
         }
 
+        /// <summary>Invokes each handler on its own, so one that throws keeps the event from none after it.</summary>
         private static void Raise(Action<StateTransition<TKey>> handlers, StateTransition<TKey> transition)
         {
-            try
+            if (handlers == null)
             {
-                handlers?.Invoke(transition);
+                return;
             }
-            catch (Exception e)
+
+            Delegate[] list = handlers.GetInvocationList();
+            for (int i = 0; i < list.Length; i++)
             {
-                Debug.LogException(e);
+                try
+                {
+                    ((Action<StateTransition<TKey>>)list[i])(transition);
+                }
+                catch (Exception e)
+                {
+                    Debug.LogException(e);
+                }
             }
         }
         #endregion
@@ -419,6 +429,12 @@ namespace Mu3Library.States
                     // The whole routine ends with the part that threw, as a coroutine does.
                     Debug.LogException(e);
                     _routines.Clear();
+                    return;
+                }
+
+                // The routine may have disposed the machine, which dropped what it waited for.
+                if (_isDisposed)
+                {
                     return;
                 }
 

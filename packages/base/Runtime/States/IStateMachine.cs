@@ -24,7 +24,7 @@ namespace Mu3Library.States
     /// </remarks>
     public interface IStateMachine<TKey>
     {
-        /// <summary>False before the first state is entered.</summary>
+        /// <summary>False until the machine starts entering its first state.</summary>
         public bool HasCurrent { get; }
 
         /// <summary>The state the machine is in, which during a transition is the new one from the time it starts entering.</summary>
@@ -44,7 +44,8 @@ namespace Mu3Library.States
 
         /// <summary>
         /// Raised once a transition ended: the new state is current and entered. A handler may
-        /// ask for another transition, which runs after it returns.
+        /// ask for another transition, which runs after it returns. Each handler runs on its own,
+        /// so one that throws, which is logged, keeps the event from none after it.
         /// </summary>
         public event Action<StateTransition<TKey>> OnStateChanged;
 
@@ -68,7 +69,8 @@ namespace Mu3Library.States
 
         /// <summary>
         /// Asks to move back to the state before the current one, as it is when the request runs;
-        /// a request that finds none is dropped. False, with nothing asked, when the machine has no
+        /// a request that finds none is dropped. It goes one step back: the machine keeps no
+        /// history, so a second <c>Back</c> returns to the state the first one left. False, with nothing asked, when the machine has no
         /// previous state and no transition runs or waits, or after <c>Dispose</c>.
         /// </summary>
         public bool Back();
