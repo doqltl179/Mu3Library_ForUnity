@@ -1,0 +1,31 @@
+{
+    "name": "Mu3Library.Steam.Cloud",
+    "rootNamespace": "Mu3Library.Steam.Cloud",
+    "references": [
+        "GUID:883e019308824d7f93096e20e7592c31",
+        "com.rlabrecque.steamworks.net"
+    ],
+    "includePlatforms": [
+        "Editor",
+        "LinuxStandalone64",
+        "macOSStandalone",
+        "WindowsStandalone64"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "MU3LIBRARY_STEAMWORKS_SUPPORT",
+        "UNITY_STANDALONE"
+    ],
+    "versionDefines": [
+        {
+            "name": "com.rlabrecque.steamworks.net",
+            "expression": "2025.164.1",
+            "define": "MU3LIBRARY_STEAMWORKS_SUPPORT"
+        }
+    ],
+    "noEngineReferences": false
+}
