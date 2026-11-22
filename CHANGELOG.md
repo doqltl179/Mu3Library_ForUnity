@@ -15,6 +15,32 @@ This changelog tracks package release changes only. Repository development workf
 
 ## [Unreleased]
 
+## [base/0.31.0] - 2026-11-22
+
+### Added
+- The host of a multiplayer game can wait again for every player to load within the game, as when a game changes levels without returning to the lobby (#577). `IMultiplayerManager.BeginLoadPhase(phaseData)`, host only and in a game, begins another load phase with data the game chooses, such as the next level's name, up to `MultiplayerLimits.MaxStartDataSize`: every `Participant.IsLoaded` clears, every player hears the new `IMultiplayerManagerEventBus.OnLoadPhaseBegan` with the data, and the host waits for every player in the session as the phase begins, under the same rules as after `StartGame` (`SessionRules.LoadTimeoutSeconds`, players who leave no longer waited for, players away waited for, players who join after the phase began not waited for), then hears `OnAllPlayersLoaded` or `OnLoadTimedOut` again. A report counts only in the phase it was sent in, so a report from the phase before that is still on its way does not fill the new one. A player who comes back to its slot after a phase began, or joins the game while one runs, hears `OnLoadPhaseBegan` with that phase's data. The wait after `StartGame` is unchanged. A class of the game's own that implements `IMultiplayerManager` or `IMultiplayerManagerEventBus` adds the new members. The packets changed, so the library's packet format version is now 7: a build on this version does not find or join the lobbies of a build on an earlier one, so every player of a game updates together.
+- Voice for multiplayer sessions (#576). `IVoiceBackend` (`Mu3Library.Multiplayer.Backend`), an optional interface of a backend, starts and stops recording this player's voice, hands out what it recorded since the last call (`TryReadVoice`), and decodes another player's voice into mono samples at `VoiceSampleRate` (`TryDecodeVoice`); the game sends the voice as a game message to whom it picks. `LocalBackend` implements it with the default microphone (`Microphone`), at 16 kHz mono with one mu-law byte a sample, 16,000 bytes a second, so the same game code runs in the editor; the backends of one process share the microphone, and the backend does not record in a WebGL player. `VoicePlayer` (`Mu3Library.Multiplayer`) plays one speaker's decoded voice through an `AudioSource` the game hands it, whose settings decide how the voice sounds: it buffers 0.1 seconds by default before it plays, stops once it played everything written, and skips ahead when voice piles up. `IMultiplayerMessenger.SetRelayFilter(messageType, filter)` lets the host choose, for each message of a type and each player it would reach, whether that player receives it, such as the players close to the speaker; only the host asks the filter, a filter that throws keeps the message from that player, and unregistering the type drops its filter. A class of the game's own that implements `IMultiplayerMessenger` adds the new member. The packet format is unchanged.
+
+## [game/watermelon/0.8.1] - 2026-11-22
+
+### Changed
+- The package no longer depends on the URP package (#572). Its `package.json` no longer lists `com.github.doqltl179.mu3library.urp`, and the `Mu3Library.Game.WatermelonGame` assembly no longer references `Mu3Library.URP`, which no code of the package used. A project now installs Base and Watermelon Game only, and a Built-in project no longer has to install the URP package and, through it, Unity's Universal RP (`com.unity.render-pipelines.universal`). A project that installed the URP package keeps it, since the project's own `Packages/manifest.json` lists it; the project can remove the package if nothing else uses it, and Universal RP then leaves with it unless the manifest lists Universal RP too. The public API is unchanged. The package is still developed and tested in a URP project, and its README recommends URP.
+
+## [addressables/0.1.1] - 2026-11-22
+
+### Fixed
+- `LoadAssets` and `LoadAssetsAsync` hand each asset to the per-asset callback whatever the cache holds (#570). A call for a key and type already cached, or still loading for an earlier call, called only the list callback or returned only the list, so the second load of the same label never saw its assets one by one; it now hands each asset to its per-asset callback before the list, all at once when the load completes if it was still in progress. The package README also states that `ReleaseCachedAsset` releases a key for every caller that loaded it, since the manager counts no references.
+
+## [di/0.2.0] - 2026-11-22
+
+### Added
+- A core registers more than classes with a parameterless constructor (#579). `CoreBase` adds `RegisterClass<TService, TImpl>(lifetime, key)`, which maps an implementation of the core's choice to one service type and builds it through its constructor, `RegisterInstance(instance, registerInterfaces, key)`, for an object created and set up outside the container, such as a manager that has to be initialized before use, and `RegisterFactory<TService>(factory, lifetime, key)`; until now a core could only call `RegisterClass<T>()`, which needs a parameterless constructor and registers a singleton, while its `ContainerScope` stayed private. A singleton or scoped service registered this way is created as it registers, as `RegisterClass<T>()` creates its class, so its lifecycle callbacks run from the core's initialization; a transient one is created on each resolve. A singleton or scoped class that cannot be built therefore throws from `ConfigureContainer`, as with `RegisterClass<T>()`, while the DI Validator reports a transient one, and leaves out instances and factories, as it did. `RegisterClass<T>()` is unchanged.
+
+## [steam/0.2.0] - 2026-11-22
+
+### Added
+- `SteamBackend` implements `IVoiceBackend` with Steam voice (#576): `StartVoiceRecording` and `StopVoiceRecording` start and stop Steam's recording and tell Steam that the player speaks in the game, `TryReadVoice` hands out Steam's compressed voice, and `TryDecodeVoice` decodes any player's Steam voice at Steam's optimal sample rate, which `VoiceSampleRate` names. The backend stops a recording it started when it is disposed or a Steam call fails. Its `package.json` now names Base 0.31.0, the first Base with `IVoiceBackend`.
+
 ## [base/0.30.0] - 2026-11-20
 
 ### Removed

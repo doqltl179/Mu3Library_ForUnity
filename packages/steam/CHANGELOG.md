@@ -6,6 +6,10 @@ Detailed per-release notes live in the repository root `CHANGELOG.md` under the 
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-22
+
+- See `steam/0.2.0` in the repository root `CHANGELOG.md`. Highlights: `SteamBackend` implements Base's `IVoiceBackend` with Steam voice, so the package needs Base 0.31.0 or later.
+
 ## [0.1.1] - 2026-11-20
 
 - See `steam/0.1.1` in the repository root `CHANGELOG.md`. Highlights: the README no longer points to Base's **Multiplayer** sample, which Base 0.30.0 removes; the code is unchanged.

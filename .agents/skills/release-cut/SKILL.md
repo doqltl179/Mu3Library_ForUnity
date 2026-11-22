@@ -14,6 +14,7 @@ description: "Cut a requested release: confirm scope, choose the version, finali
 - No release was requested → report release readiness instead of releasing.
 - Adding an Unreleased changelog entry for one change → `project-docs-sync`.
 - CI is failing on the release branch → `ci-failure-triage` first.
+- `policy.release_branch` differs from the integration branch and does not exist yet → create it first per «Repository Settings» in [issues-and-prs.md](.ai/kit/core/wiki/workflows/issues-and-prs.md), or with `hosting.platform = "none"` the same way after the user confirms.
 
 ## Inputs
 - The release request and its scope: included work and target channels.

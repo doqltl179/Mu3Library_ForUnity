@@ -22,7 +22,7 @@ reviewed: 2026-10-09
 - `commands.test` and `commands.e2e` from the profile.
 
 ## Steps
-1. List the cases: the main behavior, then each edge case that applies (boundaries, empty and missing input, invalid input, error paths, ordering and concurrency).
+1. List the cases: the main behavior, then each edge case that applies (boundaries, empty and missing input, invalid input, error paths, ordering and concurrency). When the behavior must hold a property for every input in a space too large to list (a parser and printer or an encoder and decoder that round-trip, an invariant a state machine keeps, a result that ignores input order), add a property-based test that generates the inputs from a fixed seed, and add each failing input it finds as a fixed case, so the test stays deterministic per step 4; its library follows step 2.
 2. Find the nearest existing test pattern: tests for the same module first, then for its siblings (`rg -l <module name>` in the test directories). Copy their framework, file location, naming, fixtures, and helpers. A test library the project does not use yet follows «Dependencies» in code-changes.md.
 3. Choose the smallest level that observes the behavior:
 

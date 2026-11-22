@@ -59,7 +59,7 @@
 3. Enter one of the following URLs:
    ```
     # Base package
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/base#base/v0.30.0
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/base#base/v0.31.0
 
     # Notifications package
     https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/notifications#notifications/v0.1.0
@@ -71,22 +71,22 @@
     https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/localization#localization/v0.1.0
 
     # Addressables package (install Base first)
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/addressables#addressables/v0.1.0
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/addressables#addressables/v0.1.1
 
     # DI package (install Base first)
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/di#di/v0.1.0
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/di#di/v0.2.0
 
     # Steam package (install Steamworks.NET and Base first)
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/steam#steam/v0.1.1
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/steam#steam/v0.2.0
 
     # URP package (install Base first)
     https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/urp#urp/v0.5.0
 
-    # Watermelon Game package (install Base and URP first)
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/game/watermelon#game/watermelon/v0.8.0
+    # Watermelon Game package (install Base first)
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/game/watermelon#game/watermelon/v0.8.1
    ```
 
-Install the packages in the order Base, URP, Watermelon Game: URP depends on Base, and Watermelon Game on both.
+URP and Watermelon Game each depend on Base, so install Base before either. Watermelon Game does not need URP.
 
 The Notifications package holds local notifications for Android and iOS. It needs no other Mu3Library package.
 
@@ -113,7 +113,7 @@ The Steam package holds `SteamBackend`, which runs multiplayer sessions on Steam
     - `packages/di/package.json` (install Base first)
     - `packages/steam/package.json` (install Steamworks.NET and Base first)
     - `packages/urp/package.json` (install Base first)
-    - `packages/game/watermelon/package.json` (install Base and URP first)
+    - `packages/game/watermelon/package.json` (install Base first)
 
 ## 📚 Core Modules
 
@@ -121,13 +121,32 @@ The Steam package holds `SteamBackend`, which runs multiplayer sessions on Steam
 The DI container, with `CoreBase` and `CoreRoot`, moved to the separate DI package: see its [README](packages/di/README.md) for registration, injection, cores, and the link.xml it writes for player builds that strip managed code. Base keeps the contracts its managers implement, `IInitializable`, `IUpdatable`, `ILateUpdatable`, `IObjectInjector`, and `[Inject]`, in its `Mu3Library.Foundation` assembly. The examples below inject Base's services with `[Inject]`, as a core of the DI package does.
 
 ### MVP (Model-View-Presenter)
-Separates UI into View, Presenter, and Model for testable business logic.
+Separates UI into View, Presenter, and Model for testable business logic. The view is a component, so it lives in a file named after its class, `MainMenuView.cs`, as do `UICore` and `UIBootstrap` below.
 
 ```csharp
-// Model: Data container
+using Mu3Library.Audio;
+using Mu3Library.DI;
+using Mu3Library.UI.MVP;
+using TMPro;
+using UnityEngine;
+using UnityEngine.UI;
+
+// Arguments: Data passed to each Open
+public class MainMenuArgs : Arguments
+{
+    public string PlayerName;
+}
+
+// Model: Data container, filled from the arguments before the presenter's LoadFunc() runs
 public class MainMenuModel : Model<MainMenuArgs>
 {
-    public string PlayerName { get; set; }
+    public string PlayerName { get; private set; }
+
+    // The base Init is empty: copy what the model needs from the arguments here
+    public override void Init(MainMenuArgs args)
+    {
+        PlayerName = args?.PlayerName;
+    }
 }
 
 // View: Unity component references
@@ -135,14 +154,18 @@ public class MainMenuView : View
 {
     [SerializeField] private Button _startButton;
     [SerializeField] private TextMeshProUGUI _titleText;
+    [SerializeField] private AudioClip _clickClip;
 
     public Button StartButton => _startButton;
     public TextMeshProUGUI TitleText => _titleText;
+    public AudioClip ClickClip => _clickClip;
 }
 
 // Presenter: Business logic
 public class MainMenuPresenter : Presenter<MainMenuView, MainMenuModel, MainMenuArgs>
 {
+    // From AudioCore, the core of the DI package's README that registers AudioManager;
+    // Open throws when no AudioCore is in the scene, since this member is required
     [Inject(typeof(AudioCore))] private IAudioManager _audioManager;
 
     protected override void LoadFunc()
@@ -156,17 +179,86 @@ public class MainMenuPresenter : Presenter<MainMenuView, MainMenuModel, MainMenu
         // Open animations, etc.
     }
 
+    protected override void UnloadFunc()
+    {
+        // A closed presenter is pooled with its view, and the next Open runs LoadFunc() on it again
+        _view.StartButton.onClick.RemoveListener(OnStartClicked);
+    }
+
     private void OnStartClicked()
     {
+        _audioManager.PlaySfx(_view.ClickClip);
         // Game start logic
     }
 }
-
-// Usage
-_mvpManager.Open<MainMenuPresenter>(new MainMenuArgs { PlayerName = "Player1" });
 ```
 
-When `MVPManager` is registered through `CoreBase`, presenter `[Inject]` fields and properties are populated before presenter initialization. Use `Arguments` for data that changes each time a presenter is opened.
+`MVPManager` opens a presenter only for a view type it holds a prefab of. Register each view prefab, one whose root holds the view component, with `RegisterViewResource` or `RegisterViewResources` before its first `Open`; adding `MainMenuView` to the root also adds the `Canvas`, `CanvasScaler`, `GraphicRaycaster`, and `CanvasGroup` the view requires. Without a registered prefab, `Open` logs `View not found` and returns null. `Open` builds the presenter's model with `Init(args)` and calls `LoadFunc()` while the view is still hidden. The view shows and starts opening in the next `MVPManager.Update()`, and later updates finish the open and, once the window has closed, unload it, so something has to call `Update()` every frame.
+
+With the DI package, a core registers the manager, and `CoreRoot` calls its `Update()` every frame and disposes it when the core is destroyed. When `MVPManager` is registered through `CoreBase`, presenter `[Inject]` fields and properties are populated before presenter initialization:
+
+```csharp
+using Mu3Library.DI;
+using Mu3Library.UI.MVP;
+using UnityEngine;
+
+public class UICore : CoreBase
+{
+    [SerializeField] private MainMenuView _mainMenuViewPrefab;
+
+    [Inject] private IMVPManager _mvpManager;
+
+    protected override void ConfigureContainer()
+    {
+        RegisterClass<MVPManager>();
+    }
+
+    protected override void Start()
+    {
+        base.Start(); // Injects _mvpManager
+
+        _mvpManager.RegisterViewResource(_mainMenuViewPrefab);
+        _mvpManager.Open<MainMenuPresenter>(new MainMenuArgs { PlayerName = "Player1" });
+    }
+}
+```
+
+Without the DI package's `CoreBase`, the code that creates the manager calls its `Update()` every frame and its `Dispose()` when done with it. Nothing gives such a manager an `IObjectInjector`, so it leaves presenter `[Inject]` members unset; leave the `[Inject]` field, with its `AudioCore`, which derives from `CoreBase`, and the `PlaySfx` call out of `MainMenuPresenter` there:
+
+```csharp
+using Mu3Library.UI.MVP;
+using UnityEngine;
+
+public class UIBootstrap : MonoBehaviour
+{
+    [SerializeField] private MainMenuView _mainMenuViewPrefab;
+
+    private MVPManager _mvpManager;
+
+    private void Awake()
+    {
+        _mvpManager = new MVPManager();
+        _mvpManager.RegisterViewResource(_mainMenuViewPrefab);
+    }
+
+    private void Start()
+    {
+        _mvpManager.Open<MainMenuPresenter>(new MainMenuArgs { PlayerName = "Player1" });
+    }
+
+    private void Update()
+    {
+        _mvpManager.Update();
+    }
+
+    private void OnDestroy()
+    {
+        _mvpManager.Dispose();
+    }
+}
+```
+
+Use `Arguments` for data that changes each time a presenter is opened.
 
 For chained presenters, ownership and visual hosting are configured separately.
 
@@ -329,6 +421,180 @@ _playerData.Health.Set(80);
 
 An Observable field can also sit inside a `[Serializable]` class, an array, or a list on a component or ScriptableObject; editing it in the Inspector applies the value and notifies its subscribers, and so does undoing or redoing that edit or reverting a prefab instance, with the restored value. In an `ObservableDictionary`, the first row of a key wins: a row that repeats a key stays in the list with a warning until its key is changed.
 
+### Multiplayer
+`MultiplayerManager` (`Mu3Library.Multiplayer`) runs a player-hosted session: one player hosts, the others find the host's lobby and connect to the host, and the host decides the roster, the rules, and when the game starts. It runs on a backend: `LocalBackend` (`Mu3Library.Multiplayer.Local`), for several players inside one process or, on a network from `LocalNetwork.CreateMachineWide`, editors and player builds on one computer, or `SteamBackend` from the separate [Steam package](packages/steam/README.md). Code in an assembly definition of its own references `Mu3Library.Multiplayer` to use it. Everything runs on the main thread, and what the backend reports, the other players' messages, and the answers to lobby requests arrive from inside `Update`, so call it every frame.
+
+```csharp
+using System;
+using System.Text;
+using Mu3Library.Multiplayer;
+using Mu3Library.Multiplayer.Backend;
+using Mu3Library.Multiplayer.Data;
+using Mu3Library.Multiplayer.Local;
+using UnityEngine;
+
+public class SessionRunner : MonoBehaviour
+{
+    private const ushort MoveMessage = 1;
+
+    private IMultiplayerBackend _backend;
+    private MultiplayerManager _manager;
+    private readonly MessageWriter _writer = new MessageWriter();
+
+    private void Awake()
+    {
+        // Players on one computer. A Steam game creates its backend with SteamBackend.TryCreate,
+        // or with SteamBackend.CreateOrFallback, which falls back on a LocalBackend in the editor.
+        _backend = new LocalBackend(LocalNetwork.CreateMachineWide("my-game"), "Player");
+        _manager = new MultiplayerManager();
+        _manager.Initialize(_backend, new MultiplayerConfig("my.game", 1));
+
+        // Every player registers the same message types with the same policy.
+        _manager.RegisterMessage(MoveMessage, OnMove);
+
+        _manager.OnGameStarted += startData =>
+        {
+            // Load the level the start data names, then tell the host this player is ready to play.
+            _manager.ReportLoaded();
+        };
+        _manager.OnAllPlayersLoaded += () => Debug.Log("Every player loaded"); // the host only
+    }
+
+    private void Update() => _manager.Update();
+
+    private void OnDestroy()
+    {
+        _manager.Dispose(); // before the backend, which belongs to whoever created it
+        _backend.Dispose();
+    }
+
+    // The host creates the lobby.
+    public void Host()
+    {
+        LobbyCreateOptions options = new LobbyCreateOptions
+        {
+            Name = "My lobby",
+            Visibility = LobbyVisibility.Public,
+            Rules = SessionRules.Default.WithCapacity(4),
+        };
+        _manager.CreateLobby(options, result => Debug.Log($"Create lobby: {result}"));
+    }
+
+    // A client searches for a lobby and joins it.
+    public void Join()
+    {
+        _manager.SearchLobbies(new LobbySearchQuery(), found =>
+        {
+            if (found.IsSuccess && found.Lobbies.Count > 0)
+            {
+                _manager.JoinLobby(found.Lobbies[0].Id, result => Debug.Log($"Join lobby: {result}"));
+            }
+        });
+    }
+
+    public void SetReady() => _manager.SetReady(true); // a client, in the lobby
+
+    // The host starts the game once the rules allow it; the result names the players who are not ready.
+    public void StartGame() => _manager.StartGame(Encoding.UTF8.GetBytes("Level1"));
+
+    public void SendMove(Vector3 position)
+    {
+        _writer.Clear().WriteVector3(position);
+        _manager.Send(MoveMessage, _writer.Written, MessageTarget.Others, DeliveryMode.Unreliable);
+    }
+
+    private void OnMove(MessageContext context, ReadOnlySpan<byte> payload)
+    {
+        MessageReader reader = new MessageReader(payload);
+        Vector3 position = reader.ReadVector3();
+        // Move the character of context.Sender to the position.
+    }
+
+    public void ReturnToLobby() => _manager.EndGame(); // the host
+
+    public void Quit() => _manager.Leave();
+}
+```
+
+- **Message policy**: `MessagePolicy.Default` lets any player send a type, and the host passes a client's message on before its own handler runs. `HostOnly` is for what only the host decides, such as scores or spawns: the host drops it when a client sends it. `NoClientRelay` is for a client's request the host must check before anyone else sees it, such as an attack: the client sends it to `MessageTarget.Host`, and the host's handler sends on what it accepts. Every player registers each type with the same policy, since the host enforces it.
+- **Delivery mode**: `DeliveryMode.Reliable`, the default, arrives in the order it was sent from the same sender and suits events that must not be lost. `Unreliable` may be lost or arrive out of order and suits state the next message replaces, such as positions sent every frame.
+- **Rate limits**: `SessionRules` sets no limit by default. `MaxMessagesPerSecond` and `MaxBytesPerSecond` cap what the host takes from one client in a second, counting every packet the client sends, its ready changes and load reports included, so set them above what the game sends at its busiest: a client that sends its position 30 times a second fits within `SessionRules.Default.WithCapacity(4).WithMaxMessagesPerSecond(60).WithMaxBytesPerSecond(16 * 1024)`. The host drops a game message beyond a limit and raises `OnRateLimitExceeded`, and with `RateLimitKickSeconds` above 0 it kicks a client that goes past a limit every second for that many seconds.
+- **Loading**: after `StartGame`, each player calls `ReportLoaded` once its level is ready, and the host hears `OnAllPlayersLoaded`, or `OnLoadTimedOut` with the players who did not report once `SessionRules.LoadTimeoutSeconds` (60 by default) passes. A game that changes levels within one game calls `BeginLoadPhase` on the host with data such as the next level's name: every player's loaded flag clears, every player hears `OnLoadPhaseBegan` with the data, loads, and reports again, and the host waits again under the same rules. A report sent before the phase began counts for nothing in it.
+
+```csharp
+// In Awake, beside OnGameStarted: every player, the host included, hears each new phase.
+_manager.OnLoadPhaseBegan += phaseData =>
+{
+    // Load the level the phase data names, then report again.
+    _manager.ReportLoaded();
+};
+
+// Later in the game, the host moves everyone to the next level.
+_manager.BeginLoadPhase(Encoding.UTF8.GetBytes("Level2"));
+```
+- **Voice**: `SteamBackend` and `LocalBackend` implement `IVoiceBackend` (`Mu3Library.Multiplayer.Backend`), which records this player's voice and decodes other players' voice: Steam voice on Steam, and the default microphone on the local backend, so the same code runs in the editor. The game carries the voice as a game message, usually `Unreliable`, and picks who hears it: the sender with a `MessageTarget`, or the host, for each message and each player, with `SetRelayFilter`, as proximity voice or a radio channel needs. A `VoicePlayer` plays each speaker through an `AudioSource` of the game's own, whose settings, such as `spatialBlend` and rolloff, decide how the voice sounds in the scene. Voice counts toward the rate limits: the local backend's voice takes 16,000 bytes a second while it records, silence included.
+
+```csharp
+// Beside the session code above: add using System.Collections.Generic;
+private const ushort VoiceMessage = 2;
+private IVoiceBackend _voice;
+private readonly Dictionary<PlayerId, VoicePlayer> _voicePlayers = new Dictionary<PlayerId, VoicePlayer>();
+
+// In Awake, after Initialize.
+_voice = _backend as IVoiceBackend;
+_manager.RegisterMessage(VoiceMessage, OnVoice);
+// Only on the host does the filter count: nobody hears a player who is far away.
+_manager.SetRelayFilter(VoiceMessage, (speaker, listener) => AreClose(speaker, listener));
+_manager.OnParticipantLeft += (participant, reason) =>
+{
+    if (_voicePlayers.TryGetValue(participant.Id, out VoicePlayer player))
+    {
+        player.Dispose();
+        _voicePlayers.Remove(participant.Id);
+    }
+};
+
+// Push to talk.
+public void SetTalking(bool talking)
+{
+    if (talking)
+    {
+        _voice.StartVoiceRecording();
+    }
+    else
+    {
+        _voice.StopVoiceRecording();
+    }
+}
+
+// In Update, after _manager.Update(): send what was recorded since the last frame, and play.
+if (_voice.TryReadVoice(out ReadOnlySpan<byte> voice) && _manager.State == SessionState.InGame)
+{
+    _manager.Send(VoiceMessage, voice, MessageTarget.Others, DeliveryMode.Unreliable);
+}
+
+foreach (VoicePlayer player in _voicePlayers.Values)
+{
+    player.Update();
+}
+
+private void OnVoice(MessageContext context, ReadOnlySpan<byte> payload)
+{
+    if (!_voicePlayers.TryGetValue(context.Sender, out VoicePlayer player))
+    {
+        // An AudioSource on the speaker's character, which the game looks up.
+        player = new VoicePlayer(VoiceSourceOf(context.Sender), _voice.VoiceSampleRate);
+        _voicePlayers.Add(context.Sender, player);
+    }
+
+    if (_voice.TryDecodeVoice(payload, out ReadOnlySpan<float> samples))
+    {
+        player.Write(samples);
+    }
+}
+```
+- `IMultiplayerManagerEventBus` lists every event, and the XML comments of `IMultiplayerManager` and `IMultiplayerMessenger` describe each call; in the editor, **Mu3Library > Windows > Multiplayer Debugger** shows the running sessions in play mode.
+
 ## 🔧 Optional Packages
 
 When the following packages are installed, their features are automatically enabled:
@@ -391,8 +657,8 @@ The fallback Inspector is registered with `isFallback` for every `MonoBehaviour`
 - **Event**: Owner-managed subscription utilities, reusable one-shot helpers, and disposable `ISubscriptionInfo` tokens via `SubscribeHandler`
 - **Extensions**: Extension methods for GameObject, Transform, Vector3, etc.
 - **Localization**: Moved to the separate Localization package ([README](packages/localization/README.md))
-- **Multiplayer**: Player-hosted sessions with lobbies, roster, ready check, lobby data that the host sets and deletes and per-player data that each player sets and deletes, both of which every player hears change, lobby chat, capacity rules, per-client rate limits, game start, kicks, slots kept for players who drop during a game until they reconnect, within a time each client sets for its own attempts, and enter their lobby again, which the game hears when they cannot, a host-side wait for every player to finish loading after the start, game messages relayed by the host, with `MessageWriter` and `MessageReader` for their payloads, the quality of each connection (ping, packet loss, and bytes per second) and, on every player, each player's ping as the host measures it, players' avatars as textures, which follow a player's new picture and which the game releases once it no longer shows them, and a presence status, over a pluggable backend: `LocalBackend` (several players inside one process, or, on a network from `LocalNetwork.CreateMachineWide`, editors and player builds on one computer), whose network can simulate latency, jitter, packet loss, and outages, and `SteamBackend` (Steam lobbies and Steam connections, the players' Steam avatars, and Steam rich presence, which shows the status in the friends list), in the separate Steam package ([README](packages/steam/README.md)); per-type message counts; and, in the editor, the **Mu3Library > Windows > Multiplayer Debugger** window, which shows each running session's state, players, connection quality, and message counts in play mode, along with a **Host ping** column that shows each player's ping as the host measures it, on the host and on clients alike
-  - **Writing a backend**: A backend for another platform implements `IMultiplayerBackend` from `Mu3Library.Multiplayer.Backend`, and may also implement two optional interfaces that the manager looks for: `ILobbyInviteBackend`, when its lobbies that are not public let a player in only by invite, so the host invites back a player who returns to a kept slot, and `IUnavailableReasonBackend`, to name why the backend is not available, as the Steam backend names `SteamNotRunning`. `LobbyDataKeys` lists the lobby data keys that the manager reserves under the `mu3.` prefix and writes in every lobby it creates; a backend stores them like any other lobby data and may read them. A backend that starts a search after `SearchLobbies` returns keeps a copy of the query from `LobbySearchQuery.Clone()`
+- **Multiplayer**: Player-hosted sessions with lobbies, roster, ready check, lobby data that the host sets and deletes and per-player data that each player sets and deletes, both of which every player hears change, lobby chat, capacity rules, per-client rate limits, game start, kicks, slots kept for players who drop during a game until they reconnect, within a time each client sets for its own attempts, and enter their lobby again, which the game hears when they cannot, a host-side wait for every player to finish loading after the start and again for each load phase the host begins within the game, game messages relayed by the host, with `MessageWriter` and `MessageReader` for their payloads, the quality of each connection (ping, packet loss, and bytes per second) and, on every player, each player's ping as the host measures it, players' avatars as textures, which follow a player's new picture and which the game releases once it no longer shows them, a presence status, and voice, which the backend records and decodes, the game carries as messages to the players it or the host's relay filter picks, and `VoicePlayer` plays through an `AudioSource` for each speaker, over a pluggable backend: `LocalBackend` (several players inside one process, or, on a network from `LocalNetwork.CreateMachineWide`, editors and player builds on one computer), whose network can simulate latency, jitter, packet loss, and outages, and `SteamBackend` (Steam lobbies and Steam connections, the players' Steam avatars, and Steam rich presence, which shows the status in the friends list), in the separate Steam package ([README](packages/steam/README.md)); per-type message counts; and, in the editor, the **Mu3Library > Windows > Multiplayer Debugger** window, which shows each running session's state, players, connection quality, and message counts in play mode, along with a **Host ping** column that shows each player's ping as the host measures it, on the host and on clients alike
+  - **Writing a backend**: A backend for another platform implements `IMultiplayerBackend` from `Mu3Library.Multiplayer.Backend`, and may also implement two optional interfaces that the manager looks for: `ILobbyInviteBackend`, when its lobbies that are not public let a player in only by invite, so the host invites back a player who returns to a kept slot, and `IUnavailableReasonBackend`, to name why the backend is not available, as the Steam backend names `SteamNotRunning`. A third, `IVoiceBackend`, which the game uses itself, records and decodes voice. `LobbyDataKeys` lists the lobby data keys that the manager reserves under the `mu3.` prefix and writes in every lobby it creates; a backend stores them like any other lobby data and may read them. A backend that starts a search after `SearchLobbies` returns keeps a copy of the query from `LobbySearchQuery.Clone()`
 - **ObjectPool**: Queue-based object pooling with duplicate inactive enqueue protection, batch `List<T>` enqueue and count- or argument-list-based `List<T>` dequeue support, optional no-argument creation callbacks, typed `CreateArguments` initialization callbacks, and `Clear()` cleanup
 - **Observable**: Data change detection system
 - **Preference**: PlayerPrefs wrapper
@@ -465,7 +731,7 @@ This project is distributed under the MIT License.
 - DI: `com.github.doqltl179.mu3library.di` (depends on Base)
 - Steam: `com.github.doqltl179.mu3library.steam` (depends on Base and needs Steamworks.NET)
 - URP: `com.github.doqltl179.mu3library.urp` (depends on Base)
-- Watermelon Game: `com.github.doqltl179.mu3library.game.watermelon` (depends on Base and URP)
+- Watermelon Game: `com.github.doqltl179.mu3library.game.watermelon` (depends on Base)
 - Versions and release notes: [`CHANGELOG.md`](CHANGELOG.md)
 
 Made with ❤️ for Unity Developers

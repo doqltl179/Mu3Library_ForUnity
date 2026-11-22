@@ -13,6 +13,32 @@ Mu3Library For Unity의 모든 주요 변경사항은 이 파일에 기록됩니
 
 ## [Unreleased]
 
+## [base/0.31.0] - 2026-11-22
+
+### 추가됨
+- 멀티플레이 게임의 호스트는 게임이 로비로 돌아가지 않고 레벨을 바꿀 때처럼, 게임 안에서 모든 플레이어의 로드를 다시 기다릴 수 있습니다(#577). 게임 중에 호스트만 부를 수 있는 `IMultiplayerManager.BeginLoadPhase(phaseData)`는 다음 레벨 이름처럼 게임이 정한 데이터(`MultiplayerLimits.MaxStartDataSize`까지)로 새 로드 단계를 시작합니다. 모든 `Participant.IsLoaded`가 지워지고, 모든 플레이어가 그 데이터와 함께 새 이벤트 `IMultiplayerManagerEventBus.OnLoadPhaseBegan`을 전달받으며, 호스트는 단계가 시작될 때 세션에 있던 모든 플레이어를 `StartGame` 뒤와 같은 규칙(`SessionRules.LoadTimeoutSeconds`, 나간 플레이어는 더 기다리지 않음, 자리를 비운 플레이어는 기다림, 단계가 시작된 뒤 들어온 플레이어는 기다리지 않음)으로 기다린 뒤, 다시 `OnAllPlayersLoaded`나 `OnLoadTimedOut`을 전달받습니다. 보고는 보낸 단계에서만 인정되므로, 이전 단계에서 보내 아직 도착하지 않은 보고는 새 단계를 채우지 않습니다. 단계가 시작된 뒤 자기 자리로 돌아온 플레이어나 단계가 진행되는 중에 게임에 들어온 플레이어는 그 단계의 데이터와 함께 `OnLoadPhaseBegan`을 전달받습니다. `StartGame` 뒤의 기다림은 바뀌지 않았습니다. `IMultiplayerManager`나 `IMultiplayerManagerEventBus`를 게임에서 직접 구현한 클래스는 새 멤버를 추가해야 합니다. 패킷이 바뀌어 라이브러리의 패킷 형식 버전이 이제 7입니다. 이 버전의 빌드는 이전 버전 빌드의 로비를 찾지도 참가하지도 못하므로, 한 게임의 모든 플레이어가 함께 업데이트합니다.
+- 멀티플레이 세션에 음성이 추가되었습니다(#576). 백엔드의 선택 인터페이스 `IVoiceBackend`(`Mu3Library.Multiplayer.Backend`)는 이 플레이어의 음성 녹음을 시작하고 멈추며, 지난 호출 이후 녹음한 것을 넘겨주고(`TryReadVoice`), 다른 플레이어의 음성을 `VoiceSampleRate`의 모노 샘플로 디코딩합니다(`TryDecodeVoice`). 게임은 음성을 게임 메시지로 자기가 고른 플레이어에게 보냅니다. `LocalBackend`는 기본 마이크(`Microphone`)로 이 인터페이스를 구현하며, 16 kHz 모노에 샘플당 mu-law 1바이트, 곧 1초에 16,000바이트를 쓰므로 같은 게임 코드가 에디터에서도 동작합니다. 한 프로세스의 백엔드들은 마이크를 함께 쓰며, WebGL 플레이어에서는 백엔드가 녹음하지 않습니다. `VoicePlayer`(`Mu3Library.Multiplayer`)는 화자 한 명의 디코딩된 음성을 게임이 넘겨준 `AudioSource`로 재생하며, 음성이 어떻게 들릴지는 그 `AudioSource`의 설정이 정합니다. 기본적으로 재생하기 전에 0.1초를 버퍼링하고, 쓴 것을 모두 재생하면 멈추며, 음성이 쌓이면 앞으로 건너뜁니다. `IMultiplayerMessenger.SetRelayFilter(messageType, filter)`로 호스트는 한 종류의 메시지마다, 또 그 메시지가 닿을 플레이어마다, 화자 가까이 있는 플레이어만 받게 하는 식으로 그 플레이어가 받을지를 정할 수 있습니다. 필터는 호스트에서만 쓰이고, 예외를 던진 필터는 그 플레이어에게 메시지를 보내지 않게 하며, 메시지 종류의 등록을 해제하면 그 필터도 사라집니다. `IMultiplayerMessenger`를 게임에서 직접 구현한 클래스는 새 멤버를 추가해야 합니다. 패킷 형식은 바뀌지 않았습니다.
+
+## [game/watermelon/0.8.1] - 2026-11-22
+
+### 변경됨
+- 패키지가 더 이상 URP 패키지에 의존하지 않습니다(#572). `package.json`에서 `com.github.doqltl179.mu3library.urp`가 빠졌고, `Mu3Library.Game.WatermelonGame` 어셈블리는 패키지의 어떤 코드도 쓰지 않던 `Mu3Library.URP`를 더 이상 참조하지 않습니다. 이제 프로젝트는 Base와 Watermelon Game만 설치하면 되고, Built-in 렌더 파이프라인을 쓰는 프로젝트는 URP 패키지와, 그 패키지를 통해 들어오던 Unity의 Universal RP(`com.unity.render-pipelines.universal`)를 설치하지 않아도 됩니다. URP 패키지를 설치한 프로젝트에는 그 패키지가 남습니다. 프로젝트 자체의 `Packages/manifest.json`에 적혀 있기 때문입니다. 다른 곳에서 쓰지 않으면 프로젝트에서 그 패키지를 제거할 수 있으며, 그러면 매니페스트에 Universal RP도 적혀 있지 않는 한 Universal RP도 함께 제거됩니다. public API는 바뀌지 않았습니다. 패키지는 여전히 URP 프로젝트에서 개발하고 테스트하며, 패키지 README는 URP를 권장합니다.
+
+## [addressables/0.1.1] - 2026-11-22
+
+### 수정됨
+- `LoadAssets`와 `LoadAssetsAsync`가 캐시 상태와 관계없이 각 에셋을 에셋별 콜백에 넘깁니다(#570). 이미 캐시되었거나 앞선 호출로 아직 로드 중인 키와 타입에 대한 호출은 목록 콜백만 부르거나 목록만 반환했으므로, 같은 라벨을 두 번째로 로드하면 에셋을 하나씩 받지 못했습니다. 이제는 목록보다 먼저 각 에셋을 에셋별 콜백에 넘기며, 로드가 아직 진행 중이었다면 로드가 끝날 때 한꺼번에 넘깁니다. 패키지 README에는 매니저가 참조 수를 세지 않으므로 `ReleaseCachedAsset`이 그 키를 로드한 모든 호출자에 대해 해제한다는 점도 적었습니다.
+
+## [di/0.2.0] - 2026-11-22
+
+### 추가됨
+- 코어가 매개변수 없는 생성자를 가진 클래스 말고도 등록할 수 있습니다(#579). `CoreBase`에 코어가 고른 구현을 서비스 타입 하나에 연결하고 그 생성자로 만드는 `RegisterClass<TService, TImpl>(lifetime, key)`, 사용 전에 초기화해야 하는 매니저처럼 컨테이너 밖에서 만들고 설정한 오브젝트를 위한 `RegisterInstance(instance, registerInterfaces, key)`, 그리고 `RegisterFactory<TService>(factory, lifetime, key)`가 추가되었습니다. 지금까지 코어는 매개변수 없는 생성자가 필요하고 싱글턴으로 등록하는 `RegisterClass<T>()`만 부를 수 있었고, 코어의 `ContainerScope`는 private으로 남아 있었습니다. 이렇게 등록한 싱글턴이나 스코프드 서비스는 `RegisterClass<T>()`가 클래스를 만들 때처럼 등록하면서 만들어지므로, 그 생명주기 콜백은 코어 초기화에서 실행됩니다. 트랜지언트 서비스는 resolve할 때마다 만들어집니다. 그래서 만들 수 없는 싱글턴이나 스코프드 클래스는 `RegisterClass<T>()`와 마찬가지로 `ConfigureContainer`에서 예외를 던지고, 트랜지언트 클래스는 DI Validator가 보고하며, DI Validator는 전처럼 인스턴스와 팩토리를 검사하지 않습니다. `RegisterClass<T>()`는 바뀌지 않았습니다.
+
+## [steam/0.2.0] - 2026-11-22
+
+### 추가됨
+- `SteamBackend`가 Steam 음성으로 `IVoiceBackend`를 구현합니다(#576). `StartVoiceRecording`과 `StopVoiceRecording`은 Steam의 녹음을 시작하고 멈추며 플레이어가 게임 안에서 말하는지를 Steam에 알리고, `TryReadVoice`는 Steam이 압축한 음성을 넘겨주며, `TryDecodeVoice`는 어느 플레이어의 Steam 음성이든 `VoiceSampleRate`가 나타내는 Steam의 최적 샘플 레이트로 디코딩합니다. 백엔드는 해제되거나 Steam 호출이 실패하면 자기가 시작한 녹음을 멈춥니다. `package.json`은 이제 `IVoiceBackend`가 있는 첫 Base인 Base 0.31.0을 적습니다.
+
 ## [base/0.30.0] - 2026-11-20
 
 ### 제거됨

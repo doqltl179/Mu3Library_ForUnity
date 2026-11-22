@@ -1,6 +1,6 @@
 ---
 name: codebase-onboard
-description: "Map an unfamiliar codebase quickly while reading narrowly: entry points, build and test commands, directory map, architecture, and conventions; propose values for .ai/project/profile.toml (commands, policy, hosting, docs, bindings, stacks) and draft .ai/project/wiki/overview.md. Use when the kit is newly installed in a project, or work starts in a codebase or area that no project doc describes."
+description: "Map an unfamiliar codebase quickly while reading narrowly: entry points, build and test commands, directory map, architecture, and conventions; propose values for .ai/project/profile.toml (commands, policy, hosting, docs, bindings, stacks) and draft .ai/project/wiki/overview.md and, for a project with navigable screens, the feature map. Use when the kit is newly installed in a project, or work starts in a codebase or area that no project doc describes."
 category: planning
 volatility: evolving
 reviewed: 2026-10-09
@@ -11,6 +11,7 @@ reviewed: 2026-10-09
 ## Use When
 - The kit was just installed and `.ai/project/profile.toml` still has empty `commands.*`, no `[policy]` values, no bindings, or no active stacks.
 - `.ai/project/wiki/overview.md` is missing or contradicts the code.
+- The project's user interface has navigable screens, windows, or scenes and `.ai/project/wiki/features.md` is missing; when the profile and `overview.md` are already in place, draft only the feature map (steps 1, 5, 10, and 11).
 - Work starts in a repository area no project doc describes.
 
 ## Do Not Use When
@@ -37,10 +38,10 @@ reviewed: 2026-10-09
    - `docs.changelog`, `docs.specs_dir`, `docs.adr_dir`, `docs.glossary`: only files and directories that already exist; leave a key empty otherwise.
    - `policy.issue_first` and `policy.worktrees` are the user's decision: ask, with the evidence that bears on it (an issue tracker in use, the setup cost per worktree per «Worktrees» in [git-workflow.md](../../wiki/workflows/git-workflow.md)), and never infer them.
 9. Map each major path to an owner per «Selection Procedure» in [routing.md](../../wiki/operating-model/routing.md), and derive `bindings.<agent>` paths and stacks, `stacks.active`, and `agents.enabled`.
-10. Write the draft `.ai/project/wiki/overview.md`: purpose, the responsibility of each major directory, architecture, entry points, conventions, and unknowns, citing a file path for each claim. Link the manifests and the profile for commands and file lists instead of copying them, per rule 7 of «Rules» in [ssot.md](../../wiki/principles/ssot.md).
-11. Present the proposed profile values with their evidence and the questions from step 8, and wait for the user's confirmation before writing them. After they are applied, run `agentkit.py sync`, then `agentkit.py check`, and fix every error in `.ai/project/`.
+10. Write the draft `.ai/project/wiki/overview.md`: purpose, the responsibility of each major directory, architecture, entry points, conventions, and unknowns, citing a file path for each claim. Link the manifests and the profile for commands and file lists instead of copying them, per rule 7 of «Rules» in [ssot.md](../../wiki/principles/ssot.md). When the project's user interface has navigable screens, windows, or scenes, also draft the feature map per «Project Wiki» in [project-overlay.md](../../wiki/integration/project-overlay.md), taking its screens and features from the route, screen, or scene definitions and citing the file that defines each; this skill runs no app (step 4), so mark every reach step unverified.
+11. Present the proposed profile values with their evidence, the drafted pages, and the questions from step 8, and wait for the user's confirmation before writing them. After they are applied, run `agentkit.py sync`, then `agentkit.py check`, and fix every error in `.ai/project/`.
 
 ## Output
 - Proposed profile values (`project.*`, `commands.*`, `policy.*`, `hosting.*`, `docs.*`, `bindings.*`, `stacks.active`, `agents.enabled`), each with its evidence, and the user's answers on `policy.issue_first` and `policy.worktrees`.
-- The draft `.ai/project/wiki/overview.md`.
+- The draft `.ai/project/wiki/overview.md`, and the draft feature map when step 10 wrote one.
 - Unknowns, and commands left empty or unverified.

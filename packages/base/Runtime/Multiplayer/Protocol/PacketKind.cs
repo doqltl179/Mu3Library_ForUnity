@@ -11,7 +11,7 @@ namespace Mu3Library.Multiplayer.Protocol
         /// client comes back to the slot the host keeps for it.
         /// </summary>
         Hello = 1,
-        /// <summary>Host to a new or returning client: session state, game number, rules, message size limit, start data, lobby data, and the roster.</summary>
+        /// <summary>Host to a new or returning client: session state, game number, load phase, rules, message size limit, start data, load phase data, lobby data, and the roster.</summary>
         Welcome = 2,
         /// <summary>Host to clients: a player joined.</summary>
         ParticipantJoined = 3,
@@ -45,7 +45,7 @@ namespace Mu3Library.Multiplayer.Protocol
         ParticipantDisconnected = 17,
         /// <summary>Host to clients: a player whose slot the host kept came back to it.</summary>
         ParticipantReconnected = 18,
-        /// <summary>Client to host: the sender is ready to play the game of this number.</summary>
+        /// <summary>Client to host: the sender is ready to play the game and the load phase of these numbers.</summary>
         ReportLoaded = 19,
         /// <summary>Client to host: one key of the sender's own participant data to delete.</summary>
         DeleteParticipantData = 20,
@@ -55,5 +55,7 @@ namespace Mu3Library.Multiplayer.Protocol
         ParticipantDataDeleted = 22,
         /// <summary>Host to clients, unreliable: the round trip to each player with a connection, as the host measures it.</summary>
         ParticipantPings = 23,
+        /// <summary>Host to clients: another load phase of the running game began, with the game number, the phase number, and the phase data.</summary>
+        LoadPhaseBegan = 24,
     }
 }

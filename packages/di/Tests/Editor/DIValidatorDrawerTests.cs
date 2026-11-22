@@ -60,6 +60,27 @@ namespace Mu3Library.Tests
 
         private sealed class PlainCore : CoreBase { }
 
+        private interface IConsumer { }
+
+        private sealed class ServiceConsumer : IConsumer
+        {
+            public ServiceConsumer(IService service) { }
+        }
+
+        private sealed class KeyedService : IService { }
+
+        // Registers through the core's own methods; IService is registered only under keys, so
+        // ServiceConsumer's constructor cannot resolve.
+        private sealed class RegisteringCore : CoreBase
+        {
+            protected override void ConfigureContainer()
+            {
+                RegisterClass<IConsumer, ServiceConsumer>(ServiceLifetime.Transient);
+                RegisterInstance<IService>(new KeyedService(), key: "instance");
+                RegisterFactory<IService>(_ => new KeyedService(), ServiceLifetime.Transient, "factory");
+            }
+        }
+
         // The container injects a core in Start, so the validator checks the core's own members too.
         private sealed class CoreWithUnfillableMembers : CoreBase
         {
@@ -242,6 +263,31 @@ namespace Mu3Library.Tests
             finally
             {
                 scope.Dispose();
+                UnityEngine.Object.DestroyImmediate(go);
+            }
+        }
+
+        [Test]
+        public void ValidateCore_RegistrationsOfTheCoresOwnMethods_ReportTheUnresolvableClassOnly()
+        {
+            GameObject go = new(nameof(RegisteringCore));
+            try
+            {
+                RegisteringCore core = go.AddComponent<RegisteringCore>();
+                // Awake never runs on a component added in edit mode.
+                core.InitializeContainer();
+                List<string> issues = new();
+
+                DIValidatorDrawer.ValidateCore(null, core, core.GetRegisteredDescriptors(), issues);
+
+                // The instance was injected as it registered, and a factory's product is known
+                // only once it runs, so neither is reported.
+                Assert.AreEqual(1, issues.Count, string.Join("\n", issues));
+                StringAssert.Contains(nameof(ServiceConsumer), issues[0]);
+                StringAssert.Contains("constructor", issues[0]);
+            }
+            finally
+            {
                 UnityEngine.Object.DestroyImmediate(go);
             }
         }

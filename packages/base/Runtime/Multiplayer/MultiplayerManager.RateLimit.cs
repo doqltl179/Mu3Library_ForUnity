@@ -38,6 +38,7 @@ namespace Mu3Library.Multiplayer
             public int Bytes;
             public bool IsReady;
             public int GameNumber;
+            public int LoadPhase;
             public string Key;
             public string Value;
         }
@@ -161,6 +162,7 @@ namespace Mu3Library.Multiplayer
 
                 case PacketKind.ReportLoaded:
                     request.GameNumber = reader.ReadInt();
+                    request.LoadPhase = reader.ReadInt();
                     break;
             }
 
@@ -262,7 +264,7 @@ namespace Mu3Library.Multiplayer
                         break;
 
                     case PacketKind.ReportLoaded:
-                        HostTakeLoaded(player, request.GameNumber);
+                        HostTakeLoaded(player, request.GameNumber, request.LoadPhase);
                         break;
                 }
 

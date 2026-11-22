@@ -57,10 +57,11 @@ namespace Mu3Library.Steam.Multiplayer
     /// <para>
     /// Steam's client still runs after such a failure, so the backend's connections and lobbies
     /// would stay open on Steam's side, and the other players would hear nothing until this
-    /// backend is disposed. So the backend closes every connection, leaves every lobby, and
-    /// deletes the rich presence keys it set at the failure, as <see cref="Dispose"/> does and
-    /// in its order, and a Steam call that fails there fails as quietly: the other players see
-    /// the connection drop and the lobby pass on, as when this player's game stops, and their
+    /// backend is disposed. So the backend closes every connection, leaves every lobby, deletes
+    /// the rich presence keys it set, and stops the voice recording it started at the failure,
+    /// as <see cref="Dispose"/> does and in its order, and a Steam call that fails there fails as
+    /// quietly: the other players see the connection drop and the lobby pass on, as when this
+    /// player's game stops, and their
     /// friends lists no longer show this player's status or session group. A Steam callback
     /// dispatched after the failure, later in the same run of callbacks or in the game's own run
     /// of them, calls Steam no more: a lobby creation or
@@ -198,6 +199,7 @@ namespace Mu3Library.Steam.Multiplayer
             if (!withoutSteam)
             {
                 LocalPlayerId = new PlayerId(SteamUser.GetSteamID().m_SteamID);
+                _voiceSampleRate = ChooseVoiceSampleRate(SteamUser.GetVoiceOptimalSampleRate());
                 SteamNetworkingUtils.InitRelayNetworkAccess();
                 _pollGroup = SteamNetworkingSockets.CreatePollGroup();
             }
@@ -377,8 +379,8 @@ namespace Mu3Library.Steam.Multiplayer
         /// <see cref="IsSteamUnavailable"/> tells, as the remarks on the class describe, logs
         /// the first such call, closes the connections and leaves the lobbies that Steam, whose
         /// client still runs, would otherwise keep open, and deletes the rich presence keys the
-        /// backend set, which the friends list would otherwise show. The requests waiting on
-        /// Steam answer on the next <see cref="Update"/>.
+        /// backend set, which the friends list would otherwise show, and stops the voice recording
+        /// it started. The requests waiting on Steam answer on the next <see cref="Update"/>.
         /// </summary>
         internal void Break(Exception cause)
         {
@@ -397,6 +399,7 @@ namespace Mu3Library.Steam.Multiplayer
                 CloseConnections(steamRuns: true);
                 LeaveLobbies(steamRuns: true);
                 ClearPresence(steamRuns: true);
+                ShutdownVoice(steamRuns: true);
             }
         }
 
@@ -656,13 +659,13 @@ namespace Mu3Library.Steam.Multiplayer
         #endregion
 
         /// <summary>
-        /// Closes every connection, leaves every lobby, and lets go of Steam's callbacks. Steam
-        /// itself shuts down only if this backend started it. When the game shut Steam down first,
-        /// also when it started Steam again since, only the backend's own resources are released,
-        /// as the remarks on the class describe. A backend that a failed Steam call made
-        /// unavailable closed its connections, left its lobbies, and deleted its rich presence
-        /// keys at that failure already; it still tries the rest, and releases its own resources
-        /// either way.
+        /// Closes every connection, leaves every lobby, stops the voice recording it started, and
+        /// lets go of Steam's callbacks. Steam itself shuts down only if this backend started it.
+        /// When the game shut Steam down first, also when it started Steam again since, only the
+        /// backend's own resources are released, as the remarks on the class describe. A backend
+        /// that a failed Steam call made unavailable closed its connections, left its lobbies,
+        /// deleted its rich presence keys, and stopped its voice recording at that failure
+        /// already; it still tries the rest, and releases its own resources either way.
         /// </summary>
         public void Dispose()
         {
@@ -683,6 +686,7 @@ namespace Mu3Library.Steam.Multiplayer
             ShutdownConnections(steamRuns);
             ShutdownLobbies(steamRuns);
             ClearPresence(steamRuns);
+            ShutdownVoice(steamRuns);
 
             if (_ownsSteam && steamRuns)
             {

@@ -31,7 +31,8 @@ namespace Mu3Library.Multiplayer.Data
         /// <summary>
         /// True once the player reported with <see cref="IMultiplayerManager.ReportLoaded"/> that
         /// they are ready to play the current game, for example because its scene loaded; false
-        /// in the lobby and from the start of each game until they report.
+        /// in the lobby, and from the start of each game and of each load phase the host begins
+        /// with <see cref="IMultiplayerManager.BeginLoadPhase"/> until they report.
         /// </summary>
         public bool IsLoaded { get; }
 

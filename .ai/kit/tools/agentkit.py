@@ -1526,10 +1526,13 @@ def cmd_install(target_arg: str, tools: str | None) -> int:
     fresh = not overlay.exists()
     if fresh:
         # The profile starts minimal; kit-install then writes the policy, hosting, and docs values the user confirms.
+        # A list that equals the default targets in any order stays out: written, it would pin them (check warns).
         tools_block = ""
         if tools:
-            listed = ", ".join(json.dumps(t.strip()) for t in tools.split(",") if t.strip())
-            tools_block = f"\n[tools]\ntargets = [{listed}]\n"
+            targets = [t.strip() for t in tools.split(",") if t.strip()]
+            defaults = tomllib.loads(read_text(CORE / "templates" / "project" / "profile.toml"))["tools"]["targets"]
+            if sorted(set(targets)) != sorted(defaults):
+                tools_block = f"\n[tools]\ntargets = [{', '.join(json.dumps(t) for t in targets)}]\n"
         write_text(overlay / "profile.toml", fill(read_text(CORE / "templates" / "profile.starter.toml"),
                                                   {"name": json.dumps(target.name), "tools": tools_block}))
     profile = Kit(target).profile

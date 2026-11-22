@@ -375,13 +375,167 @@ namespace Mu3Library.Tests
             Pump();
             Assert.That(host.AllLoadedCount, Is.EqualTo(1));
         }
+
+        [Test]
+        public void LoadPhase_TheHostBeginsAnother_EveryFlagClears_AndTheHostWaitsForEveryoneAgain()
+        {
+            // FR-25: a game that loads another level waits for every player again, under the same rules.
+            Node host = CreateHost("Host", rules: new SessionRules(4, requireReady: false, allowLateJoin: true).WithLoadTimeoutSeconds(30f));
+            Node a = JoinNew("A", host);
+            Assert.That(host.Manager.StartGame().IsSuccess, Is.True);
+            Pump();
+            Node late = JoinNew("Late", host);
+            host.Manager.ReportLoaded();
+            a.Manager.ReportLoaded();
+            Pump();
+            Assert.That(host.AllLoadedCount, Is.EqualTo(1), "the start does not wait for the late joiner");
+
+            byte[] level = { 2 };
+            Assert.That(host.Manager.BeginLoadPhase(level).IsSuccess, Is.True);
+            Pump();
+            Node[] everyone = { host, a, late };
+            foreach (Node node in everyone)
+            {
+                Assert.That(node.LoadPhases, Is.EqualTo(new[] { level }), node.Backend.PlayerName);
+                Assert.That(node.Manager.Participants.Any(participant => participant.IsLoaded), Is.False, node.Backend.PlayerName);
+            }
+
+            host.Manager.ReportLoaded();
+            a.Manager.ReportLoaded();
+            Pump();
+            Assert.That(host.AllLoadedCount, Is.EqualTo(1), "the phase waits for everyone who plays as it begins");
+            Advance(31.0);
+            Assert.That(host.LoadTimeouts, Is.EqualTo(new[] { new[] { late.Id } }));
+
+            Assert.That(host.Manager.BeginLoadPhase(new byte[] { 3 }).IsSuccess, Is.True);
+            Pump();
+            foreach (Node node in everyone)
+            {
+                Assert.That(node.Manager.ReportLoaded().IsSuccess, Is.True, node.Backend.PlayerName);
+            }
+
+            Pump();
+            Assert.That(host.AllLoadedCount, Is.EqualTo(2));
+            Assert.That(host.LoadTimeouts.Count, Is.EqualTo(1));
+
+            // The next start of the game waits from its own start again.
+            Assert.That(host.Manager.EndGame().IsSuccess, Is.True);
+            Pump();
+            Assert.That(host.Manager.StartGame().IsSuccess, Is.True);
+            Pump();
+            foreach (Node node in everyone)
+            {
+                node.Manager.ReportLoaded();
+            }
+
+            Pump();
+            Assert.That(host.AllLoadedCount, Is.EqualTo(3));
+            Assert.That(a.LoadPhases.Count, Is.EqualTo(2), "a start raises no load phase");
+        }
+
+        [Test]
+        public void LoadPhase_AReportSentBeforeThePlayerHeardOfIt_CountsForNothing()
+        {
+            // FR-25: a report for the phase before, still on its way, does not fill the new one.
+            Node host = CreateHost("Host", rules: new SessionRules(4, requireReady: false));
+            Node a = JoinNew("A", host);
+            host.Manager.StartGame();
+            Pump();
+
+            Assert.That(host.Manager.BeginLoadPhase().IsSuccess, Is.True);
+            Assert.That(a.Manager.ReportLoaded().IsSuccess, Is.True);
+            host.Manager.ReportLoaded();
+            Pump();
+            Assert.That(host.Manager.TryGetParticipant(a.Id, out Participant early) && early.IsLoaded, Is.False);
+            Assert.That(host.AllLoadedCount, Is.Zero);
+            Assert.That(a.LoadPhases.Count, Is.EqualTo(1));
+
+            Assert.That(a.Manager.ReportLoaded().IsSuccess, Is.True);
+            Pump();
+            Assert.That(host.Manager.TryGetParticipant(a.Id, out Participant loaded) && loaded.IsLoaded, Is.True);
+            Assert.That(host.AllLoadedCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void LoadPhase_APlayerAwayAsItBegins_HearsItOnTheReturn_AndIsWaitedFor()
+        {
+            // FR-25, FR-20
+            UseTestNetworkClock();
+            Node host = CreateHost("Host", rules: new SessionRules(4, requireReady: false).WithLoadTimeoutSeconds(100f));
+            Node a = JoinNew("A", host);
+            host.Manager.StartGame();
+            Pump();
+            host.Manager.ReportLoaded();
+            a.Manager.ReportLoaded();
+            Pump();
+            Assert.That(host.AllLoadedCount, Is.EqualTo(1));
+
+            a.Backend.SimulateOutage(ShortOutageSeconds);
+            Advance(DropSeconds + 0.5);
+            Assert.That(host.Disconnected.Select(participant => participant.Id), Is.EqualTo(new[] { a.Id }));
+            byte[] level = { 2 };
+            Assert.That(host.Manager.BeginLoadPhase(level).IsSuccess, Is.True);
+            host.Manager.ReportLoaded();
+            Assert.That(host.AllLoadedCount, Is.EqualTo(1), "the host waits for the player away");
+
+            Advance(6.0);
+            Assert.That(a.Manager.State, Is.EqualTo(SessionState.InGame));
+            Assert.That(a.LoadPhases, Is.EqualTo(new[] { level }));
+            Assert.That(a.Manager.TryGetParticipant(a.Id, out Participant self) && self.IsLoaded, Is.False, "the report before the drop was for the phase before");
+
+            Assert.That(a.Manager.ReportLoaded().IsSuccess, Is.True);
+            Pump();
+            Assert.That(host.AllLoadedCount, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void LoadPhase_APlayerWhoJoinsWhileItRuns_HearsTheStartAndThePhase_AndIsNotWaitedFor()
+        {
+            // FR-25, FR-19
+            Node host = CreateHost("Host", rules: new SessionRules(4, requireReady: false, allowLateJoin: true));
+            Node a = JoinNew("A", host);
+            host.Manager.StartGame(new byte[] { 1 });
+            Pump();
+            host.Manager.BeginLoadPhase(new byte[] { 2 });
+            Pump();
+
+            Node late = JoinNew("Late", host);
+            Assert.That(late.GameStarts, Is.EqualTo(new[] { new byte[] { 1 } }));
+            Assert.That(late.LoadPhases, Is.EqualTo(new[] { new byte[] { 2 } }));
+
+            host.Manager.ReportLoaded();
+            a.Manager.ReportLoaded();
+            Pump();
+            Assert.That(host.AllLoadedCount, Is.EqualTo(1));
+
+            Assert.That(late.Manager.ReportLoaded().IsSuccess, Is.True);
+            Pump();
+            Assert.That(host.Manager.TryGetParticipant(late.Id, out Participant loaded) && loaded.IsLoaded, Is.True, "a late joiner can report all the same");
+        }
+
+        [Test]
+        public void LoadPhase_IsTheHostsRequestInAGame_WithDataWithinTheLimit()
+        {
+            // FR-25
+            Node host = CreateHost("Host", rules: new SessionRules(4, requireReady: false));
+            Node a = JoinNew("A", host);
+            Assert.That(host.Manager.BeginLoadPhase().Reason, Is.EqualTo(MultiplayerReason.InvalidState));
+
+            host.Manager.StartGame();
+            Pump();
+            Assert.That(a.Manager.BeginLoadPhase().Reason, Is.EqualTo(MultiplayerReason.NotHost));
+            Assert.That(host.Manager.BeginLoadPhase(new byte[MultiplayerLimits.MaxStartDataSize + 1]).Reason, Is.EqualTo(MultiplayerReason.MessageTooLarge));
+            Pump();
+            Assert.That(host.LoadPhases.Concat(a.LoadPhases), Is.Empty);
+        }
         #endregion
 
         #region Load Sync Helpers
-        private static byte[] ReportLoadedPacket(int gameNumber)
+        private static byte[] ReportLoadedPacket(int gameNumber, int loadPhase = 0)
         {
             PacketWriter writer = new PacketWriter();
             writer.Begin(PacketKind.ReportLoaded).WriteInt(gameNumber);
+            writer.WriteInt(loadPhase);
             return writer.Written.ToArray();
         }
         #endregion

@@ -261,6 +261,7 @@ namespace Mu3Library.Addressable
             ListCacheKey cacheKey = ListCacheKey.Create(key, cacheType);
             if (TryGetCachedAssetInternal(cacheKey, out IList<T> cached))
             {
+                InvokePerAssetCallback(cached, perAssetCallback);
                 callback?.Invoke(cached);
                 return;
             }
@@ -269,14 +270,24 @@ namespace Mu3Library.Addressable
             {
                 if (existing.IsDone)
                 {
-                    callback?.Invoke(FinalizeCachedLoad<IList<T>>(key, cacheKey, existing));
+                    IList<T> existingAssets = FinalizeCachedLoad<IList<T>>(key, cacheKey, existing);
+                    InvokePerAssetCallback(existingAssets, perAssetCallback);
+                    callback?.Invoke(existingAssets);
                     return;
                 }
 
-                existing.Completed += op => callback?.Invoke(FinalizeCachedLoad<IList<T>>(key, cacheKey, op));
+                existing.Completed += op =>
+                {
+                    IList<T> existingAssets = FinalizeCachedLoad<IList<T>>(key, cacheKey, op);
+                    InvokePerAssetCallback(existingAssets, perAssetCallback);
+                    callback?.Invoke(existingAssets);
+                };
                 return;
             }
 
+            // Addressables hands each asset only to the per-asset callback of the call that starts the
+            // load, so for a call served from the cache or joining a load in progress the manager hands
+            // them on itself.
             AsyncOperationHandle<IList<T>> handle = Addressables.LoadAssetsAsync<T>(key, perAssetCallback);
             RegisterHandleCache(key, cacheKey, handle);
             handle.Completed += operation => callback?.Invoke(FinalizeCachedLoad<IList<T>>(key, cacheKey, operation));
@@ -839,6 +850,24 @@ namespace Mu3Library.Addressable
             }
 
             return asset;
+        }
+
+        /// <summary>
+        /// Hands each asset of a list load to its per-asset callback, for a call the cache or a load in
+        /// <br/> progress served, so it sees every asset as the call that started the load did. A failed
+        /// <br/> load hands none.
+        /// </summary>
+        private static void InvokePerAssetCallback<T>(IList<T> assets, Action<T> perAssetCallback)
+        {
+            if (assets == null || perAssetCallback == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < assets.Count; i++)
+            {
+                perAssetCallback(assets[i]);
+            }
         }
 
         private bool TryGetValidCachedHandle(object key, out AsyncOperationHandle handle)

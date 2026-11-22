@@ -67,14 +67,15 @@ namespace Mu3Library.Addressable
             ListCacheKey cacheKey = ListCacheKey.Create(key, cacheType);
             if (TryGetCachedAssetInternal(cacheKey, out IList<T> cached))
             {
+                InvokePerAssetCallback(cached, perAssetCallback);
                 return cached;
             }
 
             if (TryGetValidCachedHandle(cacheKey, out AsyncOperationHandle existing))
             {
+                IList<T> existingAssets = null;
                 if (!existing.IsDone)
                 {
-                    IList<T> existingAssets = null;
                     try
                     {
                         await existing.ToUniTask();
@@ -83,13 +84,17 @@ namespace Mu3Library.Addressable
                     {
                         existingAssets = FinalizeCachedLoad<IList<T>>(key, cacheKey, existing);
                     }
-
-                    return existingAssets;
+                }
+                else
+                {
+                    existingAssets = FinalizeCachedLoad<IList<T>>(key, cacheKey, existing);
                 }
 
-                return FinalizeCachedLoad<IList<T>>(key, cacheKey, existing);
+                InvokePerAssetCallback(existingAssets, perAssetCallback);
+                return existingAssets;
             }
 
+            // As in LoadAssets, only the call that starts the load hands its per-asset callback to Addressables.
             AsyncOperationHandle<IList<T>> handle = Addressables.LoadAssetsAsync<T>(key, perAssetCallback);
             RegisterHandleCache(key, cacheKey, handle);
 

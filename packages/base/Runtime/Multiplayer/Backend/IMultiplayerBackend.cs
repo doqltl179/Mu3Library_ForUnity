@@ -36,8 +36,10 @@ namespace Mu3Library.Multiplayer.Backend
     /// A backend may also implement optional capability interfaces, which the manager looks for
     /// on the backend it runs on: <see cref="ILobbyInviteBackend"/>, when its lobbies that are not
     /// public let a player in only by invite, and <see cref="IUnavailableReasonBackend"/>, to name
-    /// why it is not available. The manager writes the keys of <see cref="LobbyDataKeys"/> in
-    /// every lobby it creates; a backend stores them as any other lobby data and may read them.
+    /// why it is not available. The game itself, not the manager, uses one more,
+    /// <see cref="IVoiceBackend"/>, to record and decode voice. The manager writes the keys of
+    /// <see cref="LobbyDataKeys"/> in every lobby it creates; a backend stores them as any other
+    /// lobby data and may read them.
     /// </para>
     /// </remarks>
     public interface IMultiplayerBackend : IDisposable
