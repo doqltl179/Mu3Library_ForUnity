@@ -4,11 +4,11 @@ namespace Mu3Library.Steam.Stats
 {
     /// <summary>
     /// This player's Steam achievements and stats, as the Steamworks partner site defines them for
-    /// the app. It uses the Steam the game started, through <c>SteamBackend.TryCreate</c> or its own
-    /// <c>SteamAPI.Init</c>, and starts none itself. Steam hands this player's stats a moment after
-    /// it starts, and a call answers <see cref="SteamStatsFailureReason.Refused"/> until then. Every
-    /// call runs on the calling thread and comes back as a <see cref="SteamStatsResult"/>; none throws
-    /// for Steam's sake.
+    /// the app. It uses the Steam the game started, through <c>SteamManager.TryStart</c>,
+    /// <c>SteamBackend.TryCreate</c>, or its own <c>SteamAPI.Init</c>, and starts none itself. Steam
+    /// hands this player's stats a moment after it starts, and a call answers
+    /// <see cref="SteamStatsFailureReason.Refused"/> until then. Every call runs on the calling thread
+    /// and comes back as a <see cref="SteamStatsResult"/>; none throws for Steam's sake.
     /// </summary>
     public interface ISteamStatsManager
     {

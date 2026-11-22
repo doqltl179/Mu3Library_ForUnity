@@ -17,20 +17,7 @@ namespace Mu3Library.Steam.Stats
     /// </remarks>
     public sealed class SteamStatsManager : ISteamStatsManager
     {
-        public bool IsAvailable
-        {
-            get
-            {
-                try
-                {
-                    return CallbackDispatcher.IsInitialized;
-                }
-                catch (Exception exception) when (SteamCalls.IsSteamUnavailable(exception))
-                {
-                    return false;
-                }
-            }
-        }
+        public bool IsAvailable => SteamCalls.IsSteamRunning;
 
 
 

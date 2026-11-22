@@ -3,6 +3,7 @@
     "rootNamespace": "Mu3Library.Steam.Cloud",
     "references": [
         "GUID:883e019308824d7f93096e20e7592c31",
+        "GUID:98a4b6200f3d443a83b3c13d2ec86acb",
         "com.rlabrecque.steamworks.net"
     ],
     "includePlatforms": [

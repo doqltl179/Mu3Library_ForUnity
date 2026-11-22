@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using Mu3Library.Multiplayer;
 using Mu3Library.Multiplayer.Backend;
 using Mu3Library.Multiplayer.Data;
@@ -294,29 +293,14 @@ namespace Mu3Library.Steam.Multiplayer
         {
             backend = null;
 
-            // The dispatcher, not the native client, tells whether Steamworks.NET runs: after a
-            // domain reload the native Steam stays up while the dispatcher starts over, and
-            // without it no callback would ever arrive. Steam counts its own initializations.
-            if (!CallbackDispatcher.IsInitialized)
+            ESteamAPIInitResult result = SteamCalls.Start(options.AppId, out bool started, out string message);
+            if (result != ESteamAPIInitResult.k_ESteamAPIInitResult_OK)
             {
-                if (options.AppId != 0)
-                {
-                    // Steam reads these before steam_appid.txt; a launch through Steam sets them itself.
-                    string appId = options.AppId.ToString(CultureInfo.InvariantCulture);
-                    Environment.SetEnvironmentVariable("SteamAppId", appId);
-                    Environment.SetEnvironmentVariable("SteamGameId", appId);
-                }
-
-                ESteamAPIInitResult result = SteamAPI.InitEx(out string message);
-                if (result != ESteamAPIInitResult.k_ESteamAPIInitResult_OK)
-                {
-                    Debug.LogWarning($"[Multiplayer] Steam could not start ({result}): {message}");
-                    return SteamReasons.FromInitResult(result);
-                }
-
-                ownsSteam = true;
+                Debug.LogWarning($"[Multiplayer] Steam could not start ({result}): {message}");
+                return SteamReasons.FromInitResult(result);
             }
 
+            ownsSteam = started;
             backend = new SteamBackend(options, ownsSteam);
             return MultiplayerReason.None;
         }
@@ -355,23 +339,15 @@ namespace Mu3Library.Steam.Multiplayer
 
         /// <summary>
         /// True for an exception that tells Steam cannot run in this process, with the exception
-        /// that caused it: Steamworks.NET's own checks (<see cref="InvalidOperationException"/>),
+        /// that caused it, as the package's <c>SteamCalls.IsSteamUnavailable</c> tells for every
+        /// Steam assembly: Steamworks.NET's own checks (<see cref="InvalidOperationException"/>),
         /// and a native library that is missing, lacks a function, or is built for another
         /// architecture, also inside a <see cref="TypeInitializationException"/>. A backend that
         /// exists catches the same at every Steam call, and then calls <see cref="Break"/>.
         /// </summary>
         internal static bool IsSteamUnavailable(Exception exception, out Exception cause)
         {
-            cause = exception;
-            while (cause is TypeInitializationException && cause.InnerException != null)
-            {
-                cause = cause.InnerException;
-            }
-
-            return cause is DllNotFoundException
-                || cause is EntryPointNotFoundException
-                || cause is BadImageFormatException
-                || cause is InvalidOperationException;
+            return SteamCalls.IsSteamUnavailable(exception, out cause);
         }
 
         /// <summary>

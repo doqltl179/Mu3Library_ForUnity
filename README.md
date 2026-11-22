@@ -101,7 +101,7 @@ The Addressables package holds `AddressablesManager` and its group data exporter
 
 The DI package holds the `CoreBase` container with its link.xml processor and its validator and runtime diagnostics drawers. Install Base before it.
 
-The Steam package holds `SteamBackend`, which runs multiplayer sessions on Steam, Steam achievements and stats with optional debug console commands, and a Steam Cloud storage for the save system. Install Steamworks.NET and Base before it.
+The Steam package holds `SteamManager`, which starts Steam for a game without multiplayer, `SteamBackend`, which runs multiplayer sessions on Steam, Steam achievements and stats with optional debug console commands, and a Steam Cloud storage for the save system. Install Steamworks.NET and Base before it.
 
 ### Option 2: Package Manager (Local Disk)
 1. Clone this repository
