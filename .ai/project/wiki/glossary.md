@@ -61,6 +61,11 @@ One row per concept, one column per language of the localized copies («Human-Fa
 | input module | The `BaseInputModule` on an `EventSystem` that turns device input into UI events, such as `StandaloneInputModule` and `InputSystemUIInputModule` | 입력 모듈 | 入力モジュール |
 | drawer, drawer list | A section of a `Mu3Window` editor window (`Mu3WindowDrawer`), and the `DrawerListDrawer` asset that lists the drawers a window shows | 드로어, 드로어 목록 | ドロワー、ドロワーリスト |
 | embedded package, local package | A package in the project's `Packages/` folder, and one a manifest references as a folder with `file:`; both can be changed, unlike a Git, registry, or tarball install | 임베디드 패키지, 로컬 패키지 | 埋め込みパッケージ、ローカルパッケージ |
+| load phase | A wait the host of a multiplayer game begins within the game with `BeginLoadPhase`, after which every player loads and reports again, as after `StartGame` | 로드 단계 | ロードフェーズ |
+| voice, speaker | A player's voice in a multiplayer session, which `IVoiceBackend` records and decodes and `VoicePlayer` plays, and the player whose voice plays | 음성, 화자 | ボイス、話者 |
+| relay filter | The host's per-message, per-player filter set with `SetRelayFilter` that decides who receives a relayed message | 중계 필터 | 中継フィルター |
+| message policy, delivery mode | `MessagePolicy` and `DeliveryMode` named in prose | 메시지 정책, 전송 방식 | メッセージポリシー、送信モード |
+| push to talk | Recording voice only while a key is held | 눌러서 말하기 | プッシュトゥトーク |
 
 ## Style Notes
 

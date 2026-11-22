@@ -6,6 +6,10 @@ Detailed per-release notes live in the repository root `CHANGELOG.md` under the 
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-11-22
+
+- See `game/watermelon/0.8.1` in the repository root `CHANGELOG.md`. Highlights: the package no longer depends on the URP package, so a Built-in project installs Base and Watermelon Game only; the public API is unchanged.
+
 ## [0.8.0] - 2026-11-20
 
 - See `game/watermelon/0.8.0` in the repository root `CHANGELOG.md`. Highlights: the package folder moved to `packages/game/watermelon`, so its Git URL takes `?path=packages/game/watermelon`; the assembly references `Mu3Library.Foundation` instead of `Mu3Library.DI`, so the package needs Base 0.29.0 or later; and the Watermelon Game sample is removed.

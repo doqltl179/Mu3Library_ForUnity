@@ -1,6 +1,6 @@
 {
     "name": "com.github.doqltl179.mu3library.di",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "displayName": "Mu3 Library DI",
     "description": "Dependency injection for Mu3Library: each CoreBase component owns a container that registers services as singletons, transients, or scoped services, builds them through their constructors, fills their [Inject] fields and properties, and calls the lifecycle interfaces of Base on them, while CoreRoot updates the cores in a stable order and lets one core reach another's services. Supports UniTask for core preparation when UniTask is installed. In the editor, it hands the linker a link.xml for each player build so that Managed Stripping Level Medium or High keeps what the container reaches through reflection, and the DI Validator and Runtime Diagnostics drawers check the registrations and show what the running services hold.",
     "unity": "6000.3",

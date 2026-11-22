@@ -59,7 +59,7 @@
 3. 다음 URL 중 하나를 입력:
    ```
     # Base 패키지
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/base#base/v0.30.0
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/base#base/v0.31.0
 
     # Notifications 패키지
     https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/notifications#notifications/v0.1.0
@@ -71,22 +71,22 @@
     https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/localization#localization/v0.1.0
 
     # Addressables 패키지 (먼저 Base 설치)
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/addressables#addressables/v0.1.0
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/addressables#addressables/v0.1.1
 
     # DI 패키지 (먼저 Base 설치)
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/di#di/v0.1.0
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/di#di/v0.2.0
 
     # Steam 패키지 (먼저 Steamworks.NET과 Base 설치)
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/steam#steam/v0.1.1
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/steam#steam/v0.2.0
 
     # URP 패키지 (먼저 Base 설치)
     https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/urp#urp/v0.5.0
 
-    # Watermelon Game 패키지 (먼저 Base와 URP 설치)
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/game/watermelon#game/watermelon/v0.8.0
+    # Watermelon Game 패키지 (먼저 Base 설치)
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/game/watermelon#game/watermelon/v0.8.1
    ```
 
-패키지는 Base, URP, Watermelon Game 순서로 설치합니다. URP는 Base에, Watermelon Game은 그 둘 모두에 의존합니다.
+URP와 Watermelon Game은 각각 Base에 의존하므로, 어느 쪽이든 Base를 먼저 설치합니다. Watermelon Game에는 URP가 필요하지 않습니다.
 
 Notifications 패키지는 Android와 iOS의 로컬 알림을 담습니다. 다른 Mu3Library 패키지는 필요하지 않습니다.
 
@@ -113,7 +113,7 @@ Steam 패키지는 Steam에서 멀티플레이 세션을 실행하는 `SteamBack
     - `packages/di/package.json` (먼저 Base 설치)
     - `packages/steam/package.json` (먼저 Steamworks.NET과 Base 설치)
     - `packages/urp/package.json` (먼저 Base 설치)
-    - `packages/game/watermelon/package.json` (먼저 Base와 URP 설치)
+    - `packages/game/watermelon/package.json` (먼저 Base 설치)
 
 ## 📚 핵심 모듈
 
@@ -121,13 +121,32 @@ Steam 패키지는 Steam에서 멀티플레이 세션을 실행하는 `SteamBack
 `CoreBase`와 `CoreRoot`를 포함한 DI 컨테이너는 별도의 DI 패키지로 옮겨졌습니다. 등록, 주입, 코어, 그리고 관리 코드를 스트리핑하는 플레이어 빌드를 위해 이 패키지가 만드는 link.xml은 그 [README](../../packages/di/README.md)를 참고하세요. Base는 매니저가 구현하는 계약 `IInitializable`, `IUpdatable`, `ILateUpdatable`, `IObjectInjector`, `[Inject]`를 `Mu3Library.Foundation` 어셈블리에 유지합니다. 아래 예제는 DI 패키지의 코어처럼 `[Inject]`로 Base의 서비스를 주입합니다.
 
 ### MVP (Model-View-Presenter)
-UI를 View, Presenter, Model로 분리하여 비즈니스 로직을 테스트 가능하게 만듭니다.
+UI를 View, Presenter, Model로 분리하여 비즈니스 로직을 테스트 가능하게 만듭니다. view는 컴포넌트이므로 클래스 이름을 딴 파일 `MainMenuView.cs`에 두며, 아래의 `UICore`와 `UIBootstrap`도 마찬가지입니다.
 
 ```csharp
-// Model: 데이터 컨테이너
+using Mu3Library.Audio;
+using Mu3Library.DI;
+using Mu3Library.UI.MVP;
+using TMPro;
+using UnityEngine;
+using UnityEngine.UI;
+
+// Arguments: Open할 때마다 전달하는 데이터
+public class MainMenuArgs : Arguments
+{
+    public string PlayerName;
+}
+
+// Model: 데이터 컨테이너. presenter의 LoadFunc()가 실행되기 전에 인자로 채워짐
 public class MainMenuModel : Model<MainMenuArgs>
 {
-    public string PlayerName { get; set; }
+    public string PlayerName { get; private set; }
+
+    // 기본 Init은 비어 있으므로, 모델에 필요한 값을 여기서 인자로부터 복사합니다
+    public override void Init(MainMenuArgs args)
+    {
+        PlayerName = args?.PlayerName;
+    }
 }
 
 // View: Unity 컴포넌트 참조
@@ -135,14 +154,18 @@ public class MainMenuView : View
 {
     [SerializeField] private Button _startButton;
     [SerializeField] private TextMeshProUGUI _titleText;
+    [SerializeField] private AudioClip _clickClip;
 
     public Button StartButton => _startButton;
     public TextMeshProUGUI TitleText => _titleText;
+    public AudioClip ClickClip => _clickClip;
 }
 
 // Presenter: 비즈니스 로직
 public class MainMenuPresenter : Presenter<MainMenuView, MainMenuModel, MainMenuArgs>
 {
+    // DI 패키지 README에 나오는, AudioManager를 등록하는 코어 AudioCore에서 받습니다.
+    // 이 멤버는 필수이므로 씬에 AudioCore가 없으면 Open이 예외를 던집니다
     [Inject(typeof(AudioCore))] private IAudioManager _audioManager;
 
     protected override void LoadFunc()
@@ -156,17 +179,86 @@ public class MainMenuPresenter : Presenter<MainMenuView, MainMenuModel, MainMenu
         // 오픈 애니메이션 등
     }
 
+    protected override void UnloadFunc()
+    {
+        // 닫힌 presenter는 view와 함께 풀에 들어가고, 다음 Open이 그 presenter에서 LoadFunc()를 다시 실행합니다
+        _view.StartButton.onClick.RemoveListener(OnStartClicked);
+    }
+
     private void OnStartClicked()
     {
+        _audioManager.PlaySfx(_view.ClickClip);
         // 게임 시작 로직
     }
 }
-
-// 사용
-_mvpManager.Open<MainMenuPresenter>(new MainMenuArgs { PlayerName = "Player1" });
 ```
 
-`MVPManager`를 `CoreBase`를 통해 등록하면 presenter의 `[Inject]` 필드와 프로퍼티가 초기화 전에 채워집니다. presenter를 열 때마다 달라지는 데이터는 `Arguments`에 전달합니다.
+`MVPManager`는 프리팹을 가진 view 타입의 presenter만 엽니다. 루트에 view 컴포넌트가 있는 view 프리팹을 첫 `Open` 전에 각각 `RegisterViewResource`나 `RegisterViewResources`로 등록하세요. 루트에 `MainMenuView`를 추가하면 그 view에 필요한 `Canvas`, `CanvasScaler`, `GraphicRaycaster`, `CanvasGroup`도 함께 추가됩니다. 등록된 프리팹이 없으면 `Open`은 `View not found`를 로그로 남기고 null을 반환합니다. `Open`은 `Init(args)`로 presenter의 모델을 만들고, view가 아직 숨겨져 있는 동안 `LoadFunc()`를 호출합니다. view는 다음 `MVPManager.Update()`에서 보이며 열리기 시작하고, 그 뒤의 업데이트가 열림을 마치고 창이 닫힌 뒤에는 그 창을 unload하므로, 무언가가 매 프레임 `Update()`를 호출해야 합니다.
+
+DI 패키지를 쓰면 코어가 매니저를 등록하고, `CoreRoot`가 매 프레임 그 `Update()`를 호출하며 코어가 파괴될 때 매니저를 해제합니다. `MVPManager`를 `CoreBase`를 통해 등록하면 presenter의 `[Inject]` 필드와 프로퍼티가 초기화 전에 채워집니다:
+
+```csharp
+using Mu3Library.DI;
+using Mu3Library.UI.MVP;
+using UnityEngine;
+
+public class UICore : CoreBase
+{
+    [SerializeField] private MainMenuView _mainMenuViewPrefab;
+
+    [Inject] private IMVPManager _mvpManager;
+
+    protected override void ConfigureContainer()
+    {
+        RegisterClass<MVPManager>();
+    }
+
+    protected override void Start()
+    {
+        base.Start(); // _mvpManager를 주입합니다
+
+        _mvpManager.RegisterViewResource(_mainMenuViewPrefab);
+        _mvpManager.Open<MainMenuPresenter>(new MainMenuArgs { PlayerName = "Player1" });
+    }
+}
+```
+
+DI 패키지의 `CoreBase` 없이 쓸 때는 매니저를 만든 코드가 매 프레임 그 `Update()`를 호출하고, 다 쓰고 나면 `Dispose()`를 호출합니다. 이런 매니저에는 `IObjectInjector`를 넘겨주는 곳이 없어 presenter의 `[Inject]` 멤버가 채워지지 않으므로, 이때는 `MainMenuPresenter`에서 `[Inject]` 필드를 `CoreBase`를 상속하는 그 `AudioCore`와 함께 빼고, `PlaySfx` 호출도 빼세요:
+
+```csharp
+using Mu3Library.UI.MVP;
+using UnityEngine;
+
+public class UIBootstrap : MonoBehaviour
+{
+    [SerializeField] private MainMenuView _mainMenuViewPrefab;
+
+    private MVPManager _mvpManager;
+
+    private void Awake()
+    {
+        _mvpManager = new MVPManager();
+        _mvpManager.RegisterViewResource(_mainMenuViewPrefab);
+    }
+
+    private void Start()
+    {
+        _mvpManager.Open<MainMenuPresenter>(new MainMenuArgs { PlayerName = "Player1" });
+    }
+
+    private void Update()
+    {
+        _mvpManager.Update();
+    }
+
+    private void OnDestroy()
+    {
+        _mvpManager.Dispose();
+    }
+}
+```
+
+presenter를 열 때마다 달라지는 데이터는 `Arguments`에 전달합니다.
 
 presenter를 체인으로 여는 경우에는 ownership과 visual host를 분리해서 설정합니다.
 
@@ -329,6 +421,180 @@ _playerData.Health.Set(80);
 
 Observable 필드는 컴포넌트나 ScriptableObject의 `[Serializable]` 클래스, 배열, 리스트 안에 두어도 됩니다. Inspector에서 값을 바꾸면 값이 적용되고 구독자에게 통지됩니다. 그 편집을 Undo나 Redo하거나 프리팹 인스턴스를 되돌릴 때도 되돌아간 값으로 통지됩니다. `ObservableDictionary`에서는 같은 키를 가진 행 가운데 첫 행이 쓰이며, 키가 겹치는 행은 키를 바꿀 때까지 경고와 함께 목록에 남습니다.
 
+### Multiplayer
+`MultiplayerManager`(`Mu3Library.Multiplayer`)는 플레이어 호스트 세션을 실행합니다. 한 플레이어가 호스트를 맡고, 다른 플레이어는 호스트의 로비를 찾아 호스트에 연결하며, 참가자 목록과 규칙, 게임 시작 시점은 호스트가 정합니다. 매니저는 백엔드 위에서 동작합니다. 백엔드는 한 프로세스 안의 여러 플레이어나, `LocalNetwork.CreateMachineWide`로 만든 네트워크에서 같은 PC의 에디터와 플레이어 빌드를 위한 `LocalBackend`(`Mu3Library.Multiplayer.Local`), 또는 별도의 [Steam 패키지](../../packages/steam/README.md)에 있는 `SteamBackend`입니다. 자체 어셈블리 정의에 있는 코드는 `Mu3Library.Multiplayer`를 참조해야 매니저를 쓸 수 있습니다. 모든 처리는 메인 스레드에서 실행되며, 백엔드가 알리는 내용, 다른 플레이어의 메시지, 로비 요청에 대한 응답은 `Update` 안에서 도착하므로 매 프레임 `Update`를 호출하세요.
+
+```csharp
+using System;
+using System.Text;
+using Mu3Library.Multiplayer;
+using Mu3Library.Multiplayer.Backend;
+using Mu3Library.Multiplayer.Data;
+using Mu3Library.Multiplayer.Local;
+using UnityEngine;
+
+public class SessionRunner : MonoBehaviour
+{
+    private const ushort MoveMessage = 1;
+
+    private IMultiplayerBackend _backend;
+    private MultiplayerManager _manager;
+    private readonly MessageWriter _writer = new MessageWriter();
+
+    private void Awake()
+    {
+        // 같은 PC의 플레이어들. Steam 게임은 SteamBackend.TryCreate로 백엔드를 만들거나,
+        // 에디터에서는 LocalBackend로 대신하는 SteamBackend.CreateOrFallback으로 만듭니다.
+        _backend = new LocalBackend(LocalNetwork.CreateMachineWide("my-game"), "Player");
+        _manager = new MultiplayerManager();
+        _manager.Initialize(_backend, new MultiplayerConfig("my.game", 1));
+
+        // 모든 플레이어가 같은 메시지 종류를 같은 정책으로 등록합니다.
+        _manager.RegisterMessage(MoveMessage, OnMove);
+
+        _manager.OnGameStarted += startData =>
+        {
+            // 시작 데이터가 가리키는 레벨을 로드한 뒤, 이 플레이어가 플레이할 준비가 되었다고 호스트에 알립니다.
+            _manager.ReportLoaded();
+        };
+        _manager.OnAllPlayersLoaded += () => Debug.Log("Every player loaded"); // 호스트에서만
+    }
+
+    private void Update() => _manager.Update();
+
+    private void OnDestroy()
+    {
+        _manager.Dispose(); // 백엔드보다 먼저 해제합니다. 백엔드는 그것을 만든 쪽의 것입니다
+        _backend.Dispose();
+    }
+
+    // 호스트가 로비를 만듭니다.
+    public void Host()
+    {
+        LobbyCreateOptions options = new LobbyCreateOptions
+        {
+            Name = "My lobby",
+            Visibility = LobbyVisibility.Public,
+            Rules = SessionRules.Default.WithCapacity(4),
+        };
+        _manager.CreateLobby(options, result => Debug.Log($"Create lobby: {result}"));
+    }
+
+    // 클라이언트가 로비를 검색해 참가합니다.
+    public void Join()
+    {
+        _manager.SearchLobbies(new LobbySearchQuery(), found =>
+        {
+            if (found.IsSuccess && found.Lobbies.Count > 0)
+            {
+                _manager.JoinLobby(found.Lobbies[0].Id, result => Debug.Log($"Join lobby: {result}"));
+            }
+        });
+    }
+
+    public void SetReady() => _manager.SetReady(true); // 로비에 있는 클라이언트
+
+    // 규칙이 허락하면 호스트가 게임을 시작합니다. 결과에는 준비되지 않은 플레이어가 담깁니다.
+    public void StartGame() => _manager.StartGame(Encoding.UTF8.GetBytes("Level1"));
+
+    public void SendMove(Vector3 position)
+    {
+        _writer.Clear().WriteVector3(position);
+        _manager.Send(MoveMessage, _writer.Written, MessageTarget.Others, DeliveryMode.Unreliable);
+    }
+
+    private void OnMove(MessageContext context, ReadOnlySpan<byte> payload)
+    {
+        MessageReader reader = new MessageReader(payload);
+        Vector3 position = reader.ReadVector3();
+        // context.Sender의 캐릭터를 그 위치로 옮깁니다.
+    }
+
+    public void ReturnToLobby() => _manager.EndGame(); // 호스트
+
+    public void Quit() => _manager.Leave();
+}
+```
+
+- **메시지 정책**: `MessagePolicy.Default`는 어느 플레이어든 그 종류를 보낼 수 있게 하며, 호스트는 클라이언트의 메시지를 자기 핸들러가 실행되기 전에 전달합니다. `HostOnly`는 점수나 스폰처럼 호스트만 정하는 것에 쓰며, 클라이언트가 보내면 호스트가 버립니다. `NoClientRelay`는 공격처럼 다른 누가 보기 전에 호스트가 확인해야 하는 클라이언트의 요청에 씁니다. 클라이언트는 이를 `MessageTarget.Host`로 보내고, 호스트의 핸들러가 받아들인 것을 전달합니다. 호스트가 정책을 적용하므로 모든 플레이어가 각 종류를 같은 정책으로 등록합니다.
+- **전송 방식**: 기본값인 `DeliveryMode.Reliable`(신뢰 전송)은 같은 보낸 사람의 메시지끼리 보낸 순서대로 도착하므로, 잃어서는 안 되는 이벤트에 맞습니다. `Unreliable`(비신뢰 전송)은 손실되거나 순서가 바뀌어 도착할 수 있으므로, 매 프레임 보내는 위치처럼 다음 메시지가 대신하는 상태에 맞습니다.
+- **송신량 제한**: `SessionRules`는 기본적으로 제한을 두지 않습니다. `MaxMessagesPerSecond`와 `MaxBytesPerSecond`는 호스트가 클라이언트 하나에게서 1초에 받는 양을 제한하며, 준비 상태 변경과 로드 보고를 포함해 클라이언트가 보내는 모든 패킷을 세므로, 게임이 가장 많이 보낼 때보다 높게 설정하세요. 위치를 1초에 30번 보내는 클라이언트는 `SessionRules.Default.WithCapacity(4).WithMaxMessagesPerSecond(60).WithMaxBytesPerSecond(16 * 1024)` 안에 들어갑니다. 호스트는 제한을 넘은 게임 메시지를 버리고 `OnRateLimitExceeded`를 발생시키며, `RateLimitKickSeconds`가 0보다 크면 그 초 수 동안 매초 연속으로 제한을 넘은 클라이언트를 강퇴합니다.
+- **로드**: `StartGame` 뒤 각 플레이어는 레벨이 준비되면 `ReportLoaded`를 호출하고, 호스트는 `OnAllPlayersLoaded`를 전달받거나, `SessionRules.LoadTimeoutSeconds`(기본 60초)가 지나면 보고하지 않은 플레이어를 담은 `OnLoadTimedOut`을 전달받습니다. 한 게임 안에서 레벨을 바꾸는 게임은 호스트에서 다음 레벨 이름 같은 데이터로 `BeginLoadPhase`를 호출합니다. 그러면 모든 플레이어의 로드 완료 상태가 지워지고, 모든 플레이어가 그 데이터와 함께 `OnLoadPhaseBegan`을 전달받아 로드한 뒤 다시 보고하며, 호스트는 같은 규칙으로 다시 기다립니다. 로드 단계가 시작되기 전에 보낸 보고는 그 단계에서 인정되지 않습니다.
+
+```csharp
+// Awake에서 OnGameStarted 옆에: 호스트를 포함한 모든 플레이어가 새 단계마다 전달받습니다.
+_manager.OnLoadPhaseBegan += phaseData =>
+{
+    // 단계 데이터가 가리키는 레벨을 로드한 뒤 다시 보고합니다.
+    _manager.ReportLoaded();
+};
+
+// 게임이 진행되다가, 호스트가 모두를 다음 레벨로 옮깁니다.
+_manager.BeginLoadPhase(Encoding.UTF8.GetBytes("Level2"));
+```
+- **음성**: `SteamBackend`와 `LocalBackend`는 이 플레이어의 음성을 녹음하고 다른 플레이어의 음성을 디코딩하는 `IVoiceBackend`(`Mu3Library.Multiplayer.Backend`)를 구현합니다. Steam에서는 Steam 음성을, 로컬 백엔드에서는 기본 마이크를 쓰므로 같은 코드가 에디터에서도 동작합니다. 게임은 음성을 보통 `Unreliable` 게임 메시지로 실어 보내고, 누가 들을지 정합니다. 보내는 쪽이 `MessageTarget`으로 정하거나, 근접 음성이나 무전 채널에 필요하듯 호스트가 `SetRelayFilter`로 메시지마다, 플레이어마다 정합니다. `VoicePlayer`는 화자마다 게임이 직접 준비한 `AudioSource`로 음성을 재생하며, `spatialBlend`와 롤오프 같은 그 `AudioSource`의 설정이 씬 안에서 음성이 어떻게 들릴지 정합니다. 음성도 송신량 제한에 포함됩니다. 로컬 백엔드의 음성은 녹음하는 동안 무음까지 포함해 1초에 16,000바이트를 씁니다.
+
+```csharp
+// 위 세션 코드에 더합니다. using System.Collections.Generic;도 추가하세요
+private const ushort VoiceMessage = 2;
+private IVoiceBackend _voice;
+private readonly Dictionary<PlayerId, VoicePlayer> _voicePlayers = new Dictionary<PlayerId, VoicePlayer>();
+
+// Awake에서 Initialize 뒤에.
+_voice = _backend as IVoiceBackend;
+_manager.RegisterMessage(VoiceMessage, OnVoice);
+// 필터는 호스트에서만 적용됩니다. 멀리 있는 플레이어의 음성은 아무도 듣지 않습니다.
+_manager.SetRelayFilter(VoiceMessage, (speaker, listener) => AreClose(speaker, listener));
+_manager.OnParticipantLeft += (participant, reason) =>
+{
+    if (_voicePlayers.TryGetValue(participant.Id, out VoicePlayer player))
+    {
+        player.Dispose();
+        _voicePlayers.Remove(participant.Id);
+    }
+};
+
+// 눌러서 말하기.
+public void SetTalking(bool talking)
+{
+    if (talking)
+    {
+        _voice.StartVoiceRecording();
+    }
+    else
+    {
+        _voice.StopVoiceRecording();
+    }
+}
+
+// Update에서 _manager.Update() 뒤에: 지난 프레임 이후 녹음한 것을 보내고 재생합니다.
+if (_voice.TryReadVoice(out ReadOnlySpan<byte> voice) && _manager.State == SessionState.InGame)
+{
+    _manager.Send(VoiceMessage, voice, MessageTarget.Others, DeliveryMode.Unreliable);
+}
+
+foreach (VoicePlayer player in _voicePlayers.Values)
+{
+    player.Update();
+}
+
+private void OnVoice(MessageContext context, ReadOnlySpan<byte> payload)
+{
+    if (!_voicePlayers.TryGetValue(context.Sender, out VoicePlayer player))
+    {
+        // 게임이 찾아오는, 화자 캐릭터에 붙은 AudioSource.
+        player = new VoicePlayer(VoiceSourceOf(context.Sender), _voice.VoiceSampleRate);
+        _voicePlayers.Add(context.Sender, player);
+    }
+
+    if (_voice.TryDecodeVoice(payload, out ReadOnlySpan<float> samples))
+    {
+        player.Write(samples);
+    }
+}
+```
+- `IMultiplayerManagerEventBus`에 모든 이벤트가 있고, `IMultiplayerManager`와 `IMultiplayerMessenger`의 XML 주석이 각 호출을 설명합니다. 에디터에서는 **Mu3Library > Windows > Multiplayer Debugger**가 플레이 모드에서 실행 중인 세션을 보여 줍니다.
+
 ## 🔧 선택적 패키지
 
 다음 패키지들이 설치되면 해당 기능이 자동으로 활성화됩니다:
@@ -391,8 +657,8 @@ fallback Inspector는 모든 `MonoBehaviour`와 `ScriptableObject`에 `isFallbac
 - **Event**: `SubscribeHandler`를 통한 owner 관리형 subscription 유틸리티, 재사용 가능한 일회성 helper, 폐기 가능한 `ISubscriptionInfo` token
 - **Extensions**: GameObject, Transform, Vector3 등 확장 메서드
 - **Localization**: 별도의 Localization 패키지로 옮겨짐 ([README](../../packages/localization/README.md))
-- **Multiplayer**: 교체 가능한 백엔드 위에서 로비, 참가자 목록, 준비 확인, 호스트가 설정하고 지우는 로비 데이터와 각 플레이어가 설정하고 지우는 플레이어별 데이터(둘 다 변경을 모든 플레이어가 전달받음), 로비 채팅, 정원 규칙, 클라이언트별 송신량 제한, 게임 시작, 강퇴, 게임 중 연결이 끊긴 플레이어가 클라이언트마다 정한 시도 시간 안에 다시 접속할 때까지 유지되는 자리와 그 뒤의 로비 재입장(실패하면 게임에 알림), 시작 뒤 모든 플레이어의 로드 완료를 호스트가 기다리는 동기화, 호스트가 중계하며 `MessageWriter`와 `MessageReader`로 내용을 쓰고 읽는 게임 메시지, 각 연결의 품질(핑, 패킷 손실, 초당 바이트)과 모든 플레이어가 읽는, 호스트가 잰 각 플레이어의 핑, 텍스처로 받고, 플레이어가 사진을 바꾸면 따라 바뀌며, 더 보여 주지 않으면 게임이 놓아주는 플레이어의 아바타, 프레즌스 상태를 다루는 플레이어 호스트 세션. 백엔드로는 `LocalBackend`(한 프로세스 안에서 여러 플레이어, 또는 `LocalNetwork.CreateMachineWide`로 만든 네트워크에서 같은 PC의 에디터와 플레이어 빌드이며, 이 네트워크는 지연 시간, 지터, 패킷 손실, 네트워크 끊김을 시뮬레이션할 수 있음)가 있고, Steam 로비와 Steam 연결로 플레이하며 플레이어의 Steam 아바타와, 친구 목록에 상태를 보여 주는 Steam 리치 프레즌스를 다루는 `SteamBackend`는 별도의 Steam 패키지([README](../../packages/steam/README.md))에 있습니다. 메시지 종류별 개수도 제공하며, 에디터에는 플레이 모드에서 실행 중인 각 세션의 상태, 플레이어, 연결 품질, 메시지 개수를 보여 주는 **Mu3Library > Windows > Multiplayer Debugger** 창이 있으며, 이 창의 **Host ping** 열은 호스트에서든 클라이언트에서든 호스트가 잰 각 플레이어의 핑을 보여 줍니다
-  - **백엔드 작성**: 다른 플랫폼의 백엔드는 `Mu3Library.Multiplayer.Backend`의 `IMultiplayerBackend`를 구현하며, 매니저가 찾는 두 선택 인터페이스도 구현할 수 있습니다. 공개가 아닌 로비에 초대로만 들어갈 수 있으면 `ILobbyInviteBackend`를 구현해 호스트가 유지되는 자리로 돌아온 플레이어를 다시 초대하게 하고, 백엔드를 사용할 수 없는 이유를 알리려면 Steam 백엔드가 `SteamNotRunning`을 알리듯 `IUnavailableReasonBackend`를 구현합니다. `LobbyDataKeys`는 매니저가 `mu3.` 접두사로 예약해 자기가 만드는 모든 로비에 쓰는 로비 데이터 키를 담으며, 백엔드는 이 키를 다른 로비 데이터처럼 저장하며, 읽을 수도 있습니다. `SearchLobbies`가 반환된 뒤에 검색을 시작하는 백엔드는 `LobbySearchQuery.Clone()`으로 만든 쿼리 사본을 보관합니다
+- **Multiplayer**: 교체 가능한 백엔드 위에서 로비, 참가자 목록, 준비 확인, 호스트가 설정하고 지우는 로비 데이터와 각 플레이어가 설정하고 지우는 플레이어별 데이터(둘 다 변경을 모든 플레이어가 전달받음), 로비 채팅, 정원 규칙, 클라이언트별 송신량 제한, 게임 시작, 강퇴, 게임 중 연결이 끊긴 플레이어가 클라이언트마다 정한 시도 시간 안에 다시 접속할 때까지 유지되는 자리와 그 뒤의 로비 재입장(실패하면 게임에 알림), 시작 뒤와 게임 안에서 호스트가 시작하는 각 로드 단계마다 모든 플레이어의 로드 완료를 호스트가 기다리는 동기화, 호스트가 중계하며 `MessageWriter`와 `MessageReader`로 내용을 쓰고 읽는 게임 메시지, 각 연결의 품질(핑, 패킷 손실, 초당 바이트)과 모든 플레이어가 읽는, 호스트가 잰 각 플레이어의 핑, 텍스처로 받고, 플레이어가 사진을 바꾸면 따라 바뀌며, 더 보여 주지 않으면 게임이 놓아주는 플레이어의 아바타, 프레즌스 상태, 그리고 백엔드가 녹음하고 디코딩하며, 게임이나 호스트의 중계 필터가 고른 플레이어에게 게임이 메시지로 실어 보내고, `VoicePlayer`가 화자마다 `AudioSource`로 재생하는 음성을 다루는 플레이어 호스트 세션. 백엔드로는 `LocalBackend`(한 프로세스 안에서 여러 플레이어, 또는 `LocalNetwork.CreateMachineWide`로 만든 네트워크에서 같은 PC의 에디터와 플레이어 빌드이며, 이 네트워크는 지연 시간, 지터, 패킷 손실, 네트워크 끊김을 시뮬레이션할 수 있음)가 있고, Steam 로비와 Steam 연결로 플레이하며 플레이어의 Steam 아바타와, 친구 목록에 상태를 보여 주는 Steam 리치 프레즌스를 다루는 `SteamBackend`는 별도의 Steam 패키지([README](../../packages/steam/README.md))에 있습니다. 메시지 종류별 개수도 제공하며, 에디터에는 플레이 모드에서 실행 중인 각 세션의 상태, 플레이어, 연결 품질, 메시지 개수를 보여 주는 **Mu3Library > Windows > Multiplayer Debugger** 창이 있으며, 이 창의 **Host ping** 열은 호스트에서든 클라이언트에서든 호스트가 잰 각 플레이어의 핑을 보여 줍니다
+  - **백엔드 작성**: 다른 플랫폼의 백엔드는 `Mu3Library.Multiplayer.Backend`의 `IMultiplayerBackend`를 구현하며, 매니저가 찾는 두 선택 인터페이스도 구현할 수 있습니다. 공개가 아닌 로비에 초대로만 들어갈 수 있으면 `ILobbyInviteBackend`를 구현해 호스트가 유지되는 자리로 돌아온 플레이어를 다시 초대하게 하고, 백엔드를 사용할 수 없는 이유를 알리려면 Steam 백엔드가 `SteamNotRunning`을 알리듯 `IUnavailableReasonBackend`를 구현합니다. 세 번째인 `IVoiceBackend`는 게임이 직접 쓰는 인터페이스로, 음성을 녹음하고 디코딩합니다. `LobbyDataKeys`는 매니저가 `mu3.` 접두사로 예약해 자기가 만드는 모든 로비에 쓰는 로비 데이터 키를 담으며, 백엔드는 이 키를 다른 로비 데이터처럼 저장하며, 읽을 수도 있습니다. `SearchLobbies`가 반환된 뒤에 검색을 시작하는 백엔드는 `LobbySearchQuery.Clone()`으로 만든 쿼리 사본을 보관합니다
 - **ObjectPool**: 중복된 비활성 오브젝트 재등록 방지, `List<T>` 일괄 enqueue 및 count/인자 목록 기반 `List<T>` 반환 dequeue, 선택적 무인자 생성 콜백과 타입 안전한 `CreateArguments` 초기화 콜백, `Clear()` 정리를 지원하는 큐 기반 오브젝트 풀링
 - **Observable**: 데이터 변경 감지 시스템
 - **Preference**: PlayerPrefs 래퍼
@@ -465,7 +731,7 @@ CameraStackSetter.SetCameraStack(targetCamera, _mvpManager.RenderCamera);
 - DI: `com.github.doqltl179.mu3library.di` (Base 의존)
 - Steam: `com.github.doqltl179.mu3library.steam` (Base 의존, Steamworks.NET 필요)
 - URP: `com.github.doqltl179.mu3library.urp` (Base 의존)
-- Watermelon Game: `com.github.doqltl179.mu3library.game.watermelon` (Base, URP 의존)
+- Watermelon Game: `com.github.doqltl179.mu3library.game.watermelon` (Base 의존)
 - 버전과 릴리스 노트: [변경 이력](../changelog/CHANGELOG.ko.md)
 
 Unity 개발자를 위해 제작됨
