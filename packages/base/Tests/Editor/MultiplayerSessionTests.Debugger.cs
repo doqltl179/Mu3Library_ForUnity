@@ -35,15 +35,16 @@ namespace Mu3Library.Tests
             Assert.That(a.Manager.Send(Chat, new byte[a.Manager.MaxMessageSize + 1], MessageTarget.All).IsSuccess, Is.False);
             Pump();
 
-            Assert.That(Counts(host), Is.EqualTo(new[] { new MessageCounts(Chat, 1, 1), new MessageCounts(Report, 0, 1) }));
-            Assert.That(Counts(a), Is.EqualTo(new[] { new MessageCounts(Chat, 1, 1), new MessageCounts(Report, 1, 0) }));
-            Assert.That(Counts(b), Is.EqualTo(new[] { new MessageCounts(Chat, 0, 2), new MessageCounts(Report, 0, 0) }));
+            // Each message carries one byte, counted with it.
+            Assert.That(Counts(host), Is.EqualTo(new[] { new MessageCounts(Chat, 1, 1, 1, 1), new MessageCounts(Report, 0, 1, 0, 1) }));
+            Assert.That(Counts(a), Is.EqualTo(new[] { new MessageCounts(Chat, 1, 1, 1, 1), new MessageCounts(Report, 1, 0, 1, 0) }));
+            Assert.That(Counts(b), Is.EqualTo(new[] { new MessageCounts(Chat, 0, 2, 0, 2), new MessageCounts(Report, 0, 0) }));
 
             // Unregistering a type drops its counts; registering it again starts over.
             Assert.That(host.Manager.UnregisterMessage(Report), Is.True);
-            Assert.That(Counts(host), Is.EqualTo(new[] { new MessageCounts(Chat, 1, 1) }));
+            Assert.That(Counts(host), Is.EqualTo(new[] { new MessageCounts(Chat, 1, 1, 1, 1) }));
             Listen(host, Report);
-            Assert.That(Counts(host), Is.EqualTo(new[] { new MessageCounts(Chat, 1, 1), new MessageCounts(Report, 0, 0) }));
+            Assert.That(Counts(host), Is.EqualTo(new[] { new MessageCounts(Chat, 1, 1, 1, 1), new MessageCounts(Report, 0, 0) }));
         }
 
         [Test]
@@ -120,10 +121,12 @@ namespace Mu3Library.Tests
                 RefreshFor(window, managers, MultiplayerDebuggerWindow.RefreshIntervalSeconds);
                 double elapsed = hostView.CapturedAt - before;
                 MultiplayerSessionView.MessageRow chat = hostView.Messages.Single();
-                Assert.That(chat.Counts, Is.EqualTo(new MessageCounts(Chat, 10, 15)));
+                Assert.That(chat.Counts, Is.EqualTo(new MessageCounts(Chat, 10, 15, 10, 15)));
                 Assert.That(chat.SentPerSecond, Is.EqualTo(10.0 / elapsed).Within(0.01));
                 Assert.That(chat.ReceivedPerSecond, Is.EqualTo(15.0 / elapsed).Within(0.01));
-                Assert.That(window.Views[1].Messages.Single().Counts, Is.EqualTo(new MessageCounts(Chat, 5, 10)));
+                Assert.That(chat.SentBytesPerSecond, Is.EqualTo(10.0 / elapsed).Within(0.01));
+                Assert.That(chat.ReceivedBytesPerSecond, Is.EqualTo(15.0 / elapsed).Within(0.01));
+                Assert.That(window.Views[1].Messages.Single().Counts, Is.EqualTo(new MessageCounts(Chat, 5, 10, 5, 10)));
 
                 // A manager that left the list leaves the window.
                 RefreshFor(window, managers.Take(1).ToList(), MultiplayerDebuggerWindow.RefreshIntervalSeconds);

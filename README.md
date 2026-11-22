@@ -711,6 +711,61 @@ private void OnVoice(MessageContext context, ReadOnlySpan<byte> payload)
     }
 }
 ```
+- **State sync**: `StateSyncManager` (`Mu3Library.Multiplayer.Sync`) keeps game states the same on every player within a byte budget, so systems whose state changes every frame do not each send messages of their own. Each system decides what its state holds and how precisely it writes it, in a `SyncState` subclass or an `ISyncState` of its own, with a whole write and, if it overrides one, a write of what changed. The manager decides how much goes and when: every `StateSyncConfig.TickIntervalSeconds` (20 times a second by default) it gathers the states that changed into one message per player and delivery mode, and sends each player at most `MaxBytesPerTick` (512 by default). States that do not fit wait for a later tick, picked by their priority and by how long they waited, and a player who missed a change, joins during the game, or comes back to their slot gets the whole state. The host sends the states it owns, and a state a client owns, such as its own character, goes from that client to the host under the same budget and on to the other players. An unreliable state, the default, also goes whole every `FullStateIntervalSeconds` (1 by default), so a copy that lost an update catches up; a reliable one suits a state that changes now and then, such as a door. An interest filter lets the host send a state only to the players it picks, such as those close by. `TransformSync` syncs a transform's position and rotation, quantized, and moves each copy smoothly between the updates. The manager syncs while the game runs (`SessionState.InGame`); `CheckRateLimits` tells whether what a client sends fits the session's rate limits, which the manager also checks as each game starts and logs when they do not, and the Multiplayer Debugger shows what each tick sent each player.
+
+```csharp
+// Beside the session code above: add using System.Collections.Generic; and using Mu3Library.Multiplayer.Sync;
+private const ushort SyncMessage = 3;
+private StateSyncManager _sync;
+private readonly List<TransformSync> _transforms = new List<TransformSync>();
+
+// In Awake, after Initialize. Every player creates it with the same config.
+_sync = new StateSyncManager(_manager, new StateSyncConfig(SyncMessage));
+
+// Once the game starts, every player registers the same states under the same IDs.
+_manager.OnGameStarted += startData =>
+{
+    _transforms.Add(new TransformSync(1, _boss.transform));
+    _sync.Register(_transforms[_transforms.Count - 1]); // the host sends it
+    foreach (Participant participant in _manager.Participants)
+    {
+        // An ID every player gives this player's character, such as its place in the start data.
+        TransformSync character = new TransformSync(CharacterIdOf(participant.Id), CharacterOf(participant.Id));
+        _transforms.Add(character);
+        _sync.Register(character, participant.Id); // its player sends it, and the host sends it on
+    }
+};
+
+// When the game ends, every player unregisters them, so the next game registers its own.
+_manager.OnReturnedToLobby += ClearSyncedStates;
+_manager.OnStateChanged += change =>
+{
+    if (change.Current == SessionState.Offline)
+    {
+        ClearSyncedStates();
+    }
+};
+
+// In Update, after _manager.Update(): send this tick's changes, and move the copies.
+_sync.Update();
+foreach (TransformSync synced in _transforms)
+{
+    synced.Update();
+}
+
+// In OnDestroy, before _manager.Dispose().
+_sync.Dispose();
+
+private void ClearSyncedStates()
+{
+    foreach (TransformSync synced in _transforms)
+    {
+        _sync.Unregister(synced.Id);
+    }
+
+    _transforms.Clear();
+}
+```
 - `IMultiplayerManagerEventBus` lists every event, and the XML comments of `IMultiplayerManager` and `IMultiplayerMessenger` describe each call; in the editor, **Mu3Library > Windows > Multiplayer Debugger** shows the running sessions in play mode.
 
 #### Session Saves
@@ -811,7 +866,7 @@ The fallback Inspector is registered with `isFallback` for every `MonoBehaviour`
 - **Event**: Owner-managed subscription utilities, reusable one-shot helpers, and disposable `ISubscriptionInfo` tokens via `SubscribeHandler`
 - **Extensions**: Extension methods for GameObject, Transform, Vector3, etc.
 - **Localization**: Moved to the separate Localization package ([README](packages/localization/README.md))
-- **Multiplayer**: Player-hosted sessions with lobbies, roster, ready check, lobby data that the host sets and deletes and per-player data that each player sets and deletes, both of which every player hears change, lobby chat, capacity rules, per-client rate limits, game start, kicks, slots kept for players who drop during a game until they reconnect, within a time each client sets for its own attempts, and enter their lobby again, which the game hears when they cannot, a host-side wait for every player to finish loading after the start and again for each load phase the host begins within the game, game messages relayed by the host, with `MessageWriter` and `MessageReader` for their payloads, the quality of each connection (ping, packet loss, and bytes per second) and, on every player, each player's ping as the host measures it, players' avatars as textures, which follow a player's new picture and which the game releases once it no longer shows them, a presence status, and voice, which the backend records and decodes, the game carries as messages to the players it or the host's relay filter picks, and `VoicePlayer` plays through an `AudioSource` for each speaker, over a pluggable backend: `LocalBackend` (several players inside one process, or, on a network from `LocalNetwork.CreateMachineWide`, editors and player builds on one computer), whose network can simulate latency, jitter, packet loss, and outages, and `SteamBackend` (Steam lobbies and Steam connections, the players' Steam avatars, and Steam rich presence, which shows the status in the friends list), in the separate Steam package ([README](packages/steam/README.md)); per-type message counts; and, in the editor, the **Mu3Library > Windows > Multiplayer Debugger** window, which shows each running session's state, players, connection quality, and message counts in play mode, along with a **Host ping** column that shows each player's ping as the host measures it, on the host and on clients alike
+- **Multiplayer**: Player-hosted sessions with lobbies, roster, ready check, lobby data that the host sets and deletes and per-player data that each player sets and deletes, both of which every player hears change, lobby chat, capacity rules, per-client rate limits, game start, kicks, slots kept for players who drop during a game until they reconnect, within a time each client sets for its own attempts, and enter their lobby again, which the game hears when they cannot, a host-side wait for every player to finish loading after the start and again for each load phase the host begins within the game, game messages relayed by the host, with `MessageWriter` and `MessageReader` for their payloads, the quality of each connection (ping, packet loss, and bytes per second) and, on every player, each player's ping as the host measures it, players' avatars as textures, which follow a player's new picture and which the game releases once it no longer shows them, a presence status, and voice, which the backend records and decodes, the game carries as messages to the players it or the host's relay filter picks, and `VoicePlayer` plays through an `AudioSource` for each speaker, over a pluggable backend: `LocalBackend` (several players inside one process, or, on a network from `LocalNetwork.CreateMachineWide`, editors and player builds on one computer), whose network can simulate latency, jitter, packet loss, and outages, and `SteamBackend` (Steam lobbies and Steam connections, the players' Steam avatars, and Steam rich presence, which shows the status in the friends list), in the separate Steam package ([README](packages/steam/README.md)); state sync within a byte budget per player and tick, which gathers the states that changed into one message a player and picks what fits by priority and waiting time (`StateSyncManager`, with `TransformSync` for transforms); per-type message counts and their bytes; and, in the editor, the **Mu3Library > Windows > Multiplayer Debugger** window, which shows each running session's state, players, connection quality, message counts and bytes, and what each tick of its state sync sent each player in play mode, along with a **Host ping** column that shows each player's ping as the host measures it, on the host and on clients alike
   - **Writing a backend**: A backend for another platform implements `IMultiplayerBackend` from `Mu3Library.Multiplayer.Backend`, and may also implement two optional interfaces that the manager looks for: `ILobbyInviteBackend`, when its lobbies that are not public let a player in only by invite, so the host invites back a player who returns to a kept slot, and `IUnavailableReasonBackend`, to name why the backend is not available, as the Steam backend names `SteamNotRunning`. A third, `IVoiceBackend`, which the game uses itself, records and decodes voice. `LobbyDataKeys` lists the lobby data keys that the manager reserves under the `mu3.` prefix and writes in every lobby it creates; a backend stores them like any other lobby data and may read them. A backend that starts a search after `SearchLobbies` returns keeps a copy of the query from `LobbySearchQuery.Clone()`
 - **ObjectPool**: Queue-based object pooling with duplicate inactive enqueue protection, batch `List<T>` enqueue and count- or argument-list-based `List<T>` dequeue support, optional no-argument creation callbacks, typed `CreateArguments` initialization callbacks, and `Clear()` cleanup
 - **Observable**: Data change detection system
