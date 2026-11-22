@@ -6,6 +6,10 @@ Detailed per-release notes live in the repository root `CHANGELOG.md` under the 
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-22
+
+- See `addressables/0.2.0` in the repository root `CHANGELOG.md`. Highlights: `LoadAssetHandle` and `LoadAssetHandleAsync` hand each caller an `AssetHandle<T>`, and the last handle disposed releases the cached asset; a class of the game's own that implements `IAddressablesManager` adds the new members.
+
 ## [0.1.1] - 2026-11-22
 
 - See `addressables/0.1.1` in the repository root `CHANGELOG.md`. Highlights: `LoadAssets` and `LoadAssetsAsync` hand each asset to the per-asset callback whether the assets were cached, still loading for an earlier call, or loaded anew.

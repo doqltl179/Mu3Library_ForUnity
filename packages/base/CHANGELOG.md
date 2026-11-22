@@ -6,6 +6,10 @@ Detailed per-release notes live in the repository root `CHANGELOG.md` under the 
 
 ## [Unreleased]
 
+## [0.32.0] - 2026-11-22
+
+- See `base/0.32.0` in the repository root `CHANGELOG.md`. Highlights: a save system that saves and loads a game in sections (`Mu3Library.Save`), host-kept saves of multiplayer sessions that the host can share with another player (`Mu3Library.SessionSave`), an in-game debug console with developer and player commands (`Mu3Library.DebugConsole`), state sync within a byte budget per player and tick (`Mu3Library.Multiplayer.Sync`), and a state machine for game flows (`Mu3Library.States`); the packet format is unchanged, so this version still meets players on 0.31.0.
+
 ## [0.31.0] - 2026-11-22
 
 - See `base/0.31.0` in the repository root `CHANGELOG.md`. Highlights: the host of a multiplayer game begins another load phase within the game with `BeginLoadPhase` and waits again for every player to load, so the packet format version is now 7 and every player of a game updates together; and voice for sessions through the optional `IVoiceBackend`, `VoicePlayer`, and the host's `SetRelayFilter`, with the local backend recording the default microphone.

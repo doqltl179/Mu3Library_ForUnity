@@ -62,7 +62,7 @@
 3. Enter one of the following URLs:
    ```
     # Base package
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/base#base/v0.31.0
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/base#base/v0.32.0
 
     # Notifications package
     https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/notifications#notifications/v0.1.0
@@ -74,13 +74,13 @@
     https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/localization#localization/v0.1.0
 
     # Addressables package (install Base first)
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/addressables#addressables/v0.1.1
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/addressables#addressables/v0.2.0
 
     # DI package (install Base first)
     https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/di#di/v0.2.0
 
     # Steam package (install Steamworks.NET and Base first)
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/steam#steam/v0.2.0
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/steam#steam/v0.3.0
 
     # URP package (install Base first)
     https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/urp#urp/v0.5.0
