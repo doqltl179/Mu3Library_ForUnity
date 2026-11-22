@@ -70,7 +70,7 @@ namespace Mu3Library.SessionSave
         /// keeps their sections in it. The slot's metadata names this host and, when given,
         /// <paramref name="sessionName"/>, up to <see cref="SaveLimits.MaxMetadataValueLength"/>
         /// characters; a null name keeps the one the slot holds. Host only. The metadata is written
-        /// after the sections, so a storage failure there answers
+        /// after the sections, so a failure there, such as a full metadata list, answers
         /// <see cref="SessionSaveFailureReason.SaveFailed"/> with the sections already saved.
         /// </summary>
         public SessionSaveResult Save(string slotId, string sessionName = null);

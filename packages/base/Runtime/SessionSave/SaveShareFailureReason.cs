@@ -19,7 +19,11 @@ namespace Mu3Library.SessionSave
         /// or the slot is in a format newer than that player's build reads.
         /// </summary>
         Corrupted = 4,
-        /// <summary>One of the players cancelled the share, or disposed its manager.</summary>
+        /// <summary>
+        /// One of the players cancelled the share, or disposed its manager; on the receiving
+        /// player, also a share that a new offer from the same host replaced, since the host had
+        /// ended it without reaching this player.
+        /// </summary>
         Cancelled = 5,
         /// <summary>The other player did not answer within <see cref="SessionSaveManager.ShareTimeoutSeconds"/>.</summary>
         Timeout = 6,
