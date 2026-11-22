@@ -3,6 +3,7 @@
     "rootNamespace": "Mu3Library.Steam.Multiplayer",
     "references": [
         "GUID:e8cd03960cfe03647ada1ecc7577e225",
+        "GUID:98a4b6200f3d443a83b3c13d2ec86acb",
         "com.rlabrecque.steamworks.net"
     ],
     "includePlatforms": [

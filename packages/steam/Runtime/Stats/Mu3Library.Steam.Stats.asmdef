@@ -3,6 +3,7 @@
     "rootNamespace": "Mu3Library.Steam.Stats",
     "references": [
         "GUID:2a5cd79a18034502a827d545903c1112",
+        "GUID:98a4b6200f3d443a83b3c13d2ec86acb",
         "com.rlabrecque.steamworks.net"
     ],
     "includePlatforms": [
