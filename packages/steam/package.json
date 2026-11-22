@@ -19,6 +19,6 @@
         "Lobby"
     ],
     "dependencies": {
-        "com.github.doqltl179.mu3library.base": "0.31.0"
+        "com.github.doqltl179.mu3library.base": "0.32.0"
     }
 }

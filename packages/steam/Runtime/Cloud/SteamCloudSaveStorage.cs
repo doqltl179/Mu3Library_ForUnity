@@ -15,10 +15,14 @@ namespace Mu3Library.Steam.Cloud
     /// <para>
     /// Steam writes a file whole in one call (<c>FileWrite</c>); whether a write that a crash cuts
     /// short leaves the previous bytes is up to the Steam client, which this storage cannot check.
-    /// Steam's file names ignore case, so give slots IDs that differ in more than case. A Steam call
+    /// Steam's file names ignore case and Steam lists them in lower case, so
+    /// <see cref="GetSlotIds"/>, and with it <see cref="SaveManager.GetSlots"/>, answers lower-case
+    /// slot IDs: give slots lower-case IDs, or compare them ignoring case. A Steam call
     /// that throws because Steam cannot run in this process answers
-    /// <see cref="SaveFailureReason.StorageFailed"/>, and so does a write Steam refuses, such as one
-    /// past the app's Steam Cloud quota or larger than 100 MiB.
+    /// <see cref="SaveFailureReason.StorageFailed"/> from a read, write, or delete, false from
+    /// <see cref="Exists"/>, and no slot from <see cref="GetSlotIds"/>; a write Steam refuses,
+    /// such as one past the app's Steam Cloud quota or larger than 100 MiB, answers
+    /// <see cref="SaveFailureReason.StorageFailed"/> too.
     /// </para>
     /// <para>
     /// The assembly compiles only with Steamworks.NET 2025.164.1 or later, and only in the editor
