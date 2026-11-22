@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Text;
+using UnityEngine;
 
 namespace Mu3Library.DebugConsole
 {
@@ -57,7 +59,7 @@ namespace Mu3Library.DebugConsole
                 if (parameter.HasDefaultValue)
                 {
                     builder.Append('[').Append(parameter.Name).Append(':').Append(typeName).Append('=')
-                        .Append(parameter.DefaultValue ?? "null").Append(']');
+                        .Append(FormatDefault(parameter.DefaultValue)).Append(']');
                 }
                 else
                 {
@@ -66,6 +68,23 @@ namespace Mu3Library.DebugConsole
             }
 
             return builder.ToString();
+        }
+
+        // Written as the console reads it back: invariant numbers, and vectors as x,y,z.
+        private static string FormatDefault(object value)
+        {
+            CultureInfo culture = CultureInfo.InvariantCulture;
+            switch (value)
+            {
+                case null:
+                    return "null";
+                case Vector2 v2:
+                    return string.Format(culture, "{0},{1}", v2.x, v2.y);
+                case Vector3 v3:
+                    return string.Format(culture, "{0},{1},{2}", v3.x, v3.y, v3.z);
+                default:
+                    return Convert.ToString(value, culture);
+            }
         }
     }
 

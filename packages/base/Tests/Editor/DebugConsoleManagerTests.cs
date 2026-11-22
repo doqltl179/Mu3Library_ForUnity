@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using Mu3Library.DebugConsole;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.TestTools;
 
 namespace Mu3Library.Tests
 {
@@ -45,6 +47,13 @@ namespace Mu3Library.Tests
             _given = (item, count);
         }
 
+        private static (Vector3 Where, float Speed) _teleported;
+
+        private static void Teleport(Vector3 where = default, float speed = 1.5f)
+        {
+            _teleported = (where, speed);
+        }
+
         [Test]
         public void TypedCommand_ReadsEachParameterType()
         {
@@ -78,6 +87,20 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void OptionalVectorParameter_DefaultsToZero()
+        {
+            DebugConsoleManager console = Create();
+            console.RegisterCommand<Vector3, float>("teleport", Teleport);
+
+            Assert.That(console.Execute("teleport").IsSuccess);
+            Assert.That(_teleported, Is.EqualTo((Vector3.zero, 1.5f)));
+            Assert.That(console.Execute("teleport 1,2,3").IsSuccess);
+            Assert.That(_teleported.Where, Is.EqualTo(new Vector3(1f, 2f, 3f)));
+            Assert.That(console.TryGetCommand("teleport", out ConsoleCommand command));
+            Assert.That(command.Usage, Is.EqualTo("teleport [where:x,y,z=0,0,0] [speed:float=1.5]"));
+        }
+
+        [Test]
         public void WrongLines_FailWithTheirReason_AndPrintAnError()
         {
             DebugConsoleManager console = Create();
@@ -99,11 +122,12 @@ namespace Mu3Library.Tests
         {
             DebugConsoleManager console = Create();
             console.RegisterCommand("boom", () => throw new InvalidOperationException("broken"));
+            LogAssert.Expect(LogType.Exception, new Regex("broken"));
 
             ConsoleResult result = console.Execute("boom");
 
             Assert.That(result.Reason, Is.EqualTo(ConsoleFailureReason.CommandFailed));
-            Assert.That(result.Message, Does.Contain("broken"));
+            Assert.That(result.Message, Does.Contain("InvalidOperationException: broken"));
         }
 
         [Test]
@@ -141,7 +165,8 @@ namespace Mu3Library.Tests
 
             Assert.That(console.Open(), Is.True);
             Assert.That(console.Execute("perk").IsSuccess);
-            Assert.That(console.Execute("dev").Reason, Is.EqualTo(ConsoleFailureReason.AccessDenied));
+            Assert.That(console.Execute("dev").Reason, Is.EqualTo(ConsoleFailureReason.UnknownCommand),
+                "A release build answers a developer command as one it does not have.");
             Assert.That(player, Is.EqualTo(1));
             Assert.That(developer, Is.EqualTo(0));
         }
@@ -177,7 +202,7 @@ namespace Mu3Library.Tests
             string printed = string.Join("\n", console.Lines.Select(line => line.Text));
             Assert.That(printed, Does.Contain("gold - Adds gold."));
             Assert.That(printed, Does.Not.Contain("god -"));
-            Assert.That(printed, Does.Contain("help"));
+            Assert.That(printed, Does.Contain("help [arguments...] - Lists"));
         }
 
         [Test]
@@ -200,6 +225,12 @@ namespace Mu3Library.Tests
 
             console.ResetProgressModified();
             Assert.That(console.HasModifiedProgress, Is.False);
+
+            console.RegisterCommand("give-then-fail", () => throw new InvalidOperationException("ui failed"),
+                new ConsoleCommandOptions("Gives, then fails.", affectsProgress: true));
+            LogAssert.Expect(LogType.Exception, new Regex("ui failed"));
+            Assert.That(console.Execute("give-then-fail").Reason, Is.EqualTo(ConsoleFailureReason.CommandFailed));
+            Assert.That(console.HasModifiedProgress, "A command that ran counts, even when it threw afterwards.");
         }
 
         [Test]
@@ -265,6 +296,10 @@ namespace Mu3Library.Tests
             console.Close();
 
             Assert.That(changes, Is.EqualTo(new[] { true, false }));
+
+            console.Open();
+            console.Dispose();
+            Assert.That(changes, Is.EqualTo(new[] { true, false, true, false }), "Disposing an open console closes it.");
         }
     }
 }

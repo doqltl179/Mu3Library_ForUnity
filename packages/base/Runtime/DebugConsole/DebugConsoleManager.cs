@@ -104,7 +104,7 @@ namespace Mu3Library.DebugConsole
                 Application.logMessageReceived -= HandleUnityLog;
             }
 
-            IsOpen = false;
+            Close();
         }
 
         #region Open
@@ -240,6 +240,12 @@ namespace Mu3Library.DebugConsole
             }
 
             ConsoleCommand command = entry.Command;
+            if (!IsDevelopmentBuild && command.Access == ConsoleAccess.Developer)
+            {
+                // A release build lists, completes, and answers only what it can run.
+                return Finish(null, ConsoleResult.Failure(ConsoleFailureReason.UnknownCommand, name, $"Unknown command '{name}'. Type help for the list."));
+            }
+
             if (!CanRun(command))
             {
                 string reason = command.Access == ConsoleAccess.Developer
@@ -260,20 +266,28 @@ namespace Mu3Library.DebugConsole
                 }
             }
 
+            Exception failure = null;
             try
             {
                 entry.Invoke(arguments, new ConsoleCall(this, command.Name, words));
             }
             catch (Exception exception)
             {
-                return Finish(command.Name, ConsoleResult.Failure(ConsoleFailureReason.CommandFailed, command.Name,
-                    $"'{command.Name}' failed: {exception.Message}"));
+                failure = exception;
             }
 
+            // A command that ran may have changed the progress before it threw, so it counts.
             if (command.AffectsProgress)
             {
                 HasModifiedProgress = true;
                 OnProgressModified?.Invoke(command.Name);
+            }
+
+            if (failure != null)
+            {
+                Debug.LogException(failure);
+                return Finish(command.Name, ConsoleResult.Failure(ConsoleFailureReason.CommandFailed, command.Name,
+                    $"'{command.Name}' failed: {failure.GetType().Name}: {failure.Message}"));
             }
 
             return Finish(command.Name, ConsoleResult.Success(command.Name));
@@ -315,7 +329,8 @@ namespace Mu3Library.DebugConsole
 
             ThrowIfInvalidName(name);
             ParameterInfo[] infos = handler.Method.GetParameters();
-            // A closed static lambda can carry its target as a hidden first parameter.
+            // A delegate closed over its first argument, such as an extension method's, lists that
+            // argument among the method's parameters although a call never passes it.
             int skip = infos.Length - GetArity(handler.GetType());
             var parameters = new ConsoleParameter[infos.Length - skip];
             for (int i = 0; i < parameters.Length; i++)
@@ -329,11 +344,31 @@ namespace Mu3Library.DebugConsole
                 }
 
                 string parameterName = string.IsNullOrEmpty(info.Name) ? $"arg{i + 1}" : info.Name;
-                parameters[i] = new ConsoleParameter(parameterName, info.ParameterType, info.HasDefaultValue, info.HasDefaultValue ? info.DefaultValue : null);
+                object defaultValue = info.HasDefaultValue ? GetDefaultValue(info) : null;
+                parameters[i] = new ConsoleParameter(parameterName, info.ParameterType, info.HasDefaultValue, defaultValue);
             }
 
             var command = new ConsoleCommand(name, options ?? new ConsoleCommandOptions(), parameters, takesRawArguments: false);
             _commands.Add(name, new Entry { Command = command, Invoke = invoke });
+        }
+
+        // A struct parameter can only default to default, which reflection reports as null, and an
+        // enum's default can come back as its underlying number; both are turned into the type itself.
+        private static object GetDefaultValue(ParameterInfo info)
+        {
+            Type type = info.ParameterType;
+            object value = info.DefaultValue;
+            if (value == null || value is DBNull || value == Type.Missing)
+            {
+                return type.IsValueType ? Activator.CreateInstance(type) : null;
+            }
+
+            if (type.IsEnum && value.GetType() != type)
+            {
+                return Enum.ToObject(type, value);
+            }
+
+            return value;
         }
 
         private static int GetArity(Type delegateType) =>
