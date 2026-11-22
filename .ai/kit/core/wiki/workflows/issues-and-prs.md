@@ -32,7 +32,7 @@ The workflow assumes these hosting settings. Changing them affects everyone usin
 | Default branch | `policy.integration_branch` | New pull requests target it, and closing keywords close issues when a unit merges |
 | Delete head branches after merge | on | A merged task branch disappears, so every unit starts fresh from the latest integration branch instead of reusing an old branch |
 
-On GitHub: `gh repo edit --default-branch <integration_branch> --delete-branch-on-merge`; confirm with `gh repo view --json defaultBranchRef,deleteBranchOnMerge`. When the integration branch is missing, create it from the release branch and push it, after confirmation. Branch protection rules (required reviews or checks) are the user's decision.
+On GitHub: `gh repo edit --default-branch <integration_branch> --delete-branch-on-merge`; confirm with `gh repo view --json defaultBranchRef,deleteBranchOnMerge`. When one of the two branches is missing, create it from the other and push it, after confirmation; when there is no other, ask the user which branch to start from. Branch protection rules (required reviews or checks) are the user's decision.
 
 ## Issue Body
 
