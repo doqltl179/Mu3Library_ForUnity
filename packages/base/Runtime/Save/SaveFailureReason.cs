@@ -20,7 +20,7 @@ namespace Mu3Library.Save
         Corrupted,
         /// <summary>The slot was written in a newer format, or the section with a newer data version than this build reads.</summary>
         VersionTooNew,
-        /// <summary>The serializer could not write or read the section's data.</summary>
+        /// <summary>The serializer could not write or read the section's data, or a metadata value is not valid text.</summary>
         SerializationFailed,
         /// <summary>The section's own capture, migration, restore, or default threw.</summary>
         SectionFailed,

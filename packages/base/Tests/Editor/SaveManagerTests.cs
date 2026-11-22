@@ -387,6 +387,7 @@ namespace Mu3Library.Tests
             Assert.That(_manager.Load(null).Reason, Is.EqualTo(SaveFailureReason.InvalidKey));
             Assert.That(_manager.Save("CON").Reason, Is.EqualTo(SaveFailureReason.InvalidKey), "Windows keeps CON for a device.");
             Assert.That(_manager.Save("nul").Reason, Is.EqualTo(SaveFailureReason.InvalidKey));
+            Assert.That(_manager.Save("LPT0").Reason, Is.EqualTo(SaveFailureReason.InvalidKey));
             Assert.That(_manager.Save("bad id", "player").SectionKey, Is.Null, "A bad slot ID names no section.");
         }
 
@@ -497,6 +498,9 @@ namespace Mu3Library.Tests
             }
 
             Assert.That(_manager.SetMetadata("slot", "one-more", "value").Reason, Is.EqualTo(SaveFailureReason.TooLarge));
+            string cutEmoji = "Name " + (char)0xD83D;
+            Assert.That(_manager.SetMetadata("slot", "key1", cutEmoji).Reason, Is.EqualTo(SaveFailureReason.SerializationFailed),
+                "Half of a character pair is refused, not thrown.");
             Assert.That(_manager.SetMetadata("slot", "key0", "changed").IsSuccess, "Changing a key it holds is not one more.");
         }
 

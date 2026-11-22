@@ -39,8 +39,10 @@ namespace Mu3Library.Save
         /// <summary>
         /// Brings data a slot held, written with <paramref name="savedVersion"/>, up to
         /// <see cref="Version"/>, without touching the game. The manager calls it while it reads the
-        /// slot, before any section restores, so a migration that throws restores nothing.
-        /// <paramref name="savedVersion"/> is never above <see cref="Version"/>.
+        /// slot, before any section restores, so a migration that throws restores nothing. It is
+        /// called for every section the slot holds, also when <paramref name="savedVersion"/> equals
+        /// <see cref="Version"/>, when it returns the data as it is; <paramref name="savedVersion"/> is
+        /// never above <see cref="Version"/>.
         /// </summary>
         public object Migrate(object data, int savedVersion);
 

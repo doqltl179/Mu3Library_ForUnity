@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text;
 
 namespace Mu3Library.Save
 {
@@ -9,6 +10,8 @@ namespace Mu3Library.Save
     /// </summary>
     public class SaveManager : ISaveManager, ISaveManagerEventBus
     {
+        private static readonly UTF8Encoding StrictUtf8 = new UTF8Encoding(false, true);
+
         private readonly ISaveSerializer _serializer;
         private readonly Dictionary<string, ISaveSection> _sections = new();
         private readonly List<ISaveSection> _sectionOrder = new();
@@ -211,6 +214,12 @@ namespace Mu3Library.Save
             {
                 return SaveResult.Failure(SaveFailureReason.TooLarge, key,
                     $"A metadata value holds up to {SaveLimits.MaxMetadataValueLength} characters.");
+            }
+
+            if (value != null && !CanEncode(value))
+            {
+                return SaveResult.Failure(SaveFailureReason.SerializationFailed, key,
+                    "The value holds half of a character pair, such as a string cut in the middle of an emoji.");
             }
 
             SaveResult read = ReadSlot(slotId, out SaveSlotFile file, out _);
@@ -524,6 +533,19 @@ namespace Mu3Library.Save
             }
 
             return SaveResult.Success;
+        }
+
+        private static bool CanEncode(string value)
+        {
+            try
+            {
+                StrictUtf8.GetByteCount(value);
+                return true;
+            }
+            catch (EncoderFallbackException)
+            {
+                return false;
+            }
         }
 
         private static SaveResult RefuseNewerVersion(SaveSlotFile file, ISaveSection section)

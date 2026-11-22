@@ -7,7 +7,8 @@ namespace Mu3Library.Save
     /// section per key and a few metadata values for a slot list; saving one section keeps the
     /// others, and a section the slot holds but that is not registered stays in it untouched. Calls
     /// run on the calling thread. A save, load, or storage failure comes back as a
-    /// <see cref="SaveResult"/>; only a null argument, which is a mistake in the calling code, throws.
+    /// <see cref="SaveResult"/>; only a mistake in the calling code throws, such as a null argument
+    /// or a <see cref="MaxSlotSize"/> of 0 or less, and so does an event handler that throws.
     /// </summary>
     public interface ISaveManager
     {
@@ -100,7 +101,9 @@ namespace Mu3Library.Save
 
         /// <summary>
         /// Checks bytes that <see cref="ExportSlot"/> handed out and writes them as the slot
-        /// <paramref name="slotId"/>, replacing a slot of that ID.
+        /// <paramref name="slotId"/>, replacing a slot of that ID. The check covers the format and
+        /// every length, so bytes from elsewhere are safe to parse; the sections they hold restore as
+        /// their sender wrote them.
         /// </summary>
         public SaveResult ImportSlot(string slotId, byte[] data);
     }
