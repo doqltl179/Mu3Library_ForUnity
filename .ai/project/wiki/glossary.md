@@ -73,6 +73,15 @@ One row per concept, one column per language of the localized copies («Human-Fa
 | debug console, player console | The in-game console of `DebugConsoleManager`, and the same console opened to players in a release build (`PlayerConsoleEnabled`) | 디버그 콘솔, 플레이어 콘솔 | デバッグコンソール、プレイヤーコンソール |
 | developer command, player command | A console command that runs only in the editor and a Development Build (`ConsoleAccess.Developer`), and one the game offers its players on purpose (`ConsoleAccess.Player`) | 개발자 명령, 플레이어 명령 | 開発者コマンド、プレイヤーコマンド |
 | affects progress | A console command marked to change the game's progress, which sets `HasModifiedProgress` | 진행에 영향을 주는 | 進行に影響する |
+| state machine, state, transition, guard | `StateMachine<TKey>` and the keyed states it moves between, a move from one state to another (`ChangeState`), and a condition that can block one (`AddGuard`) | 상태 머신, 상태, 전환, 가드 | ステートマシン、ステート、遷移、ガード |
+| state sync, owner | Syncing game state between players through `StateSyncManager`, and the player who sends a synced state, the host by default | 상태 동기화, 소유자 | 状態同期、所有者 |
+| byte budget, tick, claim | The bytes state sync sends one player in a tick (`MaxBytesPerTick`), the interval at which it gathers changes (`TickIntervalSeconds`), and a waiting state's priority added up over the ticks it waited | 바이트 예산, 틱, 누적 우선순위 | バイト予算、ティック、累積値 |
+| interest filter | The filter the host asks, for each player, whether to send them a synced state | 관심 필터 | 関心フィルター |
+| asset handle | An `AssetHandle<T>` that one caller of `LoadAssetHandle` disposes on its own | 핸들 | ハンドル |
+| achievement, stat, unlock | A Steam achievement, an integer or float Steam stat, and making an achievement achieved; ko keeps 업적 over Steam's Korean UI term 도전 과제, as the user's requests do | 업적, 통계, 잠금 해제 | 実績、統計、解除 |
+| release build | A player build made without Development Build | 릴리스 빌드 | リリースビルド |
+| Development Build, Steam Cloud, Steam Remote Storage | The Unity build option and Steam feature names | = | = |
+| data version, migration | A save section's `Version`, and the `Migrate` step that brings data saved with an older one up to it | 데이터 버전, 마이그레이션 | データバージョン、移行 |
 
 ## Style Notes
 
@@ -80,3 +89,5 @@ Register and tone chosen per text type and locale, so later translations keep th
 
 | Text type | Locale | Register and tone |
 |---|---|---|
+| README, CHANGELOG | ko | Technical prose in 합니다체; feature and module list items end in noun phrases; `//` comments in code blocks are translated, code is not |
+| README, CHANGELOG | ja | Technical prose in です・ます体; feature and module list items end in noun phrases; `//` comments in code blocks are translated, code is not |
