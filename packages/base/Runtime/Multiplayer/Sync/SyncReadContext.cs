@@ -17,8 +17,12 @@ namespace Mu3Library.Multiplayer.Sync
         /// <summary>
         /// The sender's tick: it grows by at least one each tick and roughly follows the sender's
         /// clock, so <c>Tick * TickIntervalSeconds</c> is about when the sender wrote the update,
-        /// on the sender's clock. An unreliable update older than the last one this copy read
-        /// never reaches the state.
+        /// on the sender's clock. An unreliable update of the same tick as the last one this copy
+        /// read, or of an earlier one, does not reach the state, unless it is 64 or more ticks
+        /// earlier: such a tick comes from a sender whose ticks started again, as a game started
+        /// anew on another player does, and reaches the state, so a state that orders its updates
+        /// by tick starts its order again there. Reliable updates arrive in order and always reach
+        /// the state, and their tick can start again the same way.
         /// </summary>
         public uint Tick { get; }
 

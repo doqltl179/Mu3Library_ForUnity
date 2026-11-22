@@ -124,6 +124,7 @@ namespace Mu3Library.Tests
         [Test]
         public void SixteenPlayers_StatesPastTheBudget_StayWithinItWithoutAllocating()
         {
+            AssertTheAllocationRecorderWorks();
             StartFullSession();
             for (int i = 0; i < WarmupFrames; i++)
             {
@@ -237,6 +238,17 @@ namespace Mu3Library.Tests
                 _players[i].Manager.Update();
                 _players[i].Sync.Update();
             }
+        }
+
+        /// <summary>The GC.Alloc recorder has to see one allocation, or its count of none says nothing.</summary>
+        private void AssertTheAllocationRecorderWorks()
+        {
+            _allocations.FilterToCurrentThread();
+            _allocations.enabled = true;
+            byte[] allocated = new byte[64];
+            _allocations.enabled = false;
+            GC.KeepAlive(allocated);
+            Assert.That(_allocations.sampleBlockCount, Is.GreaterThan(0), "The GC.Alloc recorder saw no allocation.");
         }
 
         private long TotalBytesToClients()

@@ -736,6 +736,16 @@ _manager.OnGameStarted += startData =>
     }
 };
 
+// When the game ends, every player unregisters them, so the next game registers its own.
+_manager.OnReturnedToLobby += ClearSyncedStates;
+_manager.OnStateChanged += change =>
+{
+    if (change.Current == SessionState.Offline)
+    {
+        ClearSyncedStates();
+    }
+};
+
 // In Update, after _manager.Update(): send this tick's changes, and move the copies.
 _sync.Update();
 foreach (TransformSync synced in _transforms)
@@ -745,6 +755,16 @@ foreach (TransformSync synced in _transforms)
 
 // In OnDestroy, before _manager.Dispose().
 _sync.Dispose();
+
+private void ClearSyncedStates()
+{
+    foreach (TransformSync synced in _transforms)
+    {
+        _sync.Unregister(synced.Id);
+    }
+
+    _transforms.Clear();
+}
 ```
 - `IMultiplayerManagerEventBus` lists every event, and the XML comments of `IMultiplayerManager` and `IMultiplayerMessenger` describe each call; in the editor, **Mu3Library > Windows > Multiplayer Debugger** shows the running sessions in play mode.
 

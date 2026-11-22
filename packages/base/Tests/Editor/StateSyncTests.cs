@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
+using Mu3Library.Editor.Window;
 using Mu3Library.Multiplayer;
 using Mu3Library.Multiplayer.Data;
 using Mu3Library.Multiplayer.Local;
@@ -260,6 +261,43 @@ namespace Mu3Library.Tests
         }
 
         [Test]
+        public void ClientOwnedState_ThatReachesTheHostBeforeItsFirstUpdateInTheGame_StillGoesOnToTheOtherClients()
+        {
+            // The host's sync updated in the lobby, then its game starts later in the same frame,
+            // as from a button; the clients then update before the host in each frame, so the
+            // host reads the owner's first tick before its own sync updates in the game.
+            Node host = CreateNode("Host");
+            MultiplayerResult? created = null;
+            host.Manager.CreateLobby(new LobbyCreateOptions { Visibility = LobbyVisibility.Public, Name = "Room", Rules = new SessionRules(4, requireReady: false) },
+                result => created = result);
+            AdvanceUntil(() => created.HasValue, 2.0);
+            Node owner = CreateNode("Owner");
+            Node other = CreateNode("Other");
+            Join(owner, host);
+            Join(other, host);
+
+            // A reliable state its owner set before the game and does not change again.
+            Dictionary<Node, CounterState> states = _nodes.ToDictionary(node => node,
+                node => Register(node, new CounterState(12), owner.Id, DeliveryMode.Reliable));
+            states[owner].Value = 6;
+            host.Sync.Update();
+            Assert.That(host.Manager.StartGame().IsSuccess, Is.True);
+
+            for (int frame = 0; frame < 20; frame++)
+            {
+                _now += FrameSeconds;
+                for (int i = _nodes.Count - 1; i >= 0; i--)
+                {
+                    _nodes[i].Manager.Update();
+                    _nodes[i].Sync.Update();
+                }
+            }
+
+            Assert.That(states[host].Value, Is.EqualTo(6));
+            Assert.That(states[other].Value, Is.EqualTo(6));
+        }
+
+        [Test]
         public void HostDropsAnUpdate_FromAPlayerWhoDoesNotOwnTheState()
         {
             (Node host, Node[] clients) = StartGame(2);
@@ -368,6 +406,41 @@ namespace Mu3Library.Tests
             Advance(0.5, () => copy.Update());
             Assert.That(Vector3.Distance(shown.position, owned.position), Is.LessThanOrEqualTo(TransformSync.DefaultPositionPrecision));
             Assert.That(Quaternion.Angle(shown.rotation, owned.rotation), Is.LessThan(0.2f));
+        }
+
+        [Test]
+        public void Debugger_ShowsWhatEachTickSentEachPlayer()
+        {
+            (Node host, Node[] clients) = StartGame(2);
+            Dictionary<Node, CounterState> states = _nodes.ToDictionary(node => node, node => Register(node, new CounterState(1)));
+            List<(string Source, IMultiplayerManager Manager)> managers = _nodes
+                .Select(node => (node.Backend.PlayerName, (IMultiplayerManager)node.Manager))
+                .ToList();
+
+            MultiplayerDebuggerWindow window = ScriptableObject.CreateInstance<MultiplayerDebuggerWindow>();
+            try
+            {
+                window.Refresh(managers, _now);
+                Advance(1.0, () => states[host].Value++);
+                window.Refresh(managers, _now);
+
+                MultiplayerSessionView.SyncView sync = window.Views[0].Syncs.Single();
+                Assert.That(sync.Sync, Is.SameAs(host.Sync));
+                Assert.That(sync.StateCount, Is.EqualTo(1));
+                Assert.That(sync.Players.Select(row => row.Stats.Player), Is.EquivalentTo(clients.Select(client => client.Id)));
+                foreach (MultiplayerSessionView.SyncPlayerRow row in sync.Players)
+                {
+                    Assert.That(row.BytesPerSecond, Is.GreaterThan(0f), row.Stats.ToString());
+                    Assert.That(row.Stats.MaxTickBytes, Is.InRange(1, host.Sync.MaxBytesPerTick), row.Stats.ToString());
+                }
+
+                // A client sends to the host only.
+                Assert.That(window.Views[1].Syncs.Single().Players.Single().Stats.Player, Is.EqualTo(host.Id));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(window);
+            }
         }
 
         [Test]

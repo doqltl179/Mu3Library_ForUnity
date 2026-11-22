@@ -263,15 +263,19 @@ namespace Mu3Library.Multiplayer.Sync
             if (_count > 0)
             {
                 ref Snapshot newest = ref _snapshots[(_first + _count - 1) % SnapshotCapacity];
-                if (snapshot.Time < newest.Time)
-                {
-                    return;
-                }
-
                 if (snapshot.Time == newest.Time)
                 {
                     newest = snapshot;
                     return;
+                }
+
+                // The manager drops an update that arrived late, so an earlier tick comes from a
+                // sender whose ticks started again: the copy follows from this update on.
+                if (snapshot.Time < newest.Time)
+                {
+                    _first = 0;
+                    _count = 0;
+                    _hasOffset = false;
                 }
             }
 

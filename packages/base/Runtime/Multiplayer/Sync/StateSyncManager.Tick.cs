@@ -402,6 +402,11 @@ namespace Mu3Library.Multiplayer.Sync
                 return;
             }
 
+            // A message of a game this manager has not updated in yet begins the game first, so
+            // what it carries counts in the game rather than being cleared as the game begins.
+            double now = Now;
+            EnsureSession(now);
+
             PlayerId local = _session.LocalPlayerId;
             SyncBundleReader reader = new SyncBundleReader(payload);
             uint tick;
@@ -415,7 +420,7 @@ namespace Mu3Library.Multiplayer.Sync
                 return;
             }
 
-            SyncReadContext readContext = new SyncReadContext(sender, tick, _tickInterval, Now, context.DeliveryMode);
+            SyncReadContext readContext = new SyncReadContext(sender, tick, _tickInterval, now, context.DeliveryMode);
             while (reader.Remaining > 0)
             {
                 ulong key;
@@ -448,7 +453,7 @@ namespace Mu3Library.Multiplayer.Sync
                     : !(IsClientOwned(entry) && entry.Owner == local);
                 if (!fromItsSender)
                 {
-                    LogOnce("sender", $"Dropped an update of state {id} from {sender}, who does not send it.");
+                    LogNotItsSender(id, sender);
                     continue;
                 }
 

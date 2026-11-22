@@ -399,11 +399,7 @@ namespace Mu3Library.Multiplayer.Sync
             }
 
             double now = Now;
-            if (!_isActive || _session.CurrentLobbyId != _activeLobby || _session.HostId != _activeHost)
-            {
-                BeginSession(now);
-            }
-
+            EnsureSession(now);
             if (now < _nextTickAt)
             {
                 return;
@@ -416,6 +412,19 @@ namespace Mu3Library.Multiplayer.Sync
             }
 
             RunTick(now);
+        }
+
+        /// <summary>
+        /// Begins the game this player is in when it has not yet: from the first update or the
+        /// first message of the game, whichever comes first, so a message read before this
+        /// manager's first update in the game is not forgotten after it.
+        /// </summary>
+        private void EnsureSession(double now)
+        {
+            if (!_isActive || _session.CurrentLobbyId != _activeLobby || _session.HostId != _activeHost)
+            {
+                BeginSession(now);
+            }
         }
 
         /// <summary>A game starts: every player gets every state whole, and every copy reads anew.</summary>
@@ -548,14 +557,15 @@ namespace Mu3Library.Multiplayer.Sync
             Debug.LogWarning($"[StateSync] {what} of state {id} threw {exception.GetType().Name}. Later failures of the kind go unlogged until the game ends.");
         }
 
-        private void LogOnce(string what, string message)
+        /// <summary>Logs, once a game, an update from a player who does not send the state; the text is built only then.</summary>
+        private void LogNotItsSender(uint id, PlayerId sender)
         {
-            if (_loggedFailures.Count >= MaxLoggedFailures || !_loggedFailures.Add((what, 0u, null)))
+            if (_loggedFailures.Count >= MaxLoggedFailures || !_loggedFailures.Add(("sender", 0u, null)))
             {
                 return;
             }
 
-            Debug.LogWarning($"[StateSync] {message} Later ones go unlogged until the game ends.");
+            Debug.LogWarning($"[StateSync] Dropped an update of state {id} from {sender}, who does not send it. Later ones go unlogged until the game ends.");
         }
         #endregion
     }
