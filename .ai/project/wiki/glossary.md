@@ -89,5 +89,5 @@ Register and tone chosen per text type and locale, so later translations keep th
 
 | Text type | Locale | Register and tone |
 |---|---|---|
-| README, CHANGELOG | ko | Technical prose in 합니다체; feature and module list items end in noun phrases; `//` comments in code blocks are translated, code is not |
-| README, CHANGELOG | ja | Technical prose in です・ます体; feature and module list items end in noun phrases; `//` comments in code blocks are translated, code is not |
+| README, CHANGELOG | ko | Technical prose in 합니다체; `//` comments in code blocks are translated, code is not |
+| README, CHANGELOG | ja | Technical prose in です・ます体; `//` comments in code blocks are translated, code is not |
