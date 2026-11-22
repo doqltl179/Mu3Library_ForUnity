@@ -36,6 +36,7 @@ namespace Mu3Library.Tests
             public int MigrateCalls;
             public int DefaultCalls;
             public bool ThrowOnRestore;
+            public bool ThrowOnMigrate;
 
             public override string Key => "player";
             public override int Version => _version;
@@ -61,6 +62,11 @@ namespace Mu3Library.Tests
 
             protected override PlayerData Migrate(int savedVersion, PlayerData data)
             {
+                if (ThrowOnMigrate)
+                {
+                    throw new InvalidOperationException("migrate failed");
+                }
+
                 MigrateCalls++;
                 RestoredFromVersion = savedVersion;
                 if (savedVersion < 2)
@@ -379,6 +385,9 @@ namespace Mu3Library.Tests
             Assert.That(_manager.Save("a.b").Reason, Is.EqualTo(SaveFailureReason.InvalidKey));
             Assert.That(_manager.Save(string.Empty).Reason, Is.EqualTo(SaveFailureReason.InvalidKey));
             Assert.That(_manager.Load(null).Reason, Is.EqualTo(SaveFailureReason.InvalidKey));
+            Assert.That(_manager.Save("CON").Reason, Is.EqualTo(SaveFailureReason.InvalidKey), "Windows keeps CON for a device.");
+            Assert.That(_manager.Save("nul").Reason, Is.EqualTo(SaveFailureReason.InvalidKey));
+            Assert.That(_manager.Save("bad id", "player").SectionKey, Is.Null, "A bad slot ID names no section.");
         }
 
         [Test]
@@ -434,10 +443,154 @@ namespace Mu3Library.Tests
             var target = new SaveManager(new MemorySaveStorage());
             var copy = new PlayerSection();
             target.RegisterSection(copy);
+            var imported = new List<string>();
+            var deleted = new List<string>();
+            target.OnSlotImported += imported.Add;
+            target.OnSlotDeleted += deleted.Add;
             Assert.That(target.ImportSlot("shared", bytes).IsSuccess);
+            Assert.That(target.ImportSlot("shared", bytes).IsSuccess, "An import replaces a slot of the same ID.");
             Assert.That(target.Load("shared").IsSuccess);
 
             Assert.That(copy.Current.Position, Is.EqualTo(player.Current.Position));
+            Assert.That(imported, Is.EqualTo(new[] { "shared", "shared" }));
+            Assert.That(deleted, Is.Empty);
+        }
+
+        [Test]
+        public void Metadata_IsReadWithoutLoading_AndSavesKeepIt()
+        {
+            var player = new PlayerSection { Current = SamplePlayer() };
+            _manager.RegisterSection(player);
+            Assert.That(_manager.SetMetadata("slot", "chapter", "3").Reason, Is.EqualTo(SaveFailureReason.SlotNotFound),
+                "Metadata belongs to a saved slot.");
+            Assert.That(_manager.Save("slot").IsSuccess);
+
+            Assert.That(_manager.SetMetadata("slot", "chapter", "3. The Forest").IsSuccess);
+            Assert.That(_manager.SetMetadata("slot", "playTime", "01:23:45").IsSuccess);
+            Assert.That(_manager.Save("slot").IsSuccess);
+            Assert.That(_manager.SetMetadata("slot", "playTime", null).IsSuccess, "A null value removes the key.");
+
+            Assert.That(_manager.TryGetSlotInfo("slot", out SaveSlotInfo info));
+            Assert.That(info.TryGetMetadata("chapter", out string chapter));
+            Assert.That(chapter, Is.EqualTo("3. The Forest"));
+            Assert.That(info.TryGetMetadata("playTime", out _), Is.False);
+
+            Assert.That(_manager.ExportSlot("slot", out byte[] bytes).IsSuccess);
+            var target = new SaveManager(new MemorySaveStorage());
+            Assert.That(target.ImportSlot("copy", bytes).IsSuccess);
+            Assert.That(target.TryGetSlotInfo("copy", out SaveSlotInfo copied));
+            Assert.That(copied.Metadata["chapter"], Is.EqualTo("3. The Forest"));
+        }
+
+        [Test]
+        public void Metadata_KeepsToItsLimits()
+        {
+            _manager.RegisterSection(new PlayerSection { Current = SamplePlayer() });
+            Assert.That(_manager.Save("slot").IsSuccess);
+
+            Assert.That(_manager.SetMetadata("slot", "bad key", "x").Reason, Is.EqualTo(SaveFailureReason.InvalidKey));
+            Assert.That(_manager.SetMetadata("slot", "long", new string('x', SaveLimits.MaxMetadataValueLength + 1)).Reason,
+                Is.EqualTo(SaveFailureReason.TooLarge));
+            for (int i = 0; i < SaveLimits.MaxMetadataEntries; i++)
+            {
+                Assert.That(_manager.SetMetadata("slot", "key" + i, "value").IsSuccess);
+            }
+
+            Assert.That(_manager.SetMetadata("slot", "one-more", "value").Reason, Is.EqualTo(SaveFailureReason.TooLarge));
+            Assert.That(_manager.SetMetadata("slot", "key0", "changed").IsSuccess, "Changing a key it holds is not one more.");
+        }
+
+        [Test]
+        public void MigrationThatThrows_RestoresNothing()
+        {
+            var v1 = new PlayerSection(version: 1) { Current = SamplePlayer() };
+            StageData stage = new StageData { Stage = 6 };
+            _manager.RegisterSection(SaveSection.Create("stage", () => stage, d => stage = d));
+            _manager.RegisterSection(v1);
+            Assert.That(_manager.Save("slot").IsSuccess);
+
+            var newer = new SaveManager(_storage);
+            StageData loaded = default;
+            newer.RegisterSection(SaveSection.Create("stage", () => loaded, d => loaded = d));
+            var v2 = new PlayerSection(version: 2) { ThrowOnMigrate = true };
+            newer.RegisterSection(v2);
+            SaveResult result = newer.Load("slot");
+
+            Assert.That(result.Reason, Is.EqualTo(SaveFailureReason.SectionFailed));
+            Assert.That(result.SectionKey, Is.EqualTo("player"));
+            Assert.That(loaded.Stage, Is.EqualTo(0), "The migration runs before any section restores.");
+        }
+
+        [Test]
+        public void SaveOverANewerSectionVersion_IsRefused()
+        {
+            var v2 = new PlayerSection(version: 2) { Current = SamplePlayer() };
+            _manager.RegisterSection(v2);
+            Assert.That(_manager.Save("slot").IsSuccess);
+
+            var older = new SaveManager(_storage);
+            older.RegisterSection(new PlayerSection(version: 1) { Current = new PlayerData { Name = "Old" } });
+
+            Assert.That(older.Save("slot").Reason, Is.EqualTo(SaveFailureReason.VersionTooNew));
+            Assert.That(older.Save("slot", "player").Reason, Is.EqualTo(SaveFailureReason.VersionTooNew));
+            Assert.That(_manager.Peek("slot", "player", out PlayerData kept, out int version).IsSuccess);
+            Assert.That(kept.Name, Is.EqualTo("Mu"));
+            Assert.That(version, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void NewerFormat_IsRefusedAsTooNew_AndNotWrittenOver()
+        {
+            _manager.RegisterSection(new PlayerSection { Current = SamplePlayer() });
+            Assert.That(_manager.Save("slot").IsSuccess);
+            Assert.That(_manager.ExportSlot("slot", out byte[] bytes).IsSuccess);
+
+            // A later format may change the layout after its version, so its check does not match here.
+            bytes[4] = 2;
+            _storage.Write("slot", bytes);
+
+            Assert.That(_manager.Load("slot").Reason, Is.EqualTo(SaveFailureReason.VersionTooNew));
+            Assert.That(_manager.Save("slot").Reason, Is.EqualTo(SaveFailureReason.VersionTooNew));
+            Assert.That(_storage.Read("slot", out byte[] stored).IsSuccess);
+            Assert.That(stored, Is.EqualTo(bytes));
+        }
+
+        [Test]
+        public void ImportedBytes_WithAForgedLength_AreRefusedWithoutThrowing()
+        {
+            // A header, no metadata, one section whose key claims 200 bytes, and a matching check.
+            var body = new List<byte> { (byte)'M', (byte)'U', (byte)'3', (byte)'S' };
+            body.AddRange(BitConverter.GetBytes(1));
+            body.AddRange(BitConverter.GetBytes(0L));
+            body.AddRange(BitConverter.GetBytes(0L));
+            body.AddRange(BitConverter.GetBytes(0));
+            body.AddRange(BitConverter.GetBytes(1));
+            body.Add(200);
+            body.AddRange(new byte[16]);
+            byte[] forged = WithCrc(body.ToArray());
+
+            SaveResult result = _manager.ImportSlot("forged", forged);
+
+            Assert.That(result.Reason, Is.EqualTo(SaveFailureReason.Corrupted));
+            Assert.That(_storage.Exists("forged"), Is.False);
+        }
+
+        private static byte[] WithCrc(byte[] body)
+        {
+            uint crc = 0xFFFFFFFFu;
+            foreach (byte b in body)
+            {
+                crc ^= b;
+                for (int bit = 0; bit < 8; bit++)
+                {
+                    crc = (crc & 1) != 0 ? 0xEDB88320u ^ (crc >> 1) : crc >> 1;
+                }
+            }
+
+            var bytes = new byte[body.Length + 4];
+            body.CopyTo(bytes, 0);
+            BitConverter.GetBytes(~crc).CopyTo(bytes, body.Length);
+            return bytes;
         }
 
         [Test]

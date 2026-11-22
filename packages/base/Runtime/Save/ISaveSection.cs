@@ -19,8 +19,8 @@ namespace Mu3Library.Save
 
         /// <summary>
         /// The version of the data this section writes, 1 or more. Raise it when the data's shape
-        /// changes; a slot written with an older version passes through the section's migration when
-        /// it loads, and one written with a newer version is refused with
+        /// changes; a slot written with an older version passes through <see cref="Migrate"/> when it
+        /// loads, and one written with a newer version is refused with
         /// <see cref="SaveFailureReason.VersionTooNew"/>.
         /// </summary>
         public int Version { get; }
@@ -37,10 +37,17 @@ namespace Mu3Library.Save
         public object Capture();
 
         /// <summary>
-        /// Takes back data a slot held, of <see cref="DataType"/>, written with
-        /// <paramref name="savedVersion"/>, which is never above <see cref="Version"/>.
+        /// Brings data a slot held, written with <paramref name="savedVersion"/>, up to
+        /// <see cref="Version"/>, without touching the game. The manager calls it while it reads the
+        /// slot, before any section restores, so a migration that throws restores nothing.
+        /// <paramref name="savedVersion"/> is never above <see cref="Version"/>.
         /// </summary>
-        public void Restore(object data, int savedVersion);
+        public object Migrate(object data, int savedVersion);
+
+        /// <summary>
+        /// Takes back data a slot held, already migrated to <see cref="Version"/>.
+        /// </summary>
+        public void Restore(object data);
 
         /// <summary>
         /// Called when a whole slot loads and holds nothing for this section, such as a slot saved

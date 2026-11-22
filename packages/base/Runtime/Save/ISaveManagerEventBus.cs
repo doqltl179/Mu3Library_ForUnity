@@ -17,8 +17,13 @@ namespace Mu3Library.Save
         public event Action<string, string> OnLoaded;
 
         /// <summary>
-        /// A slot was deleted, or imported over.
+        /// A slot was deleted.
         /// </summary>
         public event Action<string> OnSlotDeleted;
+
+        /// <summary>
+        /// <see cref="ISaveManager.ImportSlot"/> wrote a slot, new or replacing one of the same ID.
+        /// </summary>
+        public event Action<string> OnSlotImported;
     }
 }

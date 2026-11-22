@@ -20,16 +20,13 @@ namespace Mu3Library.Save
 
         object ISaveSection.Capture() => Capture();
 
-        void ISaveSection.Restore(object data, int savedVersion)
+        object ISaveSection.Migrate(object data, int savedVersion)
         {
             TData value = data is TData typed ? typed : default;
-            if (savedVersion < Version)
-            {
-                value = Migrate(savedVersion, value);
-            }
-
-            Restore(value);
+            return savedVersion < Version ? Migrate(savedVersion, value) : value;
         }
+
+        void ISaveSection.Restore(object data) => Restore(data is TData typed ? typed : default);
 
         void ISaveSection.RestoreDefault() => RestoreDefault();
 
@@ -47,7 +44,8 @@ namespace Mu3Library.Save
         /// Brings data written with an older <paramref name="savedVersion"/> up to <see cref="Version"/>.
         /// The data was read into the current <typeparamref name="TData"/>, so a field the old version
         /// lacked holds its default and a field it had that the type dropped is gone; fill or derive
-        /// fields here. The default returns the data as it is.
+        /// fields here, without touching the game: it runs while the slot is read, before any section
+        /// restores. The default returns the data as it is.
         /// </summary>
         protected virtual TData Migrate(int savedVersion, TData data) => data;
 

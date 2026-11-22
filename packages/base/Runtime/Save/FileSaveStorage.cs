@@ -8,8 +8,10 @@ namespace Mu3Library.Save
     /// <summary>
     /// Keeps each slot in a file of its own, <c>&lt;slot ID&gt;.sav</c>, in one folder: by default
     /// <c>Saves</c> under <see cref="Application.persistentDataPath"/>. A write goes to a temporary
-    /// file first, which then replaces the slot's file, so a write that stops partway leaves the
-    /// previous save readable.
+    /// file first, which then replaces the slot's file through <see cref="File.Replace(string, string, string)"/>,
+    /// so a write that stops partway leaves the previous save readable. On a platform without
+    /// <see cref="File.Replace(string, string, string)"/>, the write deletes the old file before it moves
+    /// the new one in, so a stop between the two leaves only the temporary file.
     /// </summary>
     public class FileSaveStorage : ISaveStorage
     {
@@ -112,7 +114,12 @@ namespace Mu3Library.Save
             }
             catch (Exception exception) when (IsStorageException(exception))
             {
-                TryDelete(temporaryPath);
+                // Keep the temporary file when the slot's own file is gone: it is then the only copy.
+                if (File.Exists(path))
+                {
+                    TryDelete(temporaryPath);
+                }
+
                 return SaveResult.Failure(SaveFailureReason.StorageFailed, message: exception.Message);
             }
         }

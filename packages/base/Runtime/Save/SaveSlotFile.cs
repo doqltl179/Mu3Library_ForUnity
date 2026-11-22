@@ -6,8 +6,10 @@ using System.Text;
 namespace Mu3Library.Save
 {
     /// <summary>
-    /// The bytes of one slot: a header, every section's key, version, time, and serialized data, and a
-    /// CRC-32 of everything before it, so a damaged or foreign file is told apart from a save.
+    /// The bytes of one slot: a header with the format version, the slot's metadata, every section's
+    /// key, version, time, and serialized data, and a CRC-32 of everything before it, so a damaged or
+    /// foreign file is told apart from a save. Reading checks every length against the limits before
+    /// it allocates, since an imported slot can come from another player.
     /// </summary>
     internal sealed class SaveSlotFile
     {
@@ -16,11 +18,13 @@ namespace Mu3Library.Save
         private static readonly byte[] Magic = { (byte)'M', (byte)'U', (byte)'3', (byte)'S' };
         private static readonly UTF8Encoding Utf8 = new UTF8Encoding(false, true);
 
-        // Magic, format version, created and updated ticks, section count, and the CRC.
-        private const int MinimumSize = 4 + 4 + 8 + 8 + 4 + 4;
+        // Magic, format version, created and updated ticks, metadata and section counts, and the CRC.
+        private const int MinimumSize = 4 + 4 + 8 + 8 + 4 + 4 + 4;
+        private const int FormatVersionOffset = 4;
 
         public long CreatedTicks;
         public long UpdatedTicks;
+        public readonly SortedDictionary<string, string> Metadata = new(StringComparer.Ordinal);
         public readonly List<Entry> Sections = new();
 
 
@@ -73,10 +77,19 @@ namespace Mu3Library.Save
                 writer.Write(FormatVersion);
                 writer.Write(CreatedTicks);
                 writer.Write(UpdatedTicks);
+                writer.Write(Metadata.Count);
+                foreach (KeyValuePair<string, string> pair in Metadata)
+                {
+                    WriteKey(writer, pair.Key);
+                    byte[] value = Utf8.GetBytes(pair.Value);
+                    writer.Write((ushort)value.Length);
+                    writer.Write(value);
+                }
+
                 writer.Write(Sections.Count);
                 foreach (Entry entry in Sections)
                 {
-                    writer.Write(entry.Key);
+                    WriteKey(writer, entry.Key);
                     writer.Write(entry.Version);
                     writer.Write(entry.UpdatedTicks);
                     writer.Write(entry.Data.Length);
@@ -102,7 +115,8 @@ namespace Mu3Library.Save
                 sections[i] = new SaveSectionInfo(entry.Key, entry.Version, ToUtc(entry.UpdatedTicks), entry.Data.Length);
             }
 
-            return new SaveSlotInfo(slotId, ToUtc(CreatedTicks), ToUtc(UpdatedTicks), size, sections);
+            var metadata = new Dictionary<string, string>(Metadata, StringComparer.Ordinal);
+            return new SaveSlotInfo(slotId, ToUtc(CreatedTicks), ToUtc(UpdatedTicks), size, sections, metadata);
         }
 
         public static SaveResult TryParse(byte[] bytes, out SaveSlotFile file)
@@ -121,14 +135,21 @@ namespace Mu3Library.Save
                 }
             }
 
-            int bodyLength = bytes.Length - 4;
-            uint storedCrc = BitConverter.ToUInt32(bytes, bodyLength);
-            if (!BitConverter.IsLittleEndian)
+            // The format version comes before the check, so a newer format, whose layout may differ,
+            // is refused as too new rather than as damaged, and a save over it does not replace it.
+            int formatVersion = ReadInt32(bytes, FormatVersionOffset);
+            if (formatVersion > FormatVersion)
             {
-                storedCrc = ReverseBytes(storedCrc);
+                return SaveResult.Failure(SaveFailureReason.VersionTooNew, message: $"The save was written in format {formatVersion}.");
             }
 
-            if (storedCrc != Crc32.Compute(bytes, 0, bodyLength))
+            if (formatVersion < 1)
+            {
+                return SaveResult.Failure(SaveFailureReason.Corrupted, message: $"Unknown save format {formatVersion}.");
+            }
+
+            int bodyLength = bytes.Length - 4;
+            if ((uint)ReadInt32(bytes, bodyLength) != Crc32.Compute(bytes, 0, bodyLength))
             {
                 return SaveResult.Failure(SaveFailureReason.Corrupted, message: "The save's check does not match its data.");
             }
@@ -137,23 +158,29 @@ namespace Mu3Library.Save
             {
                 using var stream = new MemoryStream(bytes, 0, bodyLength, writable: false);
                 using var reader = new BinaryReader(stream, Utf8);
-                reader.ReadBytes(Magic.Length);
-                int formatVersion = reader.ReadInt32();
-                if (formatVersion > FormatVersion)
-                {
-                    return SaveResult.Failure(SaveFailureReason.VersionTooNew, message: $"The save was written in format {formatVersion}.");
-                }
-
-                if (formatVersion < 1)
-                {
-                    return SaveResult.Failure(SaveFailureReason.Corrupted, message: $"Unknown save format {formatVersion}.");
-                }
-
+                stream.Position = FormatVersionOffset + 4;
                 var parsed = new SaveSlotFile
                 {
                     CreatedTicks = reader.ReadInt64(),
                     UpdatedTicks = reader.ReadInt64(),
                 };
+
+                int metadataCount = reader.ReadInt32();
+                if (metadataCount < 0 || metadataCount > SaveLimits.MaxMetadataEntries)
+                {
+                    return SaveResult.Failure(SaveFailureReason.Corrupted, message: "The save lists an invalid metadata count.");
+                }
+
+                for (int i = 0; i < metadataCount; i++)
+                {
+                    if (!TryReadKey(reader, out string key) || parsed.Metadata.ContainsKey(key) ||
+                        !TryReadValue(reader, out string value))
+                    {
+                        return SaveResult.Failure(SaveFailureReason.Corrupted, message: "A metadata entry is invalid.");
+                    }
+
+                    parsed.Metadata.Add(key, value);
+                }
 
                 int count = reader.ReadInt32();
                 if (count < 0)
@@ -161,27 +188,28 @@ namespace Mu3Library.Save
                     return SaveResult.Failure(SaveFailureReason.Corrupted, message: "The save lists a negative section count.");
                 }
 
+                var keys = new HashSet<string>(StringComparer.Ordinal);
                 for (int i = 0; i < count; i++)
                 {
+                    if (!TryReadKey(reader, out string key) || !keys.Add(key))
+                    {
+                        return SaveResult.Failure(SaveFailureReason.Corrupted, message: "A section's key is invalid.");
+                    }
+
                     var entry = new Entry
                     {
-                        Key = reader.ReadString(),
+                        Key = key,
                         Version = reader.ReadInt32(),
                         UpdatedTicks = reader.ReadInt64(),
                     };
 
                     int length = reader.ReadInt32();
-                    if (length < 0 || length > stream.Length - stream.Position)
+                    if (entry.Version < 1 || length < 0 || length > stream.Length - stream.Position)
                     {
-                        return SaveResult.Failure(SaveFailureReason.Corrupted, entry.Key, "A section's length runs past the save.");
+                        return SaveResult.Failure(SaveFailureReason.Corrupted, key, "A section's version or length is invalid.");
                     }
 
                     entry.Data = reader.ReadBytes(length);
-                    if (!SaveLimits.IsValidSectionKey(entry.Key) || entry.Version < 1 || parsed.Find(entry.Key) != null)
-                    {
-                        return SaveResult.Failure(SaveFailureReason.Corrupted, entry.Key, "A section's key or version is invalid.");
-                    }
-
                     parsed.Sections.Add(entry);
                 }
 
@@ -194,13 +222,71 @@ namespace Mu3Library.Save
                 return SaveResult.Success;
             }
             catch (Exception exception) when (exception is EndOfStreamException || exception is IOException ||
-                exception is ArgumentException || exception is DecoderFallbackException)
+                exception is ArgumentException || exception is DecoderFallbackException || exception is FormatException)
             {
                 return SaveResult.Failure(SaveFailureReason.Corrupted, message: exception.Message);
             }
         }
 
 
+
+        // A key is one length byte and that many ASCII bytes; the key rules allow nothing else.
+        private static void WriteKey(BinaryWriter writer, string key)
+        {
+            writer.Write((byte)key.Length);
+            for (int i = 0; i < key.Length; i++)
+            {
+                writer.Write((byte)key[i]);
+            }
+        }
+
+        private static bool TryReadKey(BinaryReader reader, out string key)
+        {
+            key = null;
+            int length = reader.ReadByte();
+            if (length < 1 || length > SaveLimits.MaxKeyLength)
+            {
+                return false;
+            }
+
+            byte[] bytes = reader.ReadBytes(length);
+            if (bytes.Length != length)
+            {
+                throw new EndOfStreamException();
+            }
+
+            var chars = new char[length];
+            for (int i = 0; i < length; i++)
+            {
+                chars[i] = (char)bytes[i];
+            }
+
+            key = new string(chars);
+            return SaveLimits.IsValidSectionKey(key);
+        }
+
+        private static bool TryReadValue(BinaryReader reader, out string value)
+        {
+            value = null;
+            int length = reader.ReadUInt16();
+            if (length > SaveLimits.MaxMetadataValueLength * 4)
+            {
+                return false;
+            }
+
+            byte[] bytes = reader.ReadBytes(length);
+            if (bytes.Length != length)
+            {
+                throw new EndOfStreamException();
+            }
+
+            value = Utf8.GetString(bytes);
+            return value.Length <= SaveLimits.MaxMetadataValueLength;
+        }
+
+        // BinaryWriter writes little-endian on every platform.
+        private static int ReadInt32(byte[] bytes, int offset) =>
+            bytes[offset] | bytes[offset + 1] << 8 | bytes[offset + 2] << 16 | bytes[offset + 3] << 24;
 
         private static DateTime ToUtc(long ticks)
         {
@@ -211,9 +297,6 @@ namespace Mu3Library.Save
 
             return new DateTime(ticks, DateTimeKind.Utc);
         }
-
-        private static uint ReverseBytes(uint value) =>
-            (value & 0x000000FFu) << 24 | (value & 0x0000FF00u) << 8 | (value & 0x00FF0000u) >> 8 | (value & 0xFF000000u) >> 24;
 
 
 

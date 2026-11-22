@@ -33,6 +33,7 @@ namespace Mu3Library.Save
         public event Action<string, string> OnSaved;
         public event Action<string, string> OnLoaded;
         public event Action<string> OnSlotDeleted;
+        public event Action<string> OnSlotImported;
 
 
 
@@ -66,7 +67,7 @@ namespace Mu3Library.Save
 
             if (section.Version < 1 || section.DataType == null)
             {
-                return SaveResult.Failure(SaveFailureReason.SectionFailed, key, "A section needs a version of 1 or more and a data type.");
+                return SaveResult.Failure(SaveFailureReason.InvalidSection, key, "A section needs a version of 1 or more and a data type.");
             }
 
             if (_sections.ContainsKey(key))
@@ -115,7 +116,7 @@ namespace Mu3Library.Save
                 captured.Add(entry);
             }
 
-            // A damaged slot cannot keep its other sections, so a whole save writes it anew.
+            // A damaged slot cannot keep what it held, so a whole save writes it anew.
             SaveResult read = ReadSlot(slotId, out SaveSlotFile file, out _);
             if (read.Reason == SaveFailureReason.SlotNotFound || read.Reason == SaveFailureReason.Corrupted)
             {
@@ -124,6 +125,15 @@ namespace Mu3Library.Save
             else if (!read.IsSuccess)
             {
                 return read;
+            }
+
+            foreach (ISaveSection section in _sectionOrder)
+            {
+                SaveResult newer = RefuseNewerVersion(file, section);
+                if (!newer.IsSuccess)
+                {
+                    return newer;
+                }
             }
 
             foreach (SaveSlotFile.Entry entry in captured)
@@ -143,9 +153,10 @@ namespace Mu3Library.Save
 
         public SaveResult Save(string slotId, string sectionKey)
         {
-            if (!SaveLimits.IsValidSlotId(slotId) || !SaveLimits.IsValidSectionKey(sectionKey))
+            SaveResult valid = CheckKeys(slotId, sectionKey);
+            if (!valid.IsSuccess)
             {
-                return SaveResult.Failure(SaveFailureReason.InvalidKey, sectionKey);
+                return valid;
             }
 
             if (!_sections.TryGetValue(sectionKey, out ISaveSection section))
@@ -171,6 +182,12 @@ namespace Mu3Library.Save
                 return read;
             }
 
+            SaveResult newer = RefuseNewerVersion(file, section);
+            if (!newer.IsSuccess)
+            {
+                return newer;
+            }
+
             file.Set(entry);
             file.UpdatedTicks = now;
             SaveResult written = WriteSlot(slotId, file);
@@ -180,6 +197,48 @@ namespace Mu3Library.Save
             }
 
             return written;
+        }
+
+        public SaveResult SetMetadata(string slotId, string key, string value)
+        {
+            SaveResult valid = CheckKeys(slotId, key);
+            if (!valid.IsSuccess)
+            {
+                return valid;
+            }
+
+            if (value != null && value.Length > SaveLimits.MaxMetadataValueLength)
+            {
+                return SaveResult.Failure(SaveFailureReason.TooLarge, key,
+                    $"A metadata value holds up to {SaveLimits.MaxMetadataValueLength} characters.");
+            }
+
+            SaveResult read = ReadSlot(slotId, out SaveSlotFile file, out _);
+            if (!read.IsSuccess)
+            {
+                return read;
+            }
+
+            if (value == null)
+            {
+                if (!file.Metadata.Remove(key))
+                {
+                    return SaveResult.Success;
+                }
+            }
+            else
+            {
+                if (!file.Metadata.ContainsKey(key) && file.Metadata.Count >= SaveLimits.MaxMetadataEntries)
+                {
+                    return SaveResult.Failure(SaveFailureReason.TooLarge, key,
+                        $"A slot holds up to {SaveLimits.MaxMetadataEntries} metadata values.");
+                }
+
+                file.Metadata[key] = value;
+            }
+
+            file.UpdatedTicks = DateTime.UtcNow.Ticks;
+            return WriteSlot(slotId, file);
         }
         #endregion
 
@@ -197,8 +256,8 @@ namespace Mu3Library.Save
                 return read;
             }
 
-            // Read every section first, so a damaged or too new one restores none of them.
-            var pending = new List<(ISaveSection Section, object Data, int Version)>(_sectionOrder.Count);
+            // Read, check, and migrate every section first, so one that fails restores none of them.
+            var pending = new List<(ISaveSection Section, object Data)>(_sectionOrder.Count);
             var missing = new List<ISaveSection>();
             foreach (ISaveSection section in _sectionOrder)
             {
@@ -215,12 +274,12 @@ namespace Mu3Library.Save
                     return result;
                 }
 
-                pending.Add((section, data, entry.Version));
+                pending.Add((section, data));
             }
 
-            foreach ((ISaveSection section, object data, int version) in pending)
+            foreach ((ISaveSection section, object data) in pending)
             {
-                SaveResult result = RestoreEntry(section, data, version);
+                SaveResult result = Run(section, () => section.Restore(data));
                 if (!result.IsSuccess)
                 {
                     return result;
@@ -229,13 +288,10 @@ namespace Mu3Library.Save
 
             foreach (ISaveSection section in missing)
             {
-                try
+                SaveResult result = Run(section, section.RestoreDefault);
+                if (!result.IsSuccess)
                 {
-                    section.RestoreDefault();
-                }
-                catch (Exception exception)
-                {
-                    return SaveResult.Failure(SaveFailureReason.SectionFailed, section.Key, exception.Message);
+                    return result;
                 }
             }
 
@@ -245,9 +301,10 @@ namespace Mu3Library.Save
 
         public SaveResult Load(string slotId, string sectionKey)
         {
-            if (!SaveLimits.IsValidSlotId(slotId) || !SaveLimits.IsValidSectionKey(sectionKey))
+            SaveResult valid = CheckKeys(slotId, sectionKey);
+            if (!valid.IsSuccess)
             {
-                return SaveResult.Failure(SaveFailureReason.InvalidKey, sectionKey);
+                return valid;
             }
 
             if (!_sections.TryGetValue(sectionKey, out ISaveSection section))
@@ -270,7 +327,7 @@ namespace Mu3Library.Save
             SaveResult result = ReadEntry(section, entry, out object data);
             if (result.IsSuccess)
             {
-                result = RestoreEntry(section, data, entry.Version);
+                result = Run(section, () => section.Restore(data));
             }
 
             if (result.IsSuccess)
@@ -285,9 +342,10 @@ namespace Mu3Library.Save
         {
             data = default;
             savedVersion = 0;
-            if (!SaveLimits.IsValidSlotId(slotId) || !SaveLimits.IsValidSectionKey(sectionKey))
+            SaveResult valid = CheckKeys(slotId, sectionKey);
+            if (!valid.IsSuccess)
             {
-                return SaveResult.Failure(SaveFailureReason.InvalidKey, sectionKey);
+                return valid;
             }
 
             SaveResult read = ReadSlot(slotId, out SaveSlotFile file, out _);
@@ -373,9 +431,10 @@ namespace Mu3Library.Save
 
         public SaveResult DeleteSection(string slotId, string sectionKey)
         {
-            if (!SaveLimits.IsValidSlotId(slotId) || !SaveLimits.IsValidSectionKey(sectionKey))
+            SaveResult valid = CheckKeys(slotId, sectionKey);
+            if (!valid.IsSuccess)
             {
-                return SaveResult.Failure(SaveFailureReason.InvalidKey, sectionKey);
+                return valid;
             }
 
             SaveResult read = ReadSlot(slotId, out SaveSlotFile file, out _);
@@ -440,11 +499,10 @@ namespace Mu3Library.Save
                 return parsed;
             }
 
-            bool existed = Storage.Exists(slotId);
             SaveResult written = Storage.Write(slotId, data);
-            if (written.IsSuccess && existed)
+            if (written.IsSuccess)
             {
-                OnSlotDeleted?.Invoke(slotId);
+                OnSlotImported?.Invoke(slotId);
             }
 
             return written;
@@ -452,6 +510,36 @@ namespace Mu3Library.Save
         #endregion
 
         #region Helpers
+        // A bad slot ID names no section; a bad section key does.
+        private static SaveResult CheckKeys(string slotId, string sectionKey)
+        {
+            if (!SaveLimits.IsValidSlotId(slotId))
+            {
+                return SaveResult.Failure(SaveFailureReason.InvalidKey);
+            }
+
+            if (!SaveLimits.IsValidSectionKey(sectionKey))
+            {
+                return SaveResult.Failure(SaveFailureReason.InvalidKey, sectionKey);
+            }
+
+            return SaveResult.Success;
+        }
+
+        private static SaveResult RefuseNewerVersion(SaveSlotFile file, ISaveSection section)
+        {
+            SaveSlotFile.Entry existing = file.Find(section.Key);
+            if (existing != null && existing.Version > section.Version)
+            {
+                return SaveResult.Failure(
+                    SaveFailureReason.VersionTooNew,
+                    section.Key,
+                    $"The slot holds version {existing.Version}; this build writes {section.Version} and would lose it.");
+            }
+
+            return SaveResult.Success;
+        }
+
         private SaveResult CaptureEntry(ISaveSection section, long now, out SaveSlotFile.Entry entry)
         {
             entry = null;
@@ -490,6 +578,7 @@ namespace Mu3Library.Save
             return SaveResult.Success;
         }
 
+        // Checks the version, deserializes, and migrates, all without touching the game.
         private SaveResult ReadEntry(ISaveSection section, SaveSlotFile.Entry entry, out object data)
         {
             data = null;
@@ -501,22 +590,32 @@ namespace Mu3Library.Save
                     $"The slot holds version {entry.Version}; the section reads up to {section.Version}.");
             }
 
+            object read;
             try
             {
-                data = _serializer.Deserialize(entry.Data, section.DataType);
-                return SaveResult.Success;
+                read = _serializer.Deserialize(entry.Data, section.DataType);
             }
             catch (Exception exception)
             {
                 return SaveResult.Failure(SaveFailureReason.SerializationFailed, section.Key, exception.Message);
             }
+
+            try
+            {
+                data = section.Migrate(read, entry.Version);
+                return SaveResult.Success;
+            }
+            catch (Exception exception)
+            {
+                return SaveResult.Failure(SaveFailureReason.SectionFailed, section.Key, exception.Message);
+            }
         }
 
-        private static SaveResult RestoreEntry(ISaveSection section, object data, int version)
+        private static SaveResult Run(ISaveSection section, Action action)
         {
             try
             {
-                section.Restore(data, version);
+                action();
                 return SaveResult.Success;
             }
             catch (Exception exception)

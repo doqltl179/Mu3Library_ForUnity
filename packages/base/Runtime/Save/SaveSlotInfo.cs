@@ -19,15 +19,41 @@ namespace Mu3Library.Save
 
         public IReadOnlyList<SaveSectionInfo> Sections { get; }
 
+        /// <summary>
+        /// The short values the game set with <see cref="ISaveManager.SetMetadata"/> for a slot list,
+        /// such as a chapter name or play time.
+        /// </summary>
+        public IReadOnlyDictionary<string, string> Metadata { get; }
+
+        private static readonly IReadOnlyDictionary<string, string> NoMetadata = new Dictionary<string, string>();
 
 
-        public SaveSlotInfo(string slotId, DateTime createdUtc, DateTime updatedUtc, int size, IReadOnlyList<SaveSectionInfo> sections)
+
+        public SaveSlotInfo(
+            string slotId,
+            DateTime createdUtc,
+            DateTime updatedUtc,
+            int size,
+            IReadOnlyList<SaveSectionInfo> sections,
+            IReadOnlyDictionary<string, string> metadata = null)
         {
             SlotId = slotId;
             CreatedUtc = createdUtc;
             UpdatedUtc = updatedUtc;
             Size = size;
             Sections = sections ?? Array.Empty<SaveSectionInfo>();
+            Metadata = metadata ?? NoMetadata;
+        }
+
+        public bool TryGetMetadata(string key, out string value)
+        {
+            if (key != null && Metadata.TryGetValue(key, out value))
+            {
+                return true;
+            }
+
+            value = null;
+            return false;
         }
 
         public bool HasSection(string key) => TryGetSection(key, out _);
