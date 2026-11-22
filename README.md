@@ -421,6 +421,107 @@ _playerData.Health.Set(80);
 
 An Observable field can also sit inside a `[Serializable]` class, an array, or a list on a component or ScriptableObject; editing it in the Inspector applies the value and notifies its subscribers, and so does undoing or redoing that edit or reverting a prefab instance, with the restored value. In an `ObservableDictionary`, the first row of a key wins: a row that repeats a key stays in the list with a warning until its key is changed.
 
+### Multiplayer
+`MultiplayerManager` (`Mu3Library.Multiplayer`) runs a player-hosted session: one player hosts, the others find the host's lobby and connect to the host, and the host decides the roster, the rules, and when the game starts. It runs on a backend: `LocalBackend` (`Mu3Library.Multiplayer.Local`), for several players inside one process or, on a network from `LocalNetwork.CreateMachineWide`, editors and player builds on one computer, or `SteamBackend` from the separate [Steam package](packages/steam/README.md). Code in an assembly definition of its own references `Mu3Library.Multiplayer` to use it. Everything runs on the main thread, and what the backend reports, the other players' messages, and the answers to lobby requests arrive from inside `Update`, so call it every frame.
+
+```csharp
+using System;
+using System.Text;
+using Mu3Library.Multiplayer;
+using Mu3Library.Multiplayer.Backend;
+using Mu3Library.Multiplayer.Data;
+using Mu3Library.Multiplayer.Local;
+using UnityEngine;
+
+public class SessionRunner : MonoBehaviour
+{
+    private const ushort MoveMessage = 1;
+
+    private IMultiplayerBackend _backend;
+    private MultiplayerManager _manager;
+    private readonly MessageWriter _writer = new MessageWriter();
+
+    private void Awake()
+    {
+        // Players on one computer. A Steam game creates its backend with SteamBackend.TryCreate,
+        // or with SteamBackend.CreateOrFallback, which falls back on a LocalBackend in the editor.
+        _backend = new LocalBackend(LocalNetwork.CreateMachineWide("my-game"), "Player");
+        _manager = new MultiplayerManager();
+        _manager.Initialize(_backend, new MultiplayerConfig("my.game", 1));
+
+        // Every player registers the same message types with the same policy.
+        _manager.RegisterMessage(MoveMessage, OnMove);
+
+        _manager.OnGameStarted += startData =>
+        {
+            // Load the level the start data names, then tell the host this player is ready to play.
+            _manager.ReportLoaded();
+        };
+        _manager.OnAllPlayersLoaded += () => Debug.Log("Every player loaded"); // the host only
+    }
+
+    private void Update() => _manager.Update();
+
+    private void OnDestroy()
+    {
+        _manager.Dispose(); // before the backend, which belongs to whoever created it
+        _backend.Dispose();
+    }
+
+    // The host creates the lobby.
+    public void Host()
+    {
+        LobbyCreateOptions options = new LobbyCreateOptions
+        {
+            Name = "My lobby",
+            Visibility = LobbyVisibility.Public,
+            Rules = SessionRules.Default.WithCapacity(4),
+        };
+        _manager.CreateLobby(options, result => Debug.Log($"Create lobby: {result}"));
+    }
+
+    // A client searches for a lobby and joins it.
+    public void Join()
+    {
+        _manager.SearchLobbies(new LobbySearchQuery(), found =>
+        {
+            if (found.IsSuccess && found.Lobbies.Count > 0)
+            {
+                _manager.JoinLobby(found.Lobbies[0].Id, result => Debug.Log($"Join lobby: {result}"));
+            }
+        });
+    }
+
+    public void SetReady() => _manager.SetReady(true); // a client, in the lobby
+
+    // The host starts the game once the rules allow it; the result names the players who are not ready.
+    public void StartGame() => _manager.StartGame(Encoding.UTF8.GetBytes("Level1"));
+
+    public void SendMove(Vector3 position)
+    {
+        _writer.Clear().WriteVector3(position);
+        _manager.Send(MoveMessage, _writer.Written, MessageTarget.Others, DeliveryMode.Unreliable);
+    }
+
+    private void OnMove(MessageContext context, ReadOnlySpan<byte> payload)
+    {
+        MessageReader reader = new MessageReader(payload);
+        Vector3 position = reader.ReadVector3();
+        // Move the character of context.Sender to the position.
+    }
+
+    public void ReturnToLobby() => _manager.EndGame(); // the host
+
+    public void Quit() => _manager.Leave();
+}
+```
+
+- **Message policy**: `MessagePolicy.Default` lets any player send a type, and the host passes a client's message on before its own handler runs. `HostOnly` is for what only the host decides, such as scores or spawns: the host drops it when a client sends it. `NoClientRelay` is for a client's request the host must check before anyone else sees it, such as an attack: the client sends it to `MessageTarget.Host`, and the host's handler sends on what it accepts. Every player registers each type with the same policy, since the host enforces it.
+- **Delivery mode**: `DeliveryMode.Reliable`, the default, arrives in the order it was sent from the same sender and suits events that must not be lost. `Unreliable` may be lost or arrive out of order and suits state the next message replaces, such as positions sent every frame.
+- **Rate limits**: `SessionRules` sets no limit by default. `MaxMessagesPerSecond` and `MaxBytesPerSecond` cap what the host takes from one client in a second, counting every packet the client sends, its ready changes and load reports included, so set them above what the game sends at its busiest: a client that sends its position 30 times a second fits within `SessionRules.Default.WithCapacity(4).WithMaxMessagesPerSecond(60).WithMaxBytesPerSecond(16 * 1024)`. The host drops a game message beyond a limit and raises `OnRateLimitExceeded`, and with `RateLimitKickSeconds` above 0 it kicks a client that goes past a limit every second for that many seconds.
+- **Loading**: after `StartGame`, each player calls `ReportLoaded` once its level is ready, and the host hears `OnAllPlayersLoaded`, or `OnLoadTimedOut` with the players who did not report once `SessionRules.LoadTimeoutSeconds` (60 by default) passes.
+- `IMultiplayerManagerEventBus` lists every event, and the XML comments of `IMultiplayerManager` and `IMultiplayerMessenger` describe each call; in the editor, **Mu3Library > Windows > Multiplayer Debugger** shows the running sessions in play mode.
+
 ## 🔧 Optional Packages
 
 When the following packages are installed, their features are automatically enabled:
