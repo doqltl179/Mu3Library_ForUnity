@@ -36,6 +36,7 @@
 - 🌐 **WebRequest**: HTTP GET/POST/PUT/PATCH/DELETE, download size queries, retry backoff, in-flight cancellation, download progress, UniTask support
 - 📊 **Observable Pattern**: Data change detection and event-based binding
 - 🖥 **Debug Console**: In-game console for player builds with typed commands, developer-only and player-facing access, a mark for commands that change progress, and Unity's log
+- 🔀 **State Machine**: Keyed states for game, UI, or AI flows, with enter and exit that may wait as coroutines or, with UniTask, as async methods, requests queued in order while a transition waits, guards, and a way back
 - 💾 **Save System**: Section-based saves into slots, with data versions and migration, checked files written safely, and Unity types such as `Vector3` saved as they are, and multiplayer session saves that keep each player's data under their ID and that the host can share with another player
 - 🛠 **Utility Collection**: Extension Methods, ObjectPool, EasingFunctions
 - ✅ **Initialization Result Contracts**: Addressables/Localization expose explicit init success/failure state
@@ -360,6 +361,74 @@ _sceneLoaderEventBus.OnSceneLoadFailed += info =>
 
 await _sceneLoader.LoadSingleSceneAsync("Main");
 await _sceneLoader.LoadSingleSceneWithAddressablesAsync("Sample_Addressables");
+```
+
+### State Machine
+`StateMachine<TKey>` (`Mu3Library.States`) moves between states that a game registers under keys, usually an enum: a game flow from boot to title, lobby, game, and results, a UI flow, or an enemy's behavior. A state, usually a `State` subclass, overrides what it needs: `Enter` and `Exit`, which may `yield` to wait as a coroutine does, and `Update`. A transition exits the current state, waiting until its `Exit` ends, then enters the new one, waiting until its `Enter` ends, and raises `OnStateChanged`; one that waits for nothing ends within `ChangeState`. Requests that come while a transition waits run one by one in the order they came. `AddGuard` adds a condition that can block a transition, which `OnTransitionBlocked` reports, and `Back` returns to the previous state. The owner calls `Update` every frame, which steps a transition that waits and otherwise updates the current state. With UniTask, a state derived from `AsyncState` awaits its `EnterAsync` and `ExitAsync` instead. The machine is tied to no scene loader or UI system; here a game flow loads its scenes with `SceneLoader`:
+
+```csharp
+using System.Collections;
+using System.Threading;
+using Cysharp.Threading.Tasks; // for AsyncSceneState only
+using Mu3Library.Scene;
+using Mu3Library.States;
+using UnityEngine;
+
+public enum GameFlow { Boot, Title, Game }
+
+public class SceneState : State
+{
+    private readonly ISceneLoader _sceneLoader;
+    private readonly string _sceneName;
+
+    public SceneState(ISceneLoader sceneLoader, string sceneName)
+    {
+        _sceneLoader = sceneLoader;
+        _sceneName = sceneName;
+    }
+
+    // The next state comes in once the scene loaded. A routine may yield null, a nested routine,
+    // a CustomYieldInstruction such as WaitUntil or WaitForSecondsRealtime, or an AsyncOperation.
+    public override IEnumerator Enter()
+    {
+        _sceneLoader.LoadSingleScene(_sceneName);
+        yield return new WaitUntil(() => !_sceneLoader.IsLoading);
+    }
+}
+
+// With UniTask, the same state awaits instead.
+public class AsyncSceneState : AsyncState
+{
+    private readonly ISceneLoader _sceneLoader;
+    private readonly string _sceneName;
+
+    public AsyncSceneState(ISceneLoader sceneLoader, string sceneName)
+    {
+        _sceneLoader = sceneLoader;
+        _sceneName = sceneName;
+    }
+
+    public override async UniTask EnterAsync(CancellationToken cancellationToken)
+    {
+        await _sceneLoader.LoadSingleSceneAsync(_sceneName);
+    }
+}
+
+// The owner, such as a core or a MonoBehaviour.
+_flow = new StateMachine<GameFlow>();
+_flow.Add(GameFlow.Boot, new SceneState(_sceneLoader, "Boot"));
+_flow.Add(GameFlow.Title, new SceneState(_sceneLoader, "Title"));
+_flow.Add(GameFlow.Game, new SceneState(_sceneLoader, "Game"));
+_flow.AddGuard(transition => transition.To != GameFlow.Game || _isSignedIn);
+_flow.OnStateChanged += transition => Debug.Log($"Flow: {transition}");
+_flow.ChangeState(GameFlow.Boot);
+
+// Every frame.
+_flow.Update();
+
+// Later: requests made while the boot scene still loads wait their turn.
+_flow.ChangeState(GameFlow.Title);
+_flow.Back(); // to the state before the current one
 ```
 
 ### WebRequest
@@ -874,6 +943,7 @@ The fallback Inspector is registered with `isFallback` for every `MonoBehaviour`
 - **Resource**: Resources folder loading
 - **Save**: Section-based saves into slots, with data versions and migration, a checked slot format, and file or in-memory storage, in the `Mu3Library.Save` assembly
 - **SessionSave**: A multiplayer session's save on the host, with each player's sections under their ID, players who join or stay away handled, and its paced, checked share to another player who can host from it, in the `Mu3Library.SessionSave` assembly
+- **States**: `StateMachine<TKey>` with `State` and, with UniTask, `AsyncState`: transitions that exit and then enter, waiting for routines or async methods, requests queued in order, guards, and `Back`
 - **Scene**: Scene loading abstraction with phase/status queries, lifecycle/progress callbacks, one-shot lifecycle subscription helpers, and unified rejection events
 - **UI**: MVP pattern implementation, the `UIAreaGrid`/`UIAreaElement` helper that anchors children to one of nine areas with per-axis uniform or independent cut lines, and the `SafeCanvas`/`SafeRect` pair that keeps a canvas inside the screen safe area
 - **IS**: Moved to the separate Input System package ([README](packages/inputsystem/README.md))
