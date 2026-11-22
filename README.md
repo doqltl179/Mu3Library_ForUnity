@@ -36,7 +36,7 @@
 - 🌐 **WebRequest**: HTTP GET/POST/PUT/PATCH/DELETE, download size queries, retry backoff, in-flight cancellation, download progress, UniTask support
 - 📊 **Observable Pattern**: Data change detection and event-based binding
 - 🖥 **Debug Console**: In-game console for player builds with typed commands, developer-only and player-facing access, a mark for commands that change progress, and Unity's log
-- 💾 **Save System**: Section-based saves into slots, with data versions and migration, checked files written safely, and Unity types such as `Vector3` saved as they are
+- 💾 **Save System**: Section-based saves into slots, with data versions and migration, checked files written safely, and Unity types such as `Vector3` saved as they are, and multiplayer session saves that keep each player's data under their ID and that the host can share with another player
 - 🛠 **Utility Collection**: Extension Methods, ObjectPool, EasingFunctions
 - ✅ **Initialization Result Contracts**: Addressables/Localization expose explicit init success/failure state
 - 🔁 **Resilient Networking**: WebRequest result-based APIs include status, headers, timeout, retry options, and opt-in cancellation propagation
@@ -713,6 +713,39 @@ private void OnVoice(MessageContext context, ReadOnlySpan<byte> payload)
 ```
 - `IMultiplayerManagerEventBus` lists every event, and the XML comments of `IMultiplayerManager` and `IMultiplayerMessenger` describe each call; in the editor, **Mu3Library > Windows > Multiplayer Debugger** shows the running sessions in play mode.
 
+#### Session Saves
+`SessionSaveManager` (`Mu3Library.SessionSave`) saves a session through a `SaveManager` on the host, and lets the host send the save to another player, who can host the session from it later. The sections registered with the `SaveManager` hold what the whole session shares, such as the world; each `PlayerSaveSection<TData>`, or one from `PlayerSaveSection.Create`, is saved once for every player of the session as `player.<PlayerId>.<key>`, so a player's data stays theirs whoever hosts. Code in an assembly definition of its own references `Mu3Library.SessionSave`, `Mu3Library.Save`, and `Mu3Library.Multiplayer`.
+
+```csharp
+using System.IO;
+using Mu3Library.Save;
+using Mu3Library.SessionSave;
+using UnityEngine;
+
+// Every player creates it the same way, with the same message type; the share takes it and the next one.
+var saves = new SaveManager(new FileSaveStorage(Path.Combine(Application.persistentDataPath, "SessionSaves")));
+saves.RegisterSection(SaveSection.Create("world", () => _world, data => _world = data));
+
+var session = new SessionSaveManager(_manager, saves, messageType: 900);
+session.RegisterPlayerSection(PlayerSaveSection.Create<InventoryData>("inventory",
+    player => _inventories[player],
+    (player, data) => _inventories[player] = data,
+    restoreDefault: player => _inventories[player] = new InventoryData()));
+
+// The host, at a point the game chooses; Update every frame paces a share.
+session.Save("coop-1", sessionName: "Forest Run");
+session.Load("coop-1");                          // before StartGame
+session.Share("coop-1", friendId, out uint shareId);
+
+// The player the host shares with.
+session.OnShareOffered += offer => session.AcceptShare(offer.ShareId, offer.SourceSlotId);
+session.OnShareCompleted += transfer => Debug.Log($"Stored {transfer.SlotId}");
+```
+
+- **Players**: Only the host saves and loads. `Save` writes every player of the session, those whose slot the host keeps while they are away included, and a player the slot holds who is not in the session keeps their sections in it. `Load` gives each player of the session their sections, and a player the slot does not hold, such as one who joins the saved session for the first time, starts from `RestoreDefault`. `LoadPlayer` loads one player, such as one who joins a game already under way. A player section key takes up to 36 characters, and no other section's key may start with `player.`.
+- **Origin**: The slot's metadata names the host who last saved it and the session name it was saved with, which `TryGetSessionInfo` reads with the players the slot holds. A save received from another player keeps those, so it shows where it came from until the player saves it as host.
+- **Share**: `Share` offers a saved slot to another player of the session; their game answers `OnShareOffered` with `AcceptShare`, naming the slot to store it as, or `DeclineShare`. The host then sends the save as reliable messages of at most `ShareChunkSize` bytes (16 KiB by default) at `ShareBytesPerSecond` (128 KiB a second by default), since the host's own sends pass no rate limit of the session and the share must leave room for the session's other messages; the player's two answers count toward the session's rate limits like any other message. The receiving player refuses a save larger than its `SaveManager.MaxSlotSize` and checks the whole save with the slot's CRC-32 before it stores it, so damaged bytes are never stored. `OnShareProgress` reports the bytes sent and received, and every share ends on both players with `OnShareCompleted` or `OnShareFailed` and a `SaveShareFailureReason`, such as `Declined`, `TooLarge`, `Corrupted`, `Timeout` (no answer within `ShareTimeoutSeconds`, 60 by default), `PlayerLeft`, or `SessionEnded`.
+
 ## 🔧 Optional Packages
 
 When the following packages are installed, their features are automatically enabled:
@@ -783,6 +816,7 @@ The fallback Inspector is registered with `isFallback` for every `MonoBehaviour`
 - **Preference**: PlayerPrefs wrapper
 - **Resource**: Resources folder loading
 - **Save**: Section-based saves into slots, with data versions and migration, a checked slot format, and file or in-memory storage, in the `Mu3Library.Save` assembly
+- **SessionSave**: A multiplayer session's save on the host, with each player's sections under their ID, players who join or stay away handled, and its paced, checked share to another player who can host from it, in the `Mu3Library.SessionSave` assembly
 - **Scene**: Scene loading abstraction with phase/status queries, lifecycle/progress callbacks, one-shot lifecycle subscription helpers, and unified rejection events
 - **UI**: MVP pattern implementation, the `UIAreaGrid`/`UIAreaElement` helper that anchors children to one of nine areas with per-axis uniform or independent cut lines, and the `SafeCanvas`/`SafeRect` pair that keeps a canvas inside the screen safe area
 - **IS**: Moved to the separate Input System package ([README](packages/inputsystem/README.md))

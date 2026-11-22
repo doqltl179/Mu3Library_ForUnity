@@ -8,6 +8,7 @@
         "Mu3Library.Foundation",
         "Mu3Library.Multiplayer",
         "Mu3Library.Save",
+        "Mu3Library.SessionSave",
         "Mu3Library.Tests.Runtime",
         "UniTask",
         "Unity.InputSystem",
