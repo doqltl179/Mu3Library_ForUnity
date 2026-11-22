@@ -82,11 +82,11 @@
     # URP パッケージ（先に Base をインストール）
     https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/urp#urp/v0.5.0
 
-    # Watermelon Game パッケージ（先に Base と URP をインストール）
+    # Watermelon Game パッケージ（先に Base をインストール）
     https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/game/watermelon#game/watermelon/v0.8.1
    ```
 
-パッケージは Base、URP、Watermelon Game の順にインストールしてください。URP は Base に、Watermelon Game はその両方に依存します。
+URP と Watermelon Game はどちらも Base に依存するため、どちらよりも先に Base をインストールしてください。Watermelon Game に URP は必要ありません。
 
 Notifications パッケージは Android と iOS のローカル通知を扱います。ほかの Mu3Library パッケージは必要ありません。
 
@@ -113,7 +113,7 @@ Steam パッケージは Steam でマルチプレイセッションを実行す�
     - `packages/di/package.json`（先に Base をインストール）
     - `packages/steam/package.json`（先に Steamworks.NET と Base をインストール）
     - `packages/urp/package.json`（先に Base をインストール）
-    - `packages/game/watermelon/package.json`（先に Base と URP をインストール）
+    - `packages/game/watermelon/package.json`（先に Base をインストール）
 
 ## 📚 コアモジュール
 
@@ -121,13 +121,32 @@ Steam パッケージは Steam でマルチプレイセッションを実行す�
 `CoreBase` と `CoreRoot` を含む DI コンテナは、独立した DI パッケージに移りました。登録、注入、コア、そしてマネージドコードをストリッピングするプレイヤービルドのためにこのパッケージが書き出す link.xml については、その [README](../../packages/di/README.md) を参照してください。Base は、マネージャーが実装する契約 `IInitializable`、`IUpdatable`、`ILateUpdatable`、`IObjectInjector`、`[Inject]` を `Mu3Library.Foundation` アセンブリに残します。以下の例は、DI パッケージのコアと同じように `[Inject]` で Base のサービスを注入します。
 
 ### MVP (Model-View-Presenter)
-UIをView、Presenter、Modelに分離し、ビジネスロジックをテスト可能にします。
+UIをView、Presenter、Modelに分離し、ビジネスロジックをテスト可能にします。view はコンポーネントなので、クラス名と同じ名前のファイル `MainMenuView.cs` に置きます。後述の `UICore` と `UIBootstrap` も同じです。
 
 ```csharp
-// Model: データコンテナ
+using Mu3Library.Audio;
+using Mu3Library.DI;
+using Mu3Library.UI.MVP;
+using TMPro;
+using UnityEngine;
+using UnityEngine.UI;
+
+// Arguments: Open のたびに渡すデータ
+public class MainMenuArgs : Arguments
+{
+    public string PlayerName;
+}
+
+// Model: データコンテナ。presenter の LoadFunc() が実行される前に、引数から値が入ります
 public class MainMenuModel : Model<MainMenuArgs>
 {
-    public string PlayerName { get; set; }
+    public string PlayerName { get; private set; }
+
+    // 基底の Init は空なので、model に必要な値をここで引数からコピーします
+    public override void Init(MainMenuArgs args)
+    {
+        PlayerName = args?.PlayerName;
+    }
 }
 
 // View: Unityコンポーネント参照
@@ -135,14 +154,18 @@ public class MainMenuView : View
 {
     [SerializeField] private Button _startButton;
     [SerializeField] private TextMeshProUGUI _titleText;
+    [SerializeField] private AudioClip _clickClip;
 
     public Button StartButton => _startButton;
     public TextMeshProUGUI TitleText => _titleText;
+    public AudioClip ClickClip => _clickClip;
 }
 
 // Presenter: ビジネスロジック
 public class MainMenuPresenter : Presenter<MainMenuView, MainMenuModel, MainMenuArgs>
 {
+    // DI パッケージの README にある、AudioManager を登録するコア AudioCore から注入します。
+    // このメンバーは必須なので、シーンに AudioCore がないと Open は例外を投げます
     [Inject(typeof(AudioCore))] private IAudioManager _audioManager;
 
     protected override void LoadFunc()
@@ -156,17 +179,86 @@ public class MainMenuPresenter : Presenter<MainMenuView, MainMenuModel, MainMenu
         // オープンアニメーションなど
     }
 
+    protected override void UnloadFunc()
+    {
+        // 閉じた presenter は view とともにプールされ、次の Open でその presenter の LoadFunc() が再び実行されます
+        _view.StartButton.onClick.RemoveListener(OnStartClicked);
+    }
+
     private void OnStartClicked()
     {
+        _audioManager.PlaySfx(_view.ClickClip);
         // ゲーム開始ロジック
     }
 }
-
-// 使用方法
-_mvpManager.Open<MainMenuPresenter>(new MainMenuArgs { PlayerName = "Player1" });
 ```
 
-`MVPManager` を `CoreBase` 経由で登録すると、presenter の `[Inject]` フィールドとプロパティが初期化前に設定されます。presenter を開くたびに変わるデータは `Arguments` で渡してください。
+`MVPManager` が presenter を開くのは、プレハブを持っている view 型に対してだけです。各 view のプレハブ（ルートに view コンポーネントを持つもの）を、最初の `Open` より前に `RegisterViewResource` または `RegisterViewResources` で登録してください。ルートに `MainMenuView` を追加すると、view が必要とする `Canvas`、`CanvasScaler`、`GraphicRaycaster`、`CanvasGroup` も追加されます。登録されたプレハブがないと、`Open` は `View not found` をログに出して null を返します。`Open` は `Init(args)` で presenter の model を作り、view がまだ非表示のうちに `LoadFunc()` を呼びます。view は次の `MVPManager.Update()` で表示されて開き始め、その後の更新が開く処理を終わらせ、ウィンドウが閉じ終わるとアンロードします。そのため、何かが毎フレーム `Update()` を呼ぶ必要があります。
+
+DI パッケージを使う場合は、コアがマネージャーを登録し、`CoreRoot` が毎フレームその `Update()` を呼び、コアが破棄されるときにマネージャーを破棄します。`MVPManager` を `CoreBase` 経由で登録すると、presenter の `[Inject]` フィールドとプロパティが初期化前に設定されます。
+
+```csharp
+using Mu3Library.DI;
+using Mu3Library.UI.MVP;
+using UnityEngine;
+
+public class UICore : CoreBase
+{
+    [SerializeField] private MainMenuView _mainMenuViewPrefab;
+
+    [Inject] private IMVPManager _mvpManager;
+
+    protected override void ConfigureContainer()
+    {
+        RegisterClass<MVPManager>();
+    }
+
+    protected override void Start()
+    {
+        base.Start(); // _mvpManager を注入します
+
+        _mvpManager.RegisterViewResource(_mainMenuViewPrefab);
+        _mvpManager.Open<MainMenuPresenter>(new MainMenuArgs { PlayerName = "Player1" });
+    }
+}
+```
+
+DI パッケージの `CoreBase` を使わない場合は、マネージャーを作るコードが毎フレームその `Update()` を呼び、使い終わったら `Dispose()` を呼びます。そうしたマネージャーには何も `IObjectInjector` を渡さないため、presenter の `[Inject]` メンバーは設定されないままです。その場合は `MainMenuPresenter` から、`CoreBase` を継承する `AudioCore` を指定した `[Inject]` フィールドと、`PlaySfx` の呼び出しを外してください。
+
+```csharp
+using Mu3Library.UI.MVP;
+using UnityEngine;
+
+public class UIBootstrap : MonoBehaviour
+{
+    [SerializeField] private MainMenuView _mainMenuViewPrefab;
+
+    private MVPManager _mvpManager;
+
+    private void Awake()
+    {
+        _mvpManager = new MVPManager();
+        _mvpManager.RegisterViewResource(_mainMenuViewPrefab);
+    }
+
+    private void Start()
+    {
+        _mvpManager.Open<MainMenuPresenter>(new MainMenuArgs { PlayerName = "Player1" });
+    }
+
+    private void Update()
+    {
+        _mvpManager.Update();
+    }
+
+    private void OnDestroy()
+    {
+        _mvpManager.Dispose();
+    }
+}
+```
+
+presenter を開くたびに変わるデータは `Arguments` で渡してください。
 
 presenter を連結して開く場合は、ownership と visual host を分けて設定します。
 
@@ -329,6 +421,180 @@ _playerData.Health.Set(80);
 
 Observable フィールドは、コンポーネントや ScriptableObject の `[Serializable]` クラス、配列、リストの中に置くこともできます。Inspector で値を変えると、値が適用され購読者に通知されます。その編集を Undo や Redo したときや、プレハブインスタンスを元に戻したときも、元に戻った値で通知されます。`ObservableDictionary` では同じキーを持つ行のうち最初の行が使われ、キーが重なる行はキーを変えるまで警告付きでリストに残ります。
 
+### Multiplayer
+`MultiplayerManager`（`Mu3Library.Multiplayer`）はプレイヤーホスト型セッションを実行します。1 人のプレイヤーがホストになり、ほかのプレイヤーはホストのロビーを見つけてホストに接続し、参加者一覧、ルール、ゲームを始めるタイミングはホストが決めます。マネージャーはバックエンドの上で動作します。バックエンドは、1 つのプロセス内の複数のプレイヤー、または `LocalNetwork.CreateMachineWide` で作ったネットワーク上で同じ PC のエディターとプレイヤービルドに使う `LocalBackend`（`Mu3Library.Multiplayer.Local`）か、独立した [Steam パッケージ](../../packages/steam/README.md)の `SteamBackend` です。独自のアセンブリ定義にあるコードは、`Mu3Library.Multiplayer` を参照して使います。すべてはメインスレッドで実行され、バックエンドが報告する内容、ほかのプレイヤーのメッセージ、ロビーへのリクエストへの応答は `Update` の中から届くため、`Update` は毎フレーム呼んでください。
+
+```csharp
+using System;
+using System.Text;
+using Mu3Library.Multiplayer;
+using Mu3Library.Multiplayer.Backend;
+using Mu3Library.Multiplayer.Data;
+using Mu3Library.Multiplayer.Local;
+using UnityEngine;
+
+public class SessionRunner : MonoBehaviour
+{
+    private const ushort MoveMessage = 1;
+
+    private IMultiplayerBackend _backend;
+    private MultiplayerManager _manager;
+    private readonly MessageWriter _writer = new MessageWriter();
+
+    private void Awake()
+    {
+        // 同じ PC のプレイヤー。Steam のゲームは SteamBackend.TryCreate でバックエンドを作るか、
+        // エディターでは LocalBackend に切り替わる SteamBackend.CreateOrFallback で作ります。
+        _backend = new LocalBackend(LocalNetwork.CreateMachineWide("my-game"), "Player");
+        _manager = new MultiplayerManager();
+        _manager.Initialize(_backend, new MultiplayerConfig("my.game", 1));
+
+        // すべてのプレイヤーが、同じメッセージの種類を同じポリシーで登録します。
+        _manager.RegisterMessage(MoveMessage, OnMove);
+
+        _manager.OnGameStarted += startData =>
+        {
+            // 開始データが示すレベルをロードしてから、このプレイヤーがプレイの準備ができたことをホストに伝えます。
+            _manager.ReportLoaded();
+        };
+        _manager.OnAllPlayersLoaded += () => Debug.Log("Every player loaded"); // ホストのみ
+    }
+
+    private void Update() => _manager.Update();
+
+    private void OnDestroy()
+    {
+        _manager.Dispose(); // バックエンドより先に。バックエンドはそれを作った側のものです
+        _backend.Dispose();
+    }
+
+    // ホストがロビーを作ります。
+    public void Host()
+    {
+        LobbyCreateOptions options = new LobbyCreateOptions
+        {
+            Name = "My lobby",
+            Visibility = LobbyVisibility.Public,
+            Rules = SessionRules.Default.WithCapacity(4),
+        };
+        _manager.CreateLobby(options, result => Debug.Log($"Create lobby: {result}"));
+    }
+
+    // クライアントがロビーを検索して参加します。
+    public void Join()
+    {
+        _manager.SearchLobbies(new LobbySearchQuery(), found =>
+        {
+            if (found.IsSuccess && found.Lobbies.Count > 0)
+            {
+                _manager.JoinLobby(found.Lobbies[0].Id, result => Debug.Log($"Join lobby: {result}"));
+            }
+        });
+    }
+
+    public void SetReady() => _manager.SetReady(true); // ロビーにいるクライアント
+
+    // ルールが許せば、ホストがゲームを開始します。結果は準備ができていないプレイヤーを示します。
+    public void StartGame() => _manager.StartGame(Encoding.UTF8.GetBytes("Level1"));
+
+    public void SendMove(Vector3 position)
+    {
+        _writer.Clear().WriteVector3(position);
+        _manager.Send(MoveMessage, _writer.Written, MessageTarget.Others, DeliveryMode.Unreliable);
+    }
+
+    private void OnMove(MessageContext context, ReadOnlySpan<byte> payload)
+    {
+        MessageReader reader = new MessageReader(payload);
+        Vector3 position = reader.ReadVector3();
+        // context.Sender のキャラクターをその位置に動かします。
+    }
+
+    public void ReturnToLobby() => _manager.EndGame(); // ホスト
+
+    public void Quit() => _manager.Leave();
+}
+```
+
+- **メッセージポリシー**: `MessagePolicy.Default` ではどのプレイヤーもその種類を送ることができ、ホストはクライアントのメッセージを、自身のハンドラーが実行される前に中継します。`HostOnly` はスコアやスポーンのようにホストだけが決めるもののためのもので、クライアントが送るとホストは破棄します。`NoClientRelay` は攻撃のように、ほかの誰かが見る前にホストが確認しなければならないクライアントのリクエストのためのもので、クライアントはそれを `MessageTarget.Host` に送り、ホストのハンドラーが受け入れたものを転送します。ポリシーを守らせるのはホストなので、すべてのプレイヤーが各種類を同じポリシーで登録します。
+- **送信モード**: 既定の `DeliveryMode.Reliable` は、同じ送信者から送った順に届き、失われてはならないイベントに向いています。`Unreliable` は失われたり順序が入れ替わって届いたりすることがあり、毎フレーム送る位置のように、次のメッセージで置き換わる状態に向いています。
+- **送信量の制限**: `SessionRules` は既定では制限を設けません。`MaxMessagesPerSecond` と `MaxBytesPerSecond` は、ホストが 1 つのクライアントから 1 秒間に受け取る量の上限を決め、準備の変更やロード報告を含め、クライアントが送るすべてのパケットを数えます。そのため、ゲームが最も多く送るときの量より大きく設定してください。位置を毎秒 30 回送るクライアントは `SessionRules.Default.WithCapacity(4).WithMaxMessagesPerSecond(60).WithMaxBytesPerSecond(16 * 1024)` の範囲に収まります。ホストは制限を超えたゲームメッセージを破棄して `OnRateLimitExceeded` を発生させ、`RateLimitKickSeconds` が 0 より大きいと、その秒数のあいだ毎秒制限を超え続けたクライアントをキックします。
+- **ロード**: `StartGame` の後、各プレイヤーはレベルの準備ができたら `ReportLoaded` を呼びます。ホストは `OnAllPlayersLoaded` を受け取るか、`SessionRules.LoadTimeoutSeconds`（既定 60 秒）が過ぎると、報告しなかったプレイヤーを示す `OnLoadTimedOut` を受け取ります。1 つのゲームの中でレベルを切り替えるゲームは、次のレベルの名前のようなデータを渡して、ホストで `BeginLoadPhase` を呼びます。すると全プレイヤーのロード済みフラグがクリアされ、全プレイヤーがそのデータとともに `OnLoadPhaseBegan` を受け取ってロードし、再び報告します。ホストは同じルールで再び待ちます。フェーズが始まる前に送った報告は、そのフェーズでは数えられません。
+
+```csharp
+// Awake の中で OnGameStarted と並べて登録します。ホストを含む全プレイヤーが、新しいフェーズごとにこれを受け取ります。
+_manager.OnLoadPhaseBegan += phaseData =>
+{
+    // フェーズのデータが示すレベルをロードしてから、再び報告します。
+    _manager.ReportLoaded();
+};
+
+// その後ゲーム中に、ホストが全員を次のレベルへ移します。
+_manager.BeginLoadPhase(Encoding.UTF8.GetBytes("Level2"));
+```
+- **ボイス**: `SteamBackend` と `LocalBackend` は `IVoiceBackend`（`Mu3Library.Multiplayer.Backend`）を実装します。このインターフェースは、このプレイヤーのボイスを録音し、ほかのプレイヤーのボイスをデコードします。Steam では Steam のボイス機能を、ローカルバックエンドでは既定のマイクを使うため、同じコードがエディターでも動作します。ゲームはボイスをゲームメッセージ（通常は `Unreliable`）として運び、誰に聞かせるかを決めます。送信者が `MessageTarget` で決めるか、近接ボイスや無線チャンネルに必要なように、ホストがメッセージごと・プレイヤーごとに `SetRelayFilter` で決めます。`VoicePlayer` は各話者のボイスをゲーム自身の `AudioSource` で再生し、`spatialBlend` やロールオフのようなその設定が、シーンの中でボイスがどう聞こえるかを決めます。ボイスも送信量の制限に数えられます。ローカルバックエンドのボイスは、録音中は無音も含めて毎秒 16,000 バイトを使います。
+
+```csharp
+// 上のセッションのコードに加えます。using System.Collections.Generic; も追加してください
+private const ushort VoiceMessage = 2;
+private IVoiceBackend _voice;
+private readonly Dictionary<PlayerId, VoicePlayer> _voicePlayers = new Dictionary<PlayerId, VoicePlayer>();
+
+// Awake の中で、Initialize の後に。
+_voice = _backend as IVoiceBackend;
+_manager.RegisterMessage(VoiceMessage, OnVoice);
+// フィルターが効くのはホストでだけです。遠くにいるプレイヤーの声は誰にも聞こえません。
+_manager.SetRelayFilter(VoiceMessage, (speaker, listener) => AreClose(speaker, listener));
+_manager.OnParticipantLeft += (participant, reason) =>
+{
+    if (_voicePlayers.TryGetValue(participant.Id, out VoicePlayer player))
+    {
+        player.Dispose();
+        _voicePlayers.Remove(participant.Id);
+    }
+};
+
+// プッシュトゥトーク。
+public void SetTalking(bool talking)
+{
+    if (talking)
+    {
+        _voice.StartVoiceRecording();
+    }
+    else
+    {
+        _voice.StopVoiceRecording();
+    }
+}
+
+// Update の中で、_manager.Update() の後に。前のフレーム以降に録音した分を送り、再生します。
+if (_voice.TryReadVoice(out ReadOnlySpan<byte> voice) && _manager.State == SessionState.InGame)
+{
+    _manager.Send(VoiceMessage, voice, MessageTarget.Others, DeliveryMode.Unreliable);
+}
+
+foreach (VoicePlayer player in _voicePlayers.Values)
+{
+    player.Update();
+}
+
+private void OnVoice(MessageContext context, ReadOnlySpan<byte> payload)
+{
+    if (!_voicePlayers.TryGetValue(context.Sender, out VoicePlayer player))
+    {
+        // 話者のキャラクターにある AudioSource。ゲームが探して渡します。
+        player = new VoicePlayer(VoiceSourceOf(context.Sender), _voice.VoiceSampleRate);
+        _voicePlayers.Add(context.Sender, player);
+    }
+
+    if (_voice.TryDecodeVoice(payload, out ReadOnlySpan<float> samples))
+    {
+        player.Write(samples);
+    }
+}
+```
+- `IMultiplayerManagerEventBus` にすべてのイベントがまとめられ、`IMultiplayerManager` と `IMultiplayerMessenger` の XML コメントが各呼び出しを説明しています。エディターでは、**Mu3Library > Windows > Multiplayer Debugger** がプレイモードで動作中のセッションを表示します。
+
 ## 🔧 オプションパッケージ
 
 以下のパッケージがインストールされると、該当機能が自動的に有効になります:
@@ -391,8 +657,8 @@ fallback Inspector はすべての `MonoBehaviour` と `ScriptableObject` に `i
 - **Event**: `SubscribeHandler` を通した owner 管理型 subscription utility、再利用可能な one-shot helper、破棄可能な `ISubscriptionInfo` token
 - **Extensions**: GameObject、Transform、Vector3などの拡張メソッド
 - **Localization**: 独立した Localization パッケージに移動（[README](../../packages/localization/README.md)）
-- **Multiplayer**: 差し替え可能なバックエンド上で、ロビー、参加者一覧、準備確認、ホストが設定・削除するロビーデータと各プレイヤーが設定・削除するプレイヤーごとのデータ（どちらも変更を全プレイヤーが受け取る）、ロビーチャット、定員ルール、クライアントごとの送信量の制限、ゲーム開始、キック、ゲーム中に接続が切れたプレイヤーがクライアントごとに決めた試行時間内に再接続するまで保持される枠とその後のロビーへの入り直し（失敗するとゲームに通知）、開始後に全プレイヤーのロード完了をホストが待つ同期、ホストが中継し `MessageWriter` と `MessageReader` で内容を書き込み・読み取るゲームメッセージ、各接続の品質（ping、パケットロス、毎秒のバイト数）と、全プレイヤーが読める、ホストが測った各プレイヤーの ping、テクスチャとして取得し、プレイヤーが画像を変えれば追従し、表示しなくなればゲームが解放するプレイヤーのアバター、プレゼンスのステータスを扱うプレイヤーホスト型セッション。バックエンドには `LocalBackend`（1 つのプロセス内で複数のプレイヤー、または `LocalNetwork.CreateMachineWide` で作ったネットワーク上で、同じ PC のエディターとプレイヤービルド。このネットワークはレイテンシー、ジッター、パケットロス、通信断をシミュレートできます）があり、Steam ロビーと Steam 接続でプレイし、プレイヤーの Steam アバターと、フレンドリストにステータスを表示する Steam のリッチプレゼンスを扱う `SteamBackend` は、独立した Steam パッケージ（[README](../../packages/steam/README.md)）にあります。メッセージの種類ごとの数も取得でき、エディターには、プレイモードで動作中の各セッションの状態、プレイヤー、接続品質、メッセージ数を表示する **Mu3Library > Windows > Multiplayer Debugger** ウィンドウがあり、その **Host ping** 列は、ホストでもクライアントでも、ホストが測った各プレイヤーの ping を表示します
-  - **バックエンドの作成**: 他のプラットフォームのバックエンドは `Mu3Library.Multiplayer.Backend` の `IMultiplayerBackend` を実装し、マネージャーが探す 2 つのオプションのインターフェースも実装できます。公開でないロビーに招待でしか入れない場合は `ILobbyInviteBackend` を実装して、保持される枠に戻ったプレイヤーをホストが招待し直せるようにし、バックエンドが利用できない理由を伝えるには、Steam バックエンドが `SteamNotRunning` を伝えるように `IUnavailableReasonBackend` を実装します。`LobbyDataKeys` は、マネージャーが `mu3.` プレフィックスで予約し、自身が作成するすべてのロビーに書き込むロビーデータのキーをまとめたもので、バックエンドはこれらを他のロビーデータと同じように保存し、読み取ることもできます。`SearchLobbies` が戻った後に検索を始めるバックエンドは、`LobbySearchQuery.Clone()` で作ったクエリのコピーを保持します
+- **Multiplayer**: 差し替え可能なバックエンド上で、ロビー、参加者一覧、準備確認、ホストが設定・削除するロビーデータと各プレイヤーが設定・削除するプレイヤーごとのデータ（どちらも変更を全プレイヤーが受け取る）、ロビーチャット、定員ルール、クライアントごとの送信量の制限、ゲーム開始、キック、ゲーム中に接続が切れたプレイヤーがクライアントごとに決めた試行時間内に再接続するまで保持される枠とその後のロビーへの入り直し（失敗するとゲームに通知）、開始後と、ゲーム中にホストが始める各ロードフェーズで全プレイヤーのロード完了をホストが待つ同期、ホストが中継し `MessageWriter` と `MessageReader` で内容を書き込み・読み取るゲームメッセージ、各接続の品質（ping、パケットロス、毎秒のバイト数）と、全プレイヤーが読める、ホストが測った各プレイヤーの ping、テクスチャとして取得し、プレイヤーが画像を変えれば追従し、表示しなくなればゲームが解放するプレイヤーのアバター、プレゼンスのステータス、そしてバックエンドが録音・デコードし、ゲームがメッセージとして、ゲーム自身またはホストの中継フィルターが選んだプレイヤーに運び、`VoicePlayer` が話者ごとに `AudioSource` で再生するボイスを扱うプレイヤーホスト型セッション。バックエンドには `LocalBackend`（1 つのプロセス内で複数のプレイヤー、または `LocalNetwork.CreateMachineWide` で作ったネットワーク上で、同じ PC のエディターとプレイヤービルド。このネットワークはレイテンシー、ジッター、パケットロス、通信断をシミュレートできます）があり、Steam ロビーと Steam 接続でプレイし、プレイヤーの Steam アバターと、フレンドリストにステータスを表示する Steam のリッチプレゼンスを扱う `SteamBackend` は、独立した Steam パッケージ（[README](../../packages/steam/README.md)）にあります。メッセージの種類ごとの数も取得でき、エディターには、プレイモードで動作中の各セッションの状態、プレイヤー、接続品質、メッセージ数を表示する **Mu3Library > Windows > Multiplayer Debugger** ウィンドウがあり、その **Host ping** 列は、ホストでもクライアントでも、ホストが測った各プレイヤーの ping を表示します
+  - **バックエンドの作成**: 他のプラットフォームのバックエンドは `Mu3Library.Multiplayer.Backend` の `IMultiplayerBackend` を実装し、マネージャーが探す 2 つのオプションのインターフェースも実装できます。公開でないロビーに招待でしか入れない場合は `ILobbyInviteBackend` を実装して、保持される枠に戻ったプレイヤーをホストが招待し直せるようにし、バックエンドが利用できない理由を伝えるには、Steam バックエンドが `SteamNotRunning` を伝えるように `IUnavailableReasonBackend` を実装します。3 つ目の `IVoiceBackend` はゲーム自身が使うインターフェースで、ボイスを録音・デコードします。`LobbyDataKeys` は、マネージャーが `mu3.` プレフィックスで予約し、自身が作成するすべてのロビーに書き込むロビーデータのキーをまとめたもので、バックエンドはこれらを他のロビーデータと同じように保存し、読み取ることもできます。`SearchLobbies` が戻った後に検索を始めるバックエンドは、`LobbySearchQuery.Clone()` で作ったクエリのコピーを保持します
 - **ObjectPool**: 重複した非アクティブオブジェクトの再登録防止、`List<T>` の一括 enqueue と count または引数リスト指定で `List<T>` を返す dequeue、任意の引数なし生成コールバック、型安全な `CreateArguments` 初期化コールバック、`Clear()` によるクリーンアップを備えたキュー方式のオブジェクトプーリング
 - **Observable**: データ変更検出システム
 - **Preference**: PlayerPrefsラッパー
@@ -465,7 +731,7 @@ IssueとPull Requestを歓迎します！以下の点にご注意ください:
 - DI: `com.github.doqltl179.mu3library.di`（Base に依存）
 - Steam: `com.github.doqltl179.mu3library.steam`（Base に依存、Steamworks.NET が必要）
 - URP: `com.github.doqltl179.mu3library.urp`（Base に依存）
-- Watermelon Game: `com.github.doqltl179.mu3library.game.watermelon`（Base、URP に依存）
+- Watermelon Game: `com.github.doqltl179.mu3library.game.watermelon`（Base に依存）
 - バージョンとリリースノート: [変更履歴](../changelog/CHANGELOG.ja.md)
 
 Unity開発者のために制作

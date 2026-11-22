@@ -15,6 +15,32 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 
 ## [Unreleased]
 
+## [base/0.31.0] - 2026-11-22
+
+### 追加
+- マルチプレイのゲームのホストは、ロビーに戻らずにレベルを切り替える場合のように、ゲームの中で全プレイヤーのロードを再び待てるようになりました（#577）。ホスト専用でゲーム中に呼ぶ `IMultiplayerManager.BeginLoadPhase(phaseData)` は、次のレベルの名前のようにゲームが選んだ、`MultiplayerLimits.MaxStartDataSize` までのデータとともに、新しいロードフェーズを始めます。すべての `Participant.IsLoaded` がクリアされ、全プレイヤーがそのデータとともに新しい `IMultiplayerManagerEventBus.OnLoadPhaseBegan` を受け取り、ホストはフェーズの開始時にセッションにいるすべてのプレイヤーを `StartGame` の後と同じルール（`SessionRules.LoadTimeoutSeconds`、抜けたプレイヤーはもう待たれず、離れているプレイヤーは待たれ、フェーズの開始後に参加したプレイヤーは待たれません）で待ち、再び `OnAllPlayersLoaded` または `OnLoadTimedOut` を受け取ります。報告は送られたフェーズでだけ数えられるため、まだ届く途中の前のフェーズの報告が新しいフェーズを満たすことはありません。フェーズの開始後に自分の枠に戻ったプレイヤーや、フェーズの進行中にゲームに参加したプレイヤーは、そのフェーズのデータとともに `OnLoadPhaseBegan` を受け取ります。`StartGame` の後の待機は変わりません。`IMultiplayerManager` または `IMultiplayerManagerEventBus` を実装するゲーム独自のクラスには、新しいメンバーを追加する必要があります。パケットが変わったため、ライブラリのパケットの形式のバージョンは 7 になりました。このバージョンのビルドは以前のバージョンのビルドのロビーを見つけることも、参加することもできないため、ゲームの全プレイヤーが一緒に更新します。
+- マルチプレイセッションのボイスを追加しました（#576）。バックエンドのオプションのインターフェースである `IVoiceBackend`（`Mu3Library.Multiplayer.Backend`）は、このプレイヤーのボイスの録音を開始・停止し、前回の呼び出し以降に録音した分を渡し（`TryReadVoice`）、ほかのプレイヤーのボイスを `VoiceSampleRate` のモノラルのサンプルにデコードします（`TryDecodeVoice`）。ゲームはボイスをゲームメッセージとして、自分が選んだ相手に送ります。`LocalBackend` は既定のマイク（`Microphone`）を使い、16 kHz モノラル、1 サンプルあたり mu-law 1 バイト（毎秒 16,000 バイト）でこれを実装するため、同じゲームのコードがエディターでも動作します。1 つのプロセスのバックエンドはマイクを共有し、WebGL のプレイヤーではバックエンドは録音しません。`VoicePlayer`（`Mu3Library.Multiplayer`）は、デコードした 1 人の話者のボイスを、ゲームが渡す `AudioSource` で再生し、その設定がボイスの聞こえ方を決めます。既定では再生の前に 0.1 秒バッファし、書き込まれた分をすべて再生すると止まり、ボイスがたまると先へ飛ばします。`IMultiplayerMessenger.SetRelayFilter(messageType, filter)` により、ホストはある種類の各メッセージについて、それが届く各プレイヤーが受け取るかどうかを選べます。たとえば話者の近くにいるプレイヤーだけに届けられます。フィルターに問い合わせるのはホストだけで、例外を投げたフィルターはそのプレイヤーにメッセージを届けず、種類の登録を解除するとそのフィルターも外れます。`IMultiplayerMessenger` を実装するゲーム独自のクラスには、新しいメンバーを追加する必要があります。パケットの形式は変わりません。
+
+## [game/watermelon/0.8.1] - 2026-11-22
+
+### 変更
+- パッケージは URP パッケージに依存しなくなりました（#572）。`package.json` は `com.github.doqltl179.mu3library.urp` を記載しなくなり、`Mu3Library.Game.WatermelonGame` アセンブリは、パッケージのどのコードも使っていなかった `Mu3Library.URP` を参照しなくなりました。プロジェクトは Base と Watermelon Game だけをインストールすればよくなり、Built-in レンダーパイプラインのプロジェクトは、URP パッケージと、それを通じて Unity の Universal RP（`com.unity.render-pipelines.universal`）をインストールする必要がなくなりました。URP パッケージをインストールしたプロジェクトでは、プロジェクト自身の `Packages/manifest.json` に記載されているため、そのパッケージは残ります。ほかに使うものがなければプロジェクトはそのパッケージを削除でき、その場合、マニフェストに Universal RP も記載されていない限り、Universal RP も一緒に削除されます。公開 API は変わりません。パッケージは引き続き URP プロジェクトで開発・テストされており、その README は URP を推奨します。
+
+## [addressables/0.1.1] - 2026-11-22
+
+### 修正
+- `LoadAssets` と `LoadAssetsAsync` は、キャッシュの内容にかかわらず、各アセットをアセットごとのコールバックに渡すようになりました（#570）。すでにキャッシュされたキーと型、または前の呼び出しのためにまだロード中のキーと型に対する呼び出しは、リストのコールバックだけを呼ぶか、リストだけを返していたため、同じラベルの 2 回目のロードでは、アセットを 1 つずつ受け取ることがありませんでした。現在はリストの前に各アセットをアセットごとのコールバックに渡し、ロードがまだ進行中だった場合は、ロードが完了したときにまとめて渡します。パッケージの README には、マネージャーは参照を数えないため、`ReleaseCachedAsset` はキーをロードしたすべての呼び出し元についてそのキーを解放することも記載しました。
+
+## [di/0.2.0] - 2026-11-22
+
+### 追加
+- コアは、引数なしのコンストラクターを持つクラス以外も登録できるようになりました（#579）。`CoreBase` に、コアが選んだ実装を 1 つのサービス型に対応付けてそのコンストラクターで生成する `RegisterClass<TService, TImpl>(lifetime, key)`、使う前に初期化しなければならないマネージャーのように、コンテナの外で作成・設定したオブジェクトのための `RegisterInstance(instance, registerInterfaces, key)`、そして `RegisterFactory<TService>(factory, lifetime, key)` が追加されました。これまでコアが呼べたのは、引数なしのコンストラクターを必要とし、シングルトンを登録する `RegisterClass<T>()` だけで、コアの `ContainerScope` は private のままでした。この方法で登録したシングルトンやスコープドのサービスは、`RegisterClass<T>()` がクラスを作成するのと同じように登録時に作成されるため、そのライフサイクルコールバックはコアの初期化から実行されます。トランジェントのサービスは resolve のたびに作成されます。そのため、生成できないシングルトンやスコープドのクラスは `RegisterClass<T>()` と同じく `ConfigureContainer` から例外を投げ、トランジェントのものは DI Validator が報告します。DI Validator はこれまでどおり、インスタンスとファクトリを対象にしません。`RegisterClass<T>()` は変わりません。
+
+## [steam/0.2.0] - 2026-11-22
+
+### 追加
+- `SteamBackend` が Steam のボイス機能で `IVoiceBackend` を実装しました（#576）。`StartVoiceRecording` と `StopVoiceRecording` は Steam の録音を開始・停止し、プレイヤーがゲーム内で話していることを Steam に伝えます。`TryReadVoice` は Steam が圧縮したボイスを渡し、`TryDecodeVoice` はどのプレイヤーの Steam のボイスも、`VoiceSampleRate` が示す Steam の最適なサンプルレートでデコードします。バックエンドは、破棄されたときや Steam の呼び出しが失敗したときに、自分が始めた録音を止めます。`package.json` は、`IVoiceBackend` を含む最初の Base である Base 0.31.0 を記載するようになりました。
+
 ## [base/0.30.0] - 2026-11-20
 
 ### 削除
