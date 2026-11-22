@@ -13,10 +13,11 @@ namespace Mu3Library.Multiplayer.Data
         public const int DefaultCapacity = 4;
 
         /// <summary>
-        /// Largest start data, in bytes, that <see cref="IMultiplayerManager.StartGame"/> accepts.
-        /// A late joiner receives it together with the whole roster in one packet, which has to
-        /// stay well inside what one send may carry. A client drops a welcome or a game start
-        /// whose start data is larger as malformed, before it copies the data.
+        /// Largest start data, in bytes, that <see cref="IMultiplayerManager.StartGame"/> accepts,
+        /// and largest phase data that <see cref="IMultiplayerManager.BeginLoadPhase"/> accepts.
+        /// A late joiner receives both together with the whole roster in one packet, which has to
+        /// stay well inside what one send may carry. A client drops a welcome, a game start, or a
+        /// load phase whose data is larger as malformed, before it copies the data.
         /// </summary>
         public const int MaxStartDataSize = 64 * 1024;
 

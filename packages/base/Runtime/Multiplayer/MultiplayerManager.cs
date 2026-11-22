@@ -98,6 +98,7 @@ namespace Mu3Library.Multiplayer
         private readonly ManagerEvent<Action<Participant>> _onParticipantDisconnected = new ManagerEvent<Action<Participant>>(nameof(OnParticipantDisconnected));
         private readonly ManagerEvent<Action<Participant>> _onParticipantReconnected = new ManagerEvent<Action<Participant>>(nameof(OnParticipantReconnected));
         private readonly ManagerEvent<Action<MultiplayerReason>> _onLobbyRejoinFailed = new ManagerEvent<Action<MultiplayerReason>>(nameof(OnLobbyRejoinFailed));
+        private readonly ManagerEvent<Action<ReadOnlyMemory<byte>>> _onLoadPhaseBegan = new ManagerEvent<Action<ReadOnlyMemory<byte>>>(nameof(OnLoadPhaseBegan));
         private readonly ManagerEvent<Action> _onAllPlayersLoaded = new ManagerEvent<Action>(nameof(OnAllPlayersLoaded));
         private readonly ManagerEvent<Action<IReadOnlyList<PlayerId>>> _onLoadTimedOut = new ManagerEvent<Action<IReadOnlyList<PlayerId>>>(nameof(OnLoadTimedOut));
 
@@ -116,6 +117,7 @@ namespace Mu3Library.Multiplayer
         public event Action<Participant> OnParticipantDisconnected { add => _onParticipantDisconnected.Add(value); remove => _onParticipantDisconnected.Remove(value); }
         public event Action<Participant> OnParticipantReconnected { add => _onParticipantReconnected.Add(value); remove => _onParticipantReconnected.Remove(value); }
         public event Action<MultiplayerReason> OnLobbyRejoinFailed { add => _onLobbyRejoinFailed.Add(value); remove => _onLobbyRejoinFailed.Remove(value); }
+        public event Action<ReadOnlyMemory<byte>> OnLoadPhaseBegan { add => _onLoadPhaseBegan.Add(value); remove => _onLoadPhaseBegan.Remove(value); }
         public event Action OnAllPlayersLoaded { add => _onAllPlayersLoaded.Add(value); remove => _onAllPlayersLoaded.Remove(value); }
         public event Action<IReadOnlyList<PlayerId>> OnLoadTimedOut { add => _onLoadTimedOut.Add(value); remove => _onLoadTimedOut.Remove(value); }
 
@@ -268,6 +270,7 @@ namespace Mu3Library.Multiplayer
             _onParticipantDisconnected.Clear();
             _onParticipantReconnected.Clear();
             _onLobbyRejoinFailed.Clear();
+            _onLoadPhaseBegan.Clear();
             _onAllPlayersLoaded.Clear();
             _onLoadTimedOut.Clear();
 
