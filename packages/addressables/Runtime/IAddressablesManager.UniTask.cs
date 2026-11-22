@@ -11,6 +11,9 @@ namespace Mu3Library.Addressable
     public partial interface IAddressablesManager
     {
         public UniTask<T> LoadAssetAsync<T>(object key) where T : class;
+
+        /// <summary>The awaitable form of <see cref="IAddressablesManager.LoadAssetHandle{T}"/>.</summary>
+        public UniTask<AssetHandle<T>> LoadAssetHandleAsync<T>(object key) where T : class;
         public UniTask<IList<T>> LoadAssetsAsync<T>(object key, Action<T> perAssetCallback = null);
         public UniTask<Dictionary<string, T>> LoadAssetsWithKeysAsync<T>(object key);
 

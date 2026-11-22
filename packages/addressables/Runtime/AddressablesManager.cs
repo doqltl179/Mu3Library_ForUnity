@@ -893,6 +893,9 @@ namespace Mu3Library.Addressable
 
             foreach (object cacheKey in cacheKeys)
             {
+                // The handles still out for the entry no longer hold it.
+                _handleCounts.Remove(cacheKey);
+
                 if (_assetHandleCache.TryGetValue(cacheKey, out AsyncOperationHandle handle))
                 {
                     if (handle.IsValid())
@@ -925,6 +928,7 @@ namespace Mu3Library.Addressable
             _assetCache.Clear();
             _cachedAssetKeyMap.Clear();
             _cacheKeysByBaseKey.Clear();
+            _handleCounts.Clear();
         }
 
         private AsyncOperationHandle<Dictionary<string, T>> CreateLoadAssetsWithKeysOperation<T>(object key)

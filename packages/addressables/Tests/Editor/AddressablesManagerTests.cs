@@ -687,6 +687,143 @@ namespace Mu3Library.Tests
             CollectionAssert.AreEquivalent(CallsForInMemoryLabel, firstCalls, "The first call got each asset and the list.");
             AssertNoHandleErrors();
         }
+        private const string FirstInMemoryAsset = "first asset";
+
+        private async UniTask<AssetHandle<string>> LoadHandle()
+            => await _manager.LoadAssetHandleAsync<string>(InMemoryLabelKey);
+
+        private IEnumerator Await<T>(UniTask<T> task, Action<T> result, string description)
+        {
+            yield return RunUntil(() => task.Status != UniTaskStatus.Pending, description);
+            result(task.GetAwaiter().GetResult());
+        }
+
+        /// <summary>
+        /// Two callers that load the same key and type with handles share one cached asset, which
+        /// <br/> stays while either holds its handle and goes once both disposed theirs.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator LoadAssetHandle_TwoCallers_KeepTheAssetUntilBothDispose()
+        {
+            yield return InitializeManager();
+            CreateInMemoryLabel();
+
+            AssetHandle<string> first = null;
+            AssetHandle<string> second = null;
+            yield return Await(LoadHandle(), handle => first = handle, "the first handle arrived");
+            bool isSecondReceived = false;
+            _manager.LoadAssetHandle<string>(InMemoryLabelKey, handle =>
+            {
+                second = handle;
+                isSecondReceived = true;
+            });
+            yield return RunUntil(() => isSecondReceived, "the second handle arrived");
+
+            Assert.That(first.IsValid && second.IsValid, Is.True);
+            Assert.That(first.Asset, Is.EqualTo(FirstInMemoryAsset));
+            Assert.That(_manager.GetHandleCount<string>(InMemoryLabelKey), Is.EqualTo(2));
+
+            first.Dispose();
+            first.Dispose();
+            Assert.That(first.IsValid, Is.False);
+            Assert.That(first.Asset, Is.Null);
+            Assert.That(_manager.GetHandleCount<string>(InMemoryLabelKey), Is.EqualTo(1), "A second dispose counts nothing.");
+            Assert.That(second.Asset, Is.EqualTo(FirstInMemoryAsset), "The other caller keeps the asset.");
+            Assert.That(_manager.TryGetCachedAsset(InMemoryLabelKey, out string cached) && cached == FirstInMemoryAsset, Is.True);
+
+            second.Dispose();
+            Assert.That(_manager.GetHandleCount<string>(InMemoryLabelKey), Is.EqualTo(0));
+            Assert.That(_manager.TryGetCachedAsset(InMemoryLabelKey, out string _), Is.False, "The last handle released the asset.");
+            Assert.That(_manager.TrackedHandleCount, Is.EqualTo(0));
+            yield return RunFrames(SettleFrames);
+            AssertNoHandleErrors();
+        }
+
+        /// <summary>
+        /// Callers that join a load still in progress each get a handle that counts once it completes.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator LoadAssetHandle_CallersThatJoinALoadInProgress_EachCount()
+        {
+            yield return InitializeManager();
+            InMemoryLabel label = CreateInMemoryLabel();
+            label.IsHoldingLoads = true;
+
+            var handles = new List<AssetHandle<string>>();
+            _manager.LoadAssetHandle<string>(InMemoryLabelKey, handles.Add);
+            _manager.LoadAssetHandle<string>(InMemoryLabelKey, handles.Add);
+            UniTask<AssetHandle<string>> third = LoadHandle();
+            yield return RunFrames(SettleFrames);
+            CollectionAssert.IsEmpty(handles, "A call that joins a load in progress waits for it.");
+
+            label.FinishHeldLoads();
+            yield return Await(third, handles.Add, "the joined loads completed");
+            yield return RunUntil(() => handles.Count == 3, "every handle arrived");
+
+            Assert.That(handles.TrueForAll(handle => handle.IsValid && handle.Asset == FirstInMemoryAsset), Is.True);
+            Assert.That(_manager.GetHandleCount<string>(InMemoryLabelKey), Is.EqualTo(3));
+            foreach (AssetHandle<string> handle in handles)
+            {
+                handle.Dispose();
+            }
+
+            Assert.That(_manager.TryGetCachedAsset(InMemoryLabelKey, out string _), Is.False);
+            yield return RunFrames(SettleFrames);
+            AssertNoHandleErrors();
+        }
+
+        /// <summary>
+        /// <see cref="AddressablesManager.ReleaseCachedAsset"/> still releases the key for every caller, so
+        /// <br/> the handles left read not valid, and disposing them afterwards releases nothing again.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator ReleaseCachedAsset_LeavesTheRemainingHandlesInvalid()
+        {
+            yield return InitializeManager();
+            CreateInMemoryLabel();
+
+            AssetHandle<string> before = null;
+            yield return Await(LoadHandle(), handle => before = handle, "the handle arrived");
+            _manager.ReleaseCachedAsset(InMemoryLabelKey);
+
+            Assert.That(before.IsValid, Is.False);
+            Assert.That(before.Asset, Is.Null);
+            Assert.That(_manager.GetHandleCount<string>(InMemoryLabelKey), Is.EqualTo(0));
+
+            AssetHandle<string> after = null;
+            yield return Await(LoadHandle(), handle => after = handle, "a handle of the reload arrived");
+            before.Dispose();
+            Assert.That(after.IsValid, Is.True, "Disposing a handle from before the release leaves the reload alone.");
+            Assert.That(_manager.GetHandleCount<string>(InMemoryLabelKey), Is.EqualTo(1));
+
+            after.Dispose();
+            Assert.That(_manager.TryGetCachedAsset(InMemoryLabelKey, out string _), Is.False);
+            yield return RunFrames(SettleFrames);
+            AssertNoHandleErrors();
+        }
+
+        /// <summary>
+        /// The load without a handle keeps its behavior: it counts nothing, and one release frees the
+        /// <br/> key for every such caller.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator LoadAsset_WithoutAHandle_KeepsItsBehavior()
+        {
+            yield return InitializeManager();
+            CreateInMemoryLabel();
+
+            int loads = 0;
+            _manager.LoadAsset<string>(InMemoryLabelKey, _ => loads++);
+            yield return RunUntil(() => loads == 1, "the first LoadAsset completed");
+            _manager.LoadAsset<string>(InMemoryLabelKey, _ => loads++);
+            Assert.That(loads, Is.EqualTo(2), "The second load comes from the cache at once.");
+            Assert.That(_manager.GetHandleCount<string>(InMemoryLabelKey), Is.EqualTo(0));
+
+            _manager.ReleaseCachedAsset(InMemoryLabelKey);
+            Assert.That(_manager.TryGetCachedAsset(InMemoryLabelKey, out string _), Is.False);
+            yield return RunFrames(SettleFrames);
+            AssertNoHandleErrors();
+        }
     }
 }
 #endif

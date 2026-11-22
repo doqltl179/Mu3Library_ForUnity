@@ -35,7 +35,16 @@ Dictionary<string, Texture2D> textures =
 
 `LoadAssets` hands each asset to its per-asset callback and then the list to its callback, and `LoadAssetsAsync` hands each asset to its per-asset callback before it returns the list. Both do so whether the call starts the load, joins a load of the same key and type still in progress, or is served from the cache. A call that joins a load in progress receives its per-asset calls all at once when the load completes, not as each asset loads.
 
-The manager caches what it loads under the key it was loaded with and counts no references. `ReleaseCachedAsset(key)` releases every handle the manager holds for that key, for every caller that loaded it, and `ClearCache` does the same for every key. When several features load the same key, one owner releases it, once none of them needs its assets any more.
+The manager caches what it loads under the key it was loaded with. `LoadAsset` and the list loads count no callers: `ReleaseCachedAsset(key)` releases every handle the manager holds for that key, for every caller that loaded it, and `ClearCache` does the same for every key, so when several features load the same key that way, one owner releases it, once none of them needs its assets any more.
+
+To let each feature release only its own share of an asset, load it with a handle: `LoadAssetHandle` and `LoadAssetHandleAsync` load as `LoadAsset` and `LoadAssetAsync` do and hand each caller an `AssetHandle<T>`, an `IDisposable` with the `Asset`. The manager counts the handles of each key and type and releases the cached asset when the last one is disposed; disposing a handle again counts nothing, and a call that joins a load in progress gets its handle when the load completes. `ReleaseCachedAsset` and `ClearCache` still release the asset whatever handles remain, which then read `IsValid` false and hand a null `Asset`, and disposing them afterwards releases nothing. A load that fails hands a handle that is not valid. Mix the two kinds of load of one key and type only if the handles' owners may release the asset under a caller of `LoadAsset`.
+
+```csharp
+AssetHandle<GameObject> enemy = await _addressablesManager.LoadAssetHandleAsync<GameObject>("enemy");
+Instantiate(enemy.Asset);
+// ...once this screen no longer needs it; another screen's handle keeps the asset loaded.
+enemy.Dispose();
+```
 
 Catalog checks and updates, `CheckForCatalogUpdates`, `UpdateCatalogs`, and their UniTask variants, reach Addressables one at a time in call order. A call made while another one runs, from that call's callback included, starts on the ResourceManager update after the earlier callback, once its handle is settled, and `Dispose` reports a call that has not reached Addressables yet with null. An update reaches Addressables only once the manager is initialized: a manager that has not initialized yet runs the initialization `Initialize` runs, with the same `IsInitializing` state and events, and an update made while one runs waits for it. If that initialization fails, the update's callback receives null, and later updates fail the same way without another attempt until an initialize call succeeds.
 
