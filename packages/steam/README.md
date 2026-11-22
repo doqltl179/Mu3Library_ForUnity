@@ -42,6 +42,7 @@ if (created.IsSuccess)
 }
 ```
 
+- [Multiplayer](https://github.com/doqltl179/Mu3Library_ForUnity#multiplayer) in the repository README goes on from there: lobbies, the ready check, the start of the game, loading, and messages, which run the same on every backend.
 - Dispose the manager before the backend, so the other players learn the reason the session ended before Steam shuts down.
 - `SteamBackend.CreateOrFallback` hands back, in the editor only, a `LocalBackend` on `SteamBackendOptions.EditorFallbackNetwork` with a warning when Steam cannot start. A player build never falls back by itself.
 - Connections go only through Valve's relays by default, so no player learns another player's IP address; `SteamBackendOptions.AllowDirectConnections` also allows direct connections.
