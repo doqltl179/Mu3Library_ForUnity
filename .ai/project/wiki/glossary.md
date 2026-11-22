@@ -66,6 +66,8 @@ One row per concept, one column per language of the localized copies («Human-Fa
 | relay filter | The host's per-message, per-player filter set with `SetRelayFilter` that decides who receives a relayed message | 중계 필터 | 中継フィルター |
 | message policy, delivery mode | `MessagePolicy` and `DeliveryMode` named in prose | 메시지 정책, 전송 방식 | メッセージポリシー、送信モード |
 | push to talk | Recording voice only while a key is held | 눌러서 말하기 | プッシュトゥトーク |
+| save slot, save section | A named save of `SaveManager` that the game writes and loads as a whole, and one system's part of it with its own key and data version (`SaveSection<TData>`); not the slot a multiplayer session keeps for a player who dropped | 세이브 슬롯, 세이브 섹션 | セーブスロット、セーブセクション |
+| slot metadata | The short values a slot list reads from a save slot without loading it (`SetMetadata`) | 슬롯 메타데이터 | スロットメタデータ |
 
 ## Style Notes
 
