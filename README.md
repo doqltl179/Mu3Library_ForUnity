@@ -35,6 +35,7 @@
 - ✨ **Particle Handler**: Convenient `ParticleSystem` playback, pause, stop, clear, restart, `Loop`/`IsLooping`/`SetLoop`/`PlayLoop`/`PlayOnce` controls, state queries, and lifecycle events on a required component
 - 🌐 **WebRequest**: HTTP GET/POST/PUT/PATCH/DELETE, download size queries, retry backoff, in-flight cancellation, download progress, UniTask support
 - 📊 **Observable Pattern**: Data change detection and event-based binding
+- 💾 **Save System**: Section-based saves into slots, with data versions and migration, checked files written safely, and Unity types such as `Vector3` saved as they are
 - 🛠 **Utility Collection**: Extension Methods, ObjectPool, EasingFunctions
 - ✅ **Initialization Result Contracts**: Addressables/Localization expose explicit init success/failure state
 - 🔁 **Resilient Networking**: WebRequest result-based APIs include status, headers, timeout, retry options, and opt-in cancellation propagation
@@ -421,6 +422,78 @@ _playerData.Health.Set(80);
 
 An Observable field can also sit inside a `[Serializable]` class, an array, or a list on a component or ScriptableObject; editing it in the Inspector applies the value and notifies its subscribers, and so does undoing or redoing that edit or reverting a prefab instance, with the restored value. In an `ObservableDictionary`, the first row of a key wins: a row that repeats a key stays in the list with a warning until its key is changed.
 
+### Save System
+Saves and loads a game in sections: each system or stage describes its part of the game as one section, and the game saves and loads sections at points it chooses, such as a checkpoint or the end of a stage, rather than every detail of the moment. It lives in the `Mu3Library.Save` assembly, which an assembly definition of your own references.
+
+```csharp
+using System;
+using Mu3Library.Save;
+using UnityEngine;
+
+[Serializable]
+public class PlayerSaveData
+{
+    public Vector3 Position;
+    public int Level;
+}
+
+public class PlayerSaveSection : SaveSection<PlayerSaveData>
+{
+    private readonly Transform _player;
+    private readonly PlayerStats _stats;
+
+    public override string Key => "player";
+    public override int Version => 2;
+
+    public PlayerSaveSection(Transform player, PlayerStats stats)
+    {
+        _player = player;
+        _stats = stats;
+    }
+
+    protected override PlayerSaveData Capture() =>
+        new PlayerSaveData { Position = _player.position, Level = _stats.Level };
+
+    protected override void Restore(PlayerSaveData data)
+    {
+        _player.position = data.Position;
+        _stats.Level = data.Level;
+    }
+
+    // Version 1 saved no level, so those saves read it as 0.
+    protected override PlayerSaveData Migrate(int savedVersion, PlayerSaveData data)
+    {
+        if (savedVersion < 2)
+        {
+            data.Level = 1;
+        }
+
+        return data;
+    }
+}
+
+// Files in Saves under Application.persistentDataPath, written as JSON.
+var saves = new SaveManager();
+saves.RegisterSection(new PlayerSaveSection(playerTransform, playerStats));
+saves.RegisterSection(SaveSection.Create("stage", () => _stage, data => _stage = data));
+
+saves.Save("slot1");            // every registered section
+saves.Save("slot1", "stage");   // one section; the slot keeps the others
+
+SaveResult result = saves.Load("slot1");
+if (!result.IsSuccess)
+{
+    Debug.LogWarning($"Load failed: {result}");   // result.Reason says why
+}
+```
+
+- **Sections and slots**: A slot holds one entry per section key. Saving one section keeps the slot's other sections, and a section the slot holds that no code registers stays in it untouched. Loading the whole slot reads and checks every registered section first, so a damaged or too new section restores none of them, and then calls `RestoreDefault` on each registered section the slot does not hold, such as one the game added after the slot was saved.
+- **Data**: The default `JsonSaveSerializer` writes a section's data through `JsonUtility`, so Unity types such as `Vector3`, `Quaternion`, and `Color` save as they are. The data is a `[Serializable]` class or struct; a primitive, a string, or a collection on its own is refused, so put it in a field. `JsonUtility` writes no dictionary or property.
+- **Versions**: Raise a section's `Version` when its data changes shape. A slot saved with an older version passes through `Migrate`, which receives the data read into the current type: a field the old version lacked holds its default. A slot saved with a newer version fails with `SaveFailureReason.VersionTooNew`.
+- **Storage**: `FileSaveStorage` keeps each slot in `<slot ID>.sav` and writes it through a temporary file that then replaces it, so a write that stops partway leaves the previous save readable. `MemorySaveStorage` keeps slots in memory. Implement `ISaveStorage` for another place, such as a platform's cloud storage. Each slot carries a CRC-32 check, so a damaged file fails with `SaveFailureReason.Corrupted`.
+- **Slot lists**: `GetSlots` and `TryGetSlotInfo` read a slot's sections, versions, times, and size without restoring anything, and `Peek` reads one section's data, such as a summary for a slot list. `ExportSlot` and `ImportSlot` hand out and take back a slot's checked bytes, such as for a backup. `MaxSlotSize`, 8 MiB by default, caps a slot with all its sections.
+- Slot IDs take letters, digits, `_`, and `-`, and section keys also `.`, up to 64 characters. Calls run on the calling thread and return a `SaveResult` instead of throwing, and `ISaveManagerEventBus` raises `OnSaved`, `OnLoaded`, and `OnSlotDeleted`.
+
 ### Multiplayer
 `MultiplayerManager` (`Mu3Library.Multiplayer`) runs a player-hosted session: one player hosts, the others find the host's lobby and connect to the host, and the host decides the roster, the rules, and when the game starts. It runs on a backend: `LocalBackend` (`Mu3Library.Multiplayer.Local`), for several players inside one process or, on a network from `LocalNetwork.CreateMachineWide`, editors and player builds on one computer, or `SteamBackend` from the separate [Steam package](packages/steam/README.md). Code in an assembly definition of its own references `Mu3Library.Multiplayer` to use it. Everything runs on the main thread, and what the backend reports, the other players' messages, and the answers to lobby requests arrive from inside `Update`, so call it every frame.
 
@@ -663,6 +736,7 @@ The fallback Inspector is registered with `isFallback` for every `MonoBehaviour`
 - **Observable**: Data change detection system
 - **Preference**: PlayerPrefs wrapper
 - **Resource**: Resources folder loading
+- **Save**: Section-based saves into slots, with data versions and migration, a checked slot format, and file or in-memory storage, in the `Mu3Library.Save` assembly
 - **Scene**: Scene loading abstraction with phase/status queries, lifecycle/progress callbacks, one-shot lifecycle subscription helpers, and unified rejection events
 - **UI**: MVP pattern implementation, the `UIAreaGrid`/`UIAreaElement` helper that anchors children to one of nine areas with per-axis uniform or independent cut lines, and the `SafeCanvas`/`SafeRect` pair that keeps a canvas inside the screen safe area
 - **IS**: Moved to the separate Input System package ([README](packages/inputsystem/README.md))

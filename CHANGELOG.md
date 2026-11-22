@@ -15,6 +15,9 @@ This changelog tracks package release changes only. Repository development workf
 
 ## [Unreleased]
 
+### Added
+- Base: a save system that saves and loads a game in sections (#587), in the new `Mu3Library.Save` assembly, which references no other Mu3Library assembly. A section, usually a `SaveSection<TData>` subclass or one from `SaveSection.Create`, is one system's part of the game: a key, a data version, and a serializable class or struct it captures and restores. `SaveManager` saves every registered section or one of them into a named slot and loads them back; saving one section keeps the slot's other sections, a section the slot holds that nothing registers stays in it, and loading the whole slot checks every section before it restores any, then calls `RestoreDefault` on each registered section the slot lacks. A slot saved with an older data version passes through the section's `Migrate`, and one saved with a newer version fails with `VersionTooNew`. The default `JsonSaveSerializer` writes through `JsonUtility`, so Unity types such as `Vector3` and `Color` save as they are, and the default `FileSaveStorage` keeps each slot in `<slot ID>.sav` under `Application.persistentDataPath/Saves`, written through a temporary file so a write that stops partway leaves the previous save, with a CRC-32 check that reports a damaged file as `Corrupted`; `MemorySaveStorage` keeps slots in memory, and `ISaveStorage` and `ISaveSerializer` take other places and formats. `GetSlots`, `TryGetSlotInfo`, and `Peek` read slots without restoring them, `ExportSlot` and `ImportSlot` copy a slot's checked bytes, and `MaxSlotSize` caps a slot at 8 MiB by default. Calls return a `SaveResult` instead of throwing.
+
 ## [base/0.31.0] - 2026-11-22
 
 ### Added
