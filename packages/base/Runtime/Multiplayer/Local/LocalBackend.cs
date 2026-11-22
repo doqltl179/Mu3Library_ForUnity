@@ -109,7 +109,7 @@ namespace Mu3Library.Multiplayer.Local
     /// more than 4,096 entries, as many as a frame carries.
     /// </para>
     /// </remarks>
-    public sealed class LocalBackend : IMultiplayerBackend
+    public sealed partial class LocalBackend : IMultiplayerBackend
     {
         private enum EventKind
         {
@@ -472,6 +472,8 @@ namespace Mu3Library.Multiplayer.Local
 
         public void Dispose()
         {
+            StopVoiceRecording();
+
             if (_machine != null)
             {
                 _machine.Dispose();

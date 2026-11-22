@@ -48,8 +48,37 @@ namespace Mu3Library.Multiplayer
         /// </remarks>
         public MultiplayerResult RegisterMessage(ushort messageType, MessageHandler handler, MessagePolicy policy = MessagePolicy.Default);
 
-        /// <summary>False when the type was not registered.</summary>
+        /// <summary>False when the type was not registered. Unregistering a type also drops its relay filter.</summary>
         public bool UnregisterMessage(ushort messageType);
+
+        /// <summary>
+        /// Lets the host choose, message by message, who receives a registered type, as a game
+        /// does for proximity voice or team chat. Whenever the host passes a message of the type on,
+        /// one from a client or one of its own, it asks the filter for each player the target and
+        /// the policy let the message reach, itself included, but never for the sender, which
+        /// handles its own copy as before; a player the filter answers false for does not receive
+        /// that message. A null filter removes it, and every player then receives what the target
+        /// names again.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// Only the host asks its filter; a client keeps the one it sets unasked, and like the
+        /// registration it outlives sessions, so every player may set the same filter and it
+        /// counts wherever that player hosts. Every message travels through the host, so no client
+        /// gets past the filter; answer from what the host itself knows, such as the positions it
+        /// keeps. The sender learns nothing of the choice: its send succeeds, as for a player who
+        /// is away.
+        /// </para>
+        /// <para>
+        /// The host asks the filter while it walks its players, during this player's
+        /// <see cref="Send"/> or its update, so the filter only answers: it must not send, kick,
+        /// leave, or change the session otherwise. An exception it throws counts as false, so the
+        /// message does not reach that player, and is logged the first time the filter of that
+        /// type throws that exception type in a session.
+        /// </para>
+        /// </remarks>
+        /// <returns>False when the type is not registered.</returns>
+        public bool SetRelayFilter(ushort messageType, RelayFilter filter);
 
         /// <summary>
         /// Sends a message in the lobby or in a game. A copy addressed to this player is handled

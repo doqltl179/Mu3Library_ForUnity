@@ -532,6 +532,67 @@ _manager.OnLoadPhaseBegan += phaseData =>
 // Later in the game, the host moves everyone to the next level.
 _manager.BeginLoadPhase(Encoding.UTF8.GetBytes("Level2"));
 ```
+- **Voice**: `SteamBackend` and `LocalBackend` implement `IVoiceBackend` (`Mu3Library.Multiplayer.Backend`), which records this player's voice and decodes other players' voice: Steam voice on Steam, and the default microphone on the local backend, so the same code runs in the editor. The game carries the voice as a game message, usually `Unreliable`, and picks who hears it: the sender with a `MessageTarget`, or the host, for each message and each player, with `SetRelayFilter`, as proximity voice or a radio channel needs. A `VoicePlayer` plays each speaker through an `AudioSource` of the game's own, whose settings, such as `spatialBlend` and rolloff, decide how the voice sounds in the scene. Voice counts toward the rate limits: the local backend's takes 16,000 bytes a second while a player talks.
+
+```csharp
+// Beside the session code above: add using System.Collections.Generic;
+private const ushort VoiceMessage = 2;
+private IVoiceBackend _voice;
+private readonly Dictionary<PlayerId, VoicePlayer> _voicePlayers = new Dictionary<PlayerId, VoicePlayer>();
+
+// In Awake, after Initialize.
+_voice = _backend as IVoiceBackend;
+_manager.RegisterMessage(VoiceMessage, OnVoice);
+// Only on the host does the filter count: nobody hears a player who is far away.
+_manager.SetRelayFilter(VoiceMessage, (speaker, listener) => AreClose(speaker, listener));
+_manager.OnParticipantLeft += (participant, reason) =>
+{
+    if (_voicePlayers.TryGetValue(participant.Id, out VoicePlayer player))
+    {
+        player.Dispose();
+        _voicePlayers.Remove(participant.Id);
+    }
+};
+
+// Push to talk.
+public void SetTalking(bool talking)
+{
+    if (talking)
+    {
+        _voice.StartVoiceRecording();
+    }
+    else
+    {
+        _voice.StopVoiceRecording();
+    }
+}
+
+// In Update, after _manager.Update(): send what was recorded since the last frame, and play.
+if (_voice.TryReadVoice(out ReadOnlySpan<byte> voice) && _manager.State == SessionState.InGame)
+{
+    _manager.Send(VoiceMessage, voice, MessageTarget.Others, DeliveryMode.Unreliable);
+}
+
+foreach (VoicePlayer player in _voicePlayers.Values)
+{
+    player.Update();
+}
+
+private void OnVoice(MessageContext context, ReadOnlySpan<byte> payload)
+{
+    if (!_voicePlayers.TryGetValue(context.Sender, out VoicePlayer player))
+    {
+        // An AudioSource on the speaker's character, which the game looks up.
+        player = new VoicePlayer(VoiceSourceOf(context.Sender), _voice.VoiceSampleRate);
+        _voicePlayers.Add(context.Sender, player);
+    }
+
+    if (_voice.TryDecodeVoice(payload, out ReadOnlySpan<float> samples))
+    {
+        player.Write(samples);
+    }
+}
+```
 - `IMultiplayerManagerEventBus` lists every event, and the XML comments of `IMultiplayerManager` and `IMultiplayerMessenger` describe each call; in the editor, **Mu3Library > Windows > Multiplayer Debugger** shows the running sessions in play mode.
 
 ## 🔧 Optional Packages
@@ -596,8 +657,8 @@ The fallback Inspector is registered with `isFallback` for every `MonoBehaviour`
 - **Event**: Owner-managed subscription utilities, reusable one-shot helpers, and disposable `ISubscriptionInfo` tokens via `SubscribeHandler`
 - **Extensions**: Extension methods for GameObject, Transform, Vector3, etc.
 - **Localization**: Moved to the separate Localization package ([README](packages/localization/README.md))
-- **Multiplayer**: Player-hosted sessions with lobbies, roster, ready check, lobby data that the host sets and deletes and per-player data that each player sets and deletes, both of which every player hears change, lobby chat, capacity rules, per-client rate limits, game start, kicks, slots kept for players who drop during a game until they reconnect, within a time each client sets for its own attempts, and enter their lobby again, which the game hears when they cannot, a host-side wait for every player to finish loading after the start and again for each load phase the host begins within the game, game messages relayed by the host, with `MessageWriter` and `MessageReader` for their payloads, the quality of each connection (ping, packet loss, and bytes per second) and, on every player, each player's ping as the host measures it, players' avatars as textures, which follow a player's new picture and which the game releases once it no longer shows them, and a presence status, over a pluggable backend: `LocalBackend` (several players inside one process, or, on a network from `LocalNetwork.CreateMachineWide`, editors and player builds on one computer), whose network can simulate latency, jitter, packet loss, and outages, and `SteamBackend` (Steam lobbies and Steam connections, the players' Steam avatars, and Steam rich presence, which shows the status in the friends list), in the separate Steam package ([README](packages/steam/README.md)); per-type message counts; and, in the editor, the **Mu3Library > Windows > Multiplayer Debugger** window, which shows each running session's state, players, connection quality, and message counts in play mode, along with a **Host ping** column that shows each player's ping as the host measures it, on the host and on clients alike
-  - **Writing a backend**: A backend for another platform implements `IMultiplayerBackend` from `Mu3Library.Multiplayer.Backend`, and may also implement two optional interfaces that the manager looks for: `ILobbyInviteBackend`, when its lobbies that are not public let a player in only by invite, so the host invites back a player who returns to a kept slot, and `IUnavailableReasonBackend`, to name why the backend is not available, as the Steam backend names `SteamNotRunning`. `LobbyDataKeys` lists the lobby data keys that the manager reserves under the `mu3.` prefix and writes in every lobby it creates; a backend stores them like any other lobby data and may read them. A backend that starts a search after `SearchLobbies` returns keeps a copy of the query from `LobbySearchQuery.Clone()`
+- **Multiplayer**: Player-hosted sessions with lobbies, roster, ready check, lobby data that the host sets and deletes and per-player data that each player sets and deletes, both of which every player hears change, lobby chat, capacity rules, per-client rate limits, game start, kicks, slots kept for players who drop during a game until they reconnect, within a time each client sets for its own attempts, and enter their lobby again, which the game hears when they cannot, a host-side wait for every player to finish loading after the start and again for each load phase the host begins within the game, game messages relayed by the host, with `MessageWriter` and `MessageReader` for their payloads, the quality of each connection (ping, packet loss, and bytes per second) and, on every player, each player's ping as the host measures it, players' avatars as textures, which follow a player's new picture and which the game releases once it no longer shows them, a presence status, and voice, which the backend records and decodes, the game carries as messages to the players it or the host's relay filter picks, and `VoicePlayer` plays through an `AudioSource` for each speaker, over a pluggable backend: `LocalBackend` (several players inside one process, or, on a network from `LocalNetwork.CreateMachineWide`, editors and player builds on one computer), whose network can simulate latency, jitter, packet loss, and outages, and `SteamBackend` (Steam lobbies and Steam connections, the players' Steam avatars, and Steam rich presence, which shows the status in the friends list), in the separate Steam package ([README](packages/steam/README.md)); per-type message counts; and, in the editor, the **Mu3Library > Windows > Multiplayer Debugger** window, which shows each running session's state, players, connection quality, and message counts in play mode, along with a **Host ping** column that shows each player's ping as the host measures it, on the host and on clients alike
+  - **Writing a backend**: A backend for another platform implements `IMultiplayerBackend` from `Mu3Library.Multiplayer.Backend`, and may also implement two optional interfaces that the manager looks for: `ILobbyInviteBackend`, when its lobbies that are not public let a player in only by invite, so the host invites back a player who returns to a kept slot, and `IUnavailableReasonBackend`, to name why the backend is not available, as the Steam backend names `SteamNotRunning`. A third, `IVoiceBackend`, which the game uses itself, records and decodes voice. `LobbyDataKeys` lists the lobby data keys that the manager reserves under the `mu3.` prefix and writes in every lobby it creates; a backend stores them like any other lobby data and may read them. A backend that starts a search after `SearchLobbies` returns keeps a copy of the query from `LobbySearchQuery.Clone()`
 - **ObjectPool**: Queue-based object pooling with duplicate inactive enqueue protection, batch `List<T>` enqueue and count- or argument-list-based `List<T>` dequeue support, optional no-argument creation callbacks, typed `CreateArguments` initialization callbacks, and `Clear()` cleanup
 - **Observable**: Data change detection system
 - **Preference**: PlayerPrefs wrapper
