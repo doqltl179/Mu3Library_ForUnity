@@ -15,6 +15,11 @@ Mu3Library For Unityのすべての注目すべき変更はこのファイルに
 
 ## [Unreleased]
 
+## [steam/0.4.0] - 2026-11-25
+
+### 追加
+- マルチプレイセッションなしで実績、統計、Steam Cloud を使うゲームのために、Steam を開始し、Steam のコールバックを実行し、Steam を終了する `SteamManager` を、新しい `Mu3Library.Steam` アセンブリに追加しました（#607）。このアセンブリは `Mu3Library.Foundation` を参照し、パッケージのほかのアセンブリはこのアセンブリを参照するようになりました。ゲートはそれらと同じです。`SteamManager.TryStart(appId, out manager)` は、Steam がまだ動いていなければ Steam を開始し、`SteamStartResult` を返します。Steam クライアントが動いていないとき、Steam がアプリ ID を見つけられないとき、Steam のネイティブライブラリがないか関数が欠けているときは `SteamNotRunning`、Steam クライアントがネイティブライブラリより古いときは `VersionMismatch` で、Steam が返した内容は `Message` に入ります。マネージャーが実装する `IUpdatable` の `Update` は Steam のコールバックを実行し、`IDisposable` は、`SteamBackend` がすでにそうしているように、マネージャーが開始した Steam だけを終了します（`OwnsSteam`）。ネイティブライブラリで失敗した Steam の呼び出しは、例外を投げる代わりに警告をログに残し、マネージャーを使えない状態にします。`SteamBackend`、`SteamStatsManager`、`SteamCloudSaveStorage` の動作と公開 API はそのままで、`SteamBackend.TryCreate` は `SteamManager` が開始した Steam を使います。
+
 ## [base/0.32.0] - 2026-11-22
 
 ### 追加

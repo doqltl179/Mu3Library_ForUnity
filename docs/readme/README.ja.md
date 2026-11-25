@@ -80,7 +80,7 @@
     https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/di#di/v0.2.0
 
     # Steam パッケージ（先に Steamworks.NET と Base をインストール）
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/steam#steam/v0.3.0
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/steam#steam/v0.4.0
 
     # URP パッケージ（先に Base をインストール）
     https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/urp#urp/v0.5.0
@@ -101,7 +101,7 @@ Addressables パッケージは `AddressablesManager` とそのグループデ�
 
 DI パッケージは `CoreBase` のコンテナとその link.xml プロセッサー、検証ドロワーとランタイム診断ドロワーを含みます。先に Base をインストールしてください。
 
-Steam パッケージは、Steam でマルチプレイセッションを実行する `SteamBackend`、任意で使えるデバッグコンソールのコマンドを備えた Steam の実績と統計、セーブシステム用の Steam Cloud ストレージを含みます。先に Steamworks.NET と Base をインストールしてください。
+Steam パッケージは、マルチプレイのないゲームのために Steam を開始する `SteamManager`、Steam でマルチプレイセッションを実行する `SteamBackend`、任意で使えるデバッグコンソールのコマンドを備えた Steam の実績と統計、セーブシステム用の Steam Cloud ストレージを含みます。先に Steamworks.NET と Base をインストールしてください。
 
 ### 方法 2: パッケージマネージャー (ローカルディスク)
 1. このリポジトリをクローンします
