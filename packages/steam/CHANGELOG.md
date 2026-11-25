@@ -6,6 +6,10 @@ Detailed per-release notes live in the repository root `CHANGELOG.md` under the 
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-25
+
+- See `steam/0.4.0` in the repository root `CHANGELOG.md`. Highlights: `SteamManager` starts Steam, runs Steam's callbacks, and shuts Steam down for a game that uses achievements, stats, or Steam Cloud without multiplayer.
+
 ## [0.3.0] - 2026-11-22
 
 - See `steam/0.3.0` in the repository root `CHANGELOG.md`. Highlights: achievements and stats through `SteamStatsManager`, Steam Cloud saves for Base's save system through `SteamCloudSaveStorage`, and optional debug console commands, so the package needs Base 0.32.0 or later.

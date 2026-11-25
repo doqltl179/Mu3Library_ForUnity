@@ -80,7 +80,7 @@
     https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/di#di/v0.2.0
 
     # Steam 패키지 (먼저 Steamworks.NET과 Base 설치)
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/steam#steam/v0.3.0
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/steam#steam/v0.4.0
 
     # URP 패키지 (먼저 Base 설치)
     https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/urp#urp/v0.5.0
@@ -101,7 +101,7 @@ Addressables 패키지는 `AddressablesManager`와 그 그룹 데이터 내보�
 
 DI 패키지는 `CoreBase` 컨테이너와 그 link.xml 처리기, 검증 드로어와 런타임 진단 드로어를 담습니다. 먼저 Base를 설치하세요.
 
-Steam 패키지는 Steam에서 멀티플레이 세션을 실행하는 `SteamBackend`, 선택적인 디버그 콘솔 명령을 갖춘 Steam 업적과 통계, 그리고 세이브 시스템용 Steam Cloud 저장소를 담습니다. 먼저 Steamworks.NET과 Base를 설치하세요.
+Steam 패키지는 멀티플레이가 없는 게임을 위해 Steam을 시작하는 `SteamManager`, Steam에서 멀티플레이 세션을 실행하는 `SteamBackend`, 선택적인 디버그 콘솔 명령을 갖춘 Steam 업적과 통계, 그리고 세이브 시스템용 Steam Cloud 저장소를 담습니다. 먼저 Steamworks.NET과 Base를 설치하세요.
 
 ### 방법 2: 패키지 매니저 (로컬 디스크)
 1. 이 저장소를 클론합니다

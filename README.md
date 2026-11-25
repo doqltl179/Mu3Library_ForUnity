@@ -80,7 +80,7 @@
     https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/di#di/v0.2.0
 
     # Steam package (install Steamworks.NET and Base first)
-    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/steam#steam/v0.3.0
+    https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/steam#steam/v0.4.0
 
     # URP package (install Base first)
     https://github.com/doqltl179/Mu3Library_ForUnity.git?path=packages/urp#urp/v0.5.0
@@ -101,7 +101,7 @@ The Addressables package holds `AddressablesManager` and its group data exporter
 
 The DI package holds the `CoreBase` container with its link.xml processor and its validator and runtime diagnostics drawers. Install Base before it.
 
-The Steam package holds `SteamBackend`, which runs multiplayer sessions on Steam, Steam achievements and stats with optional debug console commands, and a Steam Cloud storage for the save system. Install Steamworks.NET and Base before it.
+The Steam package holds `SteamManager`, which starts Steam for a game without multiplayer, `SteamBackend`, which runs multiplayer sessions on Steam, Steam achievements and stats with optional debug console commands, and a Steam Cloud storage for the save system. Install Steamworks.NET and Base before it.
 
 ### Option 2: Package Manager (Local Disk)
 1. Clone this repository

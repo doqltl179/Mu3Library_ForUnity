@@ -2,13 +2,11 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using Mu3Library.Multiplayer.Data;
 using Mu3Library.Save;
+using Mu3Library.Steam;
 using Mu3Library.Steam.Cloud;
-using Mu3Library.Steam.Multiplayer;
 using Mu3Library.Steam.Stats;
 using NUnit.Framework;
-using Steamworks;
 
 namespace Mu3Library.Tests
 {
@@ -25,7 +23,7 @@ namespace Mu3Library.Tests
         private const string IntStat = "NumGames";
         private const string FloatStat = "FeetTraveled";
 
-        private SteamBackend _backend;
+        private SteamManager _steam;
         private SteamStatsManager _stats;
 
 
@@ -38,9 +36,10 @@ namespace Mu3Library.Tests
                 Assert.Ignore($"Set {EnableVariable}=1 with a signed-in Steam client running to check Steam stats and Steam Cloud.");
             }
 
-            // The backend starts Steam on app 480, as a game that also plays sessions does.
-            MultiplayerResult created = SteamBackend.TryCreate(new SteamBackendOptions { AppId = 480 }, out _backend);
-            Assert.That(created.IsSuccess, Is.True, created.ToString());
+            // The Steam manager starts Steam on app 480, as a game without multiplayer does (#607).
+            SteamStartResult started = SteamManager.TryStart(480, out _steam);
+            Assert.That(started.IsSuccess, Is.True, started.ToString());
+            Assert.That(_steam.OwnsSteam, Is.True, "nothing else in the test run starts Steam");
             _stats = new SteamStatsManager();
             Assert.That(_stats.IsAvailable, Is.True);
 
@@ -48,7 +47,7 @@ namespace Mu3Library.Tests
             Stopwatch watch = Stopwatch.StartNew();
             while (!_stats.GetAchievement(Achievement, out _).IsSuccess && watch.Elapsed.TotalSeconds < 10)
             {
-                SteamAPI.RunCallbacks();
+                _steam.Update();
                 System.Threading.Thread.Sleep(50);
             }
 
@@ -58,8 +57,9 @@ namespace Mu3Library.Tests
         [TearDown]
         public void TearDown()
         {
-            _backend?.Dispose();
-            _backend = null;
+            _steam?.Dispose();
+            Assert.That(_stats == null || !_stats.IsAvailable, Is.True, "disposing the manager shuts down the Steam it started");
+            _steam = null;
         }
 
         [Test]
