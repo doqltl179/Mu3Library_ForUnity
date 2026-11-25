@@ -101,7 +101,7 @@ Addressables パッケージは `AddressablesManager` とそのグループデ�
 
 DI パッケージは `CoreBase` のコンテナとその link.xml プロセッサー、検証ドロワーとランタイム診断ドロワーを含みます。先に Base をインストールしてください。
 
-Steam パッケージは、Steam でマルチプレイセッションを実行する `SteamBackend`、任意で使えるデバッグコンソールのコマンドを備えた Steam の実績と統計、セーブシステム用の Steam Cloud ストレージを含みます。先に Steamworks.NET と Base をインストールしてください。
+Steam パッケージは、マルチプレイのないゲームのために Steam を開始する `SteamManager`、Steam でマルチプレイセッションを実行する `SteamBackend`、任意で使えるデバッグコンソールのコマンドを備えた Steam の実績と統計、セーブシステム用の Steam Cloud ストレージを含みます。先に Steamworks.NET と Base をインストールしてください。
 
 ### 方法 2: パッケージマネージャー (ローカルディスク)
 1. このリポジトリをクローンします
